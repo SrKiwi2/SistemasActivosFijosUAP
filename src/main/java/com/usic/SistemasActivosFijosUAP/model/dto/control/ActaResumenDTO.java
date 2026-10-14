@@ -25,5 +25,10 @@ public record ActaResumenDTO(
         /** Faltantes que siguen apuntando a este documento (0 en una notificación ya reiterada). */
         long          vinculados,
         /** Tiene una reiterativa no anulada: ya no es la vigente y no se puede anular. */
-        boolean       reiterada
+        boolean       reiterada,
+        /**
+         * Bienes ya trasladados a la custodia (o resueltos) que NO son donaciones: con alguno,
+         * el acta no se anula. Los donados (solo SCIAF) se devuelven al anular.
+         */
+        long          movidosVsiaf
 ) {}

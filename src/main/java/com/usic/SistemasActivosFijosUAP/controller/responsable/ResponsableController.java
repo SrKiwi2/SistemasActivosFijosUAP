@@ -72,6 +72,7 @@ public class ResponsableController {
     private final SyncControlService syncControlService;
     private final ResponsableAltaService responsableAltaService;
     private final VsiafApoyoService vsiafApoyoService;
+    private final com.usic.SistemasActivosFijosUAP.model.service.AvisoPendienteVsiafService avisoPendienteVsiaf;
     private final IResposableDao responsableDao;
     private final ResponsableGestionService responsableGestionService;
     private final AutorizacionService autorizacionService;
@@ -313,7 +314,11 @@ public class ResponsableController {
             @RequestParam(value = "cargoApi", required = false) String cargoApi,
             @RequestParam(value = "cargoNombre", required = false) String cargoNombreParam,
             @RequestParam(defaultValue = "false") boolean modoRapido,
-            @RequestParam(defaultValue = "false") boolean forzarCreacion) {
+            @RequestParam(defaultValue = "false") boolean forzarCreacion,
+            // false = no subirlo ahora: queda pendiente (pendienteDbf) y se avisa a los
+            // administradores (lo usa Donaciones). Por omisión se sube como siempre.
+            @RequestParam(defaultValue = "true") boolean subirVsiaf,
+            @RequestParam(required = false) String desde) {
 
         // Distintos formularios mandan el cargo con nombre distinto (cargoApi / cargoNombre): aceptar ambos.
         String cargoNombre = (cargoApi != null && !cargoApi.isBlank()) ? cargoApi : cargoNombreParam;
@@ -340,6 +345,25 @@ public class ResponsableController {
                     ResponsableGestionService.referencia(cargadoAlta),
                     "Registró al responsable " + ResponsableGestionService.referencia(cargadoAlta)
                     + (modoRapido ? " (alta rápida desde otro módulo)" : ""), responsable.getIdResponsable());
+
+            if (!subirVsiaf) {
+                if (!cargadoAlta.isPendienteDbf()) {
+                    cargadoAlta.setPendienteDbf(true);
+                    responsableService.save(cargadoAlta);
+                }
+                String origen = desde != null && !desde.isBlank() ? desde.trim() : "otro módulo";
+                avisoPendienteVsiaf.responsablePendiente(responsable.getIdResponsable(),
+                        ResponsableGestionService.referencia(cargadoAlta), usuarioNombre, origen);
+                return ResponseEntity.ok(Map.of(
+                    "ok", true,
+                    "vsiafOk", true,
+                    "pendiente", true,
+                    "msg", "Responsable registrado en el SCIAF" + (alta.personaNueva() ? " (nueva persona)" : "")
+                         + ". Quedó PENDIENTE de subir al VSIAF; se avisó a los administradores.",
+                    "id", responsable.getIdResponsable(),
+                    "personaNueva", alta.personaNueva()
+                ));
+            }
 
             // Si su oficina también se creó al vuelo y sigue pendiente, va primero ella.
             List<String> avisosOficina = vsiafApoyoService.asegurarEnVsiaf(cargadoAlta.getOficina(), null, usuarioNombre);
@@ -450,12 +474,14 @@ public class ResponsableController {
             @RequestParam(required = false) String cargoApi,
             @RequestParam(required = false) String nombreCargoApi,
             @RequestParam(value = "cargoNombre", required = false) String cargoNombre,
-            @RequestParam(defaultValue = "false") boolean modoRapido) {
+            @RequestParam(defaultValue = "false") boolean modoRapido,
+            @RequestParam(defaultValue = "true") boolean subirVsiaf,
+            @RequestParam(required = false) String desde) {
 
         String cargoEfectivo = (nombreCargoApi != null && !nombreCargoApi.isBlank()) ? nombreCargoApi
                 : (cargoApi != null && !cargoApi.isBlank()) ? cargoApi : cargoNombre;
         return registrarResponsable(request, codigoApi, ci, codExp, codigoFuncionario, idOficina,
-                nombre, paterno, materno, correo, cargoEfectivo, null, modoRapido, true);
+                nombre, paterno, materno, correo, cargoEfectivo, null, modoRapido, true, subirVsiaf, desde);
     }
 
     private boolean esCiValido(String ci) {
@@ -861,7 +887,14 @@ public class ResponsableController {
             if (resp == null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "No encontrado"));
 
             Usuario u = (Usuario) request.getSession().getAttribute("usuario");
-            VsiafApoyoService.Envio envio = vsiafApoyoService.reenviarResponsable(resp, u != null ? u.getUsuario() : "SISTEMA");
+            String quien = u != null ? u.getUsuario() : "SISTEMA";
+            // Si su oficina también quedó pendiente (alta rápida desde Donaciones), va primero
+            // ella: si no, el VSIAF recibe un responsable en una oficina que no existe allá.
+            List<String> avisosOficina = vsiafApoyoService.asegurarEnVsiaf(resp.getOficina(), null, quien);
+            VsiafApoyoService.Envio envio = vsiafApoyoService.reenviarResponsable(resp, quien);
+            if (!avisosOficina.isEmpty()) {
+                envio = new VsiafApoyoService.Envio(false, String.join(" ", avisosOficina) + " " + envio.mensaje());
+            }
             actividadService.registrar(u, ActividadService.MOD_RESPONSABLE, ActividadService.ACC_REENVIO,
                     ResponsableGestionService.referencia(resp), "Reenvió al VSIAF al responsable "
                     + ResponsableGestionService.referencia(resp) + (envio.ok() ? "" : " (falló: " + envio.mensaje() + ")"),

@@ -113,6 +113,9 @@ public class CorrelativoController {
             List<Long> correlativosOk = new ArrayList<>();
 
             for (CorrelativoActivoDTO r : registros) {
+                // Las donaciones (…-D00001) llevan su propia serie: no son de esta numeración
+                // ni un código mal formado.
+                if (com.usic.SistemasActivosFijosUAP.model.entity.Activo.esCodigoDonacion(r.getCodigo())) continue;
                 Long correlativo = extraerCorrelativo(r.getCodigo());
                 boolean formatoOk = correlativo != null;
                 // Todos los registros ya vienen filtrados por prefijo textual del código.

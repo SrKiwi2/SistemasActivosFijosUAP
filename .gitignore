@@ -34,3 +34,6 @@ build/
 
 ### Entorno local (activa el perfil dev; no debe llegar a producción) ###
 .env
+
+# Imágenes de referencia subidas por usuarios (persistir fuera del repositorio)
+/uploads/mapa-espacial/

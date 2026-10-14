@@ -93,6 +93,7 @@ public class ActaFaltanteService {
     private final IConfiguracionGestionDao configuracionDao;
     private final CustodiaFaltantesRepo repo;
     private final EnvioCustodiaService envioService;
+    private final com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService transferenciaService;
     private final CustodiaFaltantesService custodiaService;
     private final ActividadService actividadService;
     private final PlatformTransactionManager txManager;
@@ -1167,13 +1168,18 @@ public class ActaFaltanteService {
                             + "el acta no se puede anular.");
                 }
             } else {
-                long movidos = hs.stream().filter(h -> h.getFechaEnvioCustodia() != null
+                List<HallazgoInventario> movidos = hs.stream().filter(h -> h.getFechaEnvioCustodia() != null
                         || ControlActivosService.EN_CUSTODIA.equals(h.getEstadoHallazgo())
+                        || ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())).toList();
+                // Un bien donado (solo SCIAF) se trasladó solo en la base: se puede devolver sin
+                // tocar el VSIAF. Cualquier otro ya generó una transferencia allá.
+                long conVsiaf = movidos.stream().filter(h -> h.getActivo() == null || !h.getActivo().esSoloSciaf()
                         || ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())).count();
-                if (movidos > 0) {
-                    throw new ReglaNegocioException(movidos + " bien(es) del acta ya se trasladaron a la custodia: "
+                if (conVsiaf > 0) {
+                    throw new ReglaNegocioException(conVsiaf + " bien(es) del acta ya se trasladaron a la custodia o se resolvieron: "
                             + "el acta no se puede anular. Corrija cada faltante resolviéndolo.");
                 }
+                devolverDonacionesDeCustodia(movidos, acta, autor);
             }
             for (HallazgoInventario h : hs) {
                 h.setEstadoEnvio(null);
@@ -1198,6 +1204,58 @@ public class ActaFaltanteService {
         });
         actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_ELIMINACION, numero,
                 "Anuló el acta de faltantes " + numero + ": " + m, idActa);
+    }
+
+    /**
+     * Al anular un acta, devuelve a quien los tenía los bienes donados que ya pasaron a la
+     * custodia. Es una transferencia interna solo en el SCIAF (el writer no manda nada al
+     * VSIAF para estos bienes) y queda en el historial como cualquier traslado.
+     */
+    private void devolverDonacionesDeCustodia(List<HallazgoInventario> movidos, ActaFaltante acta, Usuario autor) {
+        if (movidos.isEmpty()) return;
+        String usuario = autor != null ? autor.getUsuario() : "SISTEMA";
+        java.time.LocalDate hoy = java.time.LocalDate.now();
+        Map<Long, List<com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService.ActivoConOrigen>> porResp = new LinkedHashMap<>();
+        Map<Long, Responsable> responsables = new HashMap<>();
+        for (HallazgoInventario h : movidos) {
+            Activo a = h.getActivo();
+            if (!a.enCustodia()) {
+                throw new ReglaNegocioException("El bien " + a.getCodigo() + " ya salió de la oficina de faltantes: "
+                        + "el acta no se puede anular. Resuelva cada faltante.");
+            }
+            Responsable r = h.getResponsable();
+            Oficina of = r != null ? r.getOficina() : null;
+            if (r == null || of == null || !"ACTIVO".equals(r.getEstado()) || r.isEsCustodia()
+                    || !"ACTIVO".equals(of.getEstado()) || of.isEsCustodia()) {
+                throw new ReglaNegocioException("El bien " + a.getCodigo() + " no puede volver a quien lo tenía: ese responsable "
+                        + "ya no está vigente. Resuélvalo con «Apareció» eligiendo a quién vuelve.");
+            }
+            com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService.ActivoConOrigen aco =
+                    new com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService.ActivoConOrigen(a);
+            a.setOficina(of);
+            a.setResponsable(r);
+            a.setFecMod(hoy);
+            a.setUsuMod(usuario);
+            a.setFechaUlt(hoy);
+            a.setUsuario(usuario);
+            a.setModificacion(new java.util.Date());
+            if (autor != null) a.setModificacionIdUsuario(autor.getIdUsuario());
+            porResp.computeIfAbsent(r.getIdResponsable(), k -> new ArrayList<>()).add(aco);
+            responsables.put(r.getIdResponsable(), r);
+
+            h.setFechaEnvioCustodia(null);
+            h.setUsuarioEnvioCustodia(null);
+            h.setEstadoHallazgo(ControlActivosService.ABIERTO);   // el bucle de anulación decide el resto
+        }
+        porResp.forEach((idResp, acos) -> {
+            Responsable r = responsables.get(idResp);
+            transferenciaService.registrarTransferencia(acos, "INTERNA", r.getOficina(), r,
+                    autor != null ? autor.getIdUsuario() : null, usuario,
+                    recortar("Anulación del acta de faltantes " + acta.getNumero(), 120),
+                    "Devolución por anulación del acta (bienes donados, solo SCIAF)", null);
+        });
+        log.info("[ACTA-FALTANTES] Anulación de {}: {} bien(es) donado(s) devuelto(s) desde la custodia",
+                acta.getNumero(), movidos.size());
     }
 
     public int reintentarEnvio(Long idActa, Usuario autor) {

@@ -309,7 +309,8 @@ public class ResolucionFaltanteService {
 
         String nombre = destino.getPersona() != null ? destino.getPersona().getNombreCompleto() : destino.getCodigoFuncionario();
         return "Faltante resuelto. El bien volvió a " + nombre + " (" + OficinaGestionService.referencia(ofDestino) + ")"
-                + (cola ? "; el VSIAF lo aplica en unos segundos." : ".");
+                + (a.esSoloSciaf() ? " (bien donado: solo en el SCIAF, no va al VSIAF)."
+                        : cola ? "; el VSIAF lo aplica en unos segundos." : ".");
     }
 
     // ── Apoyo ───────────────────────────────────────────────────────────────

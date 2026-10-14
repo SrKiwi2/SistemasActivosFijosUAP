@@ -716,7 +716,8 @@
                 columns: [
                     { data: null, orderable: false, className: 'text-muted',
                       render: function (dt, type, row, meta) { return meta.row + 1 + meta.settings._iDisplayStart; } },
-                    { data: 'codigo', render: function (d) { return '<span class="cact-cod">' + (d || '') + '</span>'; } },
+                    { data: 'codigo', render: function (d) { return '<span class="cact-cod">' + SciafModulo.escapar(d || '') + '</span>'
+                        + (window.SciafCatalogos && SciafCatalogos.marcaDonacion ? SciafCatalogos.marcaDonacion(d) : ''); } },
                     { data: 'descripcion', className: 'cact-desc', render: txt },
                     { data: 'responsable', render: txt },
                     { data: 'oficina', render: txt },

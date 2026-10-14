@@ -1560,7 +1560,7 @@
                 tr.style.animationDelay = `${Math.min(idx * .025, .3)}s`;
                 tr.innerHTML = `
                 <td class="aa-td-num">${numGlobal}</td>
-                <td class="aa-td-code">${x(a.codigo)}</td>
+                <td class="aa-td-code">${x(a.codigo)}${window.SciafCatalogos && SciafCatalogos.marcaDonacion ? SciafCatalogos.marcaDonacion(a.codigo) : ''}</td>
                 <td class="aa-td-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
                 <td class="aa-td-meta">${x(a.grupoContable?.descripcion || a.grupoContable?.codContable || '—')}</td>
                 <td><span class="${pillCls}">● ${x(estado)}</span></td>

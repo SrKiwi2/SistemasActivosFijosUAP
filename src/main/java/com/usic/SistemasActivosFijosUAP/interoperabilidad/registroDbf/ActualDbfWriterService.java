@@ -203,9 +203,25 @@ public class ActualDbfWriterService {
     }
 
     /**
+     * Barrera central de los bienes que existen solo en el SCIAF (donaciones, código
+     * {@code …-D00001}): todo INSERT/UPDATE de ACTUAL pasa por este servicio, así que
+     * descartarlos aquí cubre registro, edición, asignación, transferencia, custodia,
+     * baja y reintentos sin tocar cada flujo. Los llamadores que después marcan
+     * {@code sincVsiaf} no lo cambian: {@link Activo#setSincVsiaf} lo deja en NO_APLICA.
+     *
+     * @return true si el bien no debe ir al VSIAF (la orden se descarta)
+     */
+    private boolean omitirSoloSciaf(Activo a, String operacion) {
+        if (a == null || !a.esSoloSciaf()) return false;
+        log.info("⏭ Activo {} es solo del SCIAF (donación): {} a ACTUAL.DBF omitido", a.getCodigo(), operacion);
+        return true;
+    }
+
+    /**
      * Inserta un nuevo registro en ACTUAL.DBF
      */
     public void insertarDesdeActivo(Activo a, String entidadCode, String unidadCode, String usuario) {
+        if (omitirSoloSciaf(a, "INSERT")) return;
         // ── Modo COLA: dejar la orden para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
             colaService.encolarInsert("ACTUAL", construirCamposActivo(a, entidadCode, unidadCode, usuario),
@@ -277,6 +293,7 @@ public class ActualDbfWriterService {
      */
     public void actualizarDesdeActivo(String codigoOriginal, Activo a, String entidadCode,
                                       String unidadCode, String usuario) {
+        if (omitirSoloSciaf(a, "UPDATE")) return;
         // ── Modo COLA: encolar UPDATE para el worker VFPOLEDB (mantiene el índice .CDX) ──
         if ("cola".equalsIgnoreCase(writeMode)) {
             Map<String, Object> clave = new LinkedHashMap<>();
@@ -383,6 +400,11 @@ public class ActualDbfWriterService {
 
     public void actualizarLoteTransferencias(List<Activo> activos, String entidadCode, String unidadCode, String usuario) {
         if (activos == null || activos.isEmpty()) return;
+        // Los bienes solo del SCIAF (donaciones) se mueven en la base, pero no en el VSIAF.
+        if (activos.stream().anyMatch(a -> a != null && a.esSoloSciaf())) {
+            activos = activos.stream().filter(a -> a != null && !omitirSoloSciaf(a, "UPDATE (transferencia)")).toList();
+            if (activos.isEmpty()) return;
+        }
 
         // ── Modo COLA: encolar un UPDATE por activo (transferencia cambia CODOFIC/CODRESP, indexados) ──
         if ("cola".equalsIgnoreCase(writeMode)) {

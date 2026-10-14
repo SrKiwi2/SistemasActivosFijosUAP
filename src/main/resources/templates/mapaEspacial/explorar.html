@@ -1,0 +1,60 @@
+<div class="sm-pagina me-root" id="mapaExplorar" data-modo="explorar">
+  <header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-map-2"></i></div>
+    <div class="sm-cabecera-texto"><nav class="sm-migas">Ámbito geográfico · Mapa espacial</nav>
+      <h1 class="sm-titulo">Explorar predios</h1>
+      <p class="sm-subtitulo">Recorre edificios y pisos; consulta oficinas, cuartos y activos ubicados.</p></div>
+  </header>
+  <div class="me-toolbar sm-card">
+    <label>Predio <select class="sm-select me-predio"></select></label>
+    <div class="me-map-search"><label>Buscar edificio u oficina <input class="sm-input me-filtro" placeholder="Escribe nombre o código" autocomplete="off" aria-label="Buscar edificio u oficina en este predio" /></label><div class="me-search-results" role="listbox" hidden></div></div>
+    <button class="sm-btn sm-btn-suave me-vista" type="button">Abrir modelo 3D</button>
+    <button class="sm-btn sm-btn-suave me-ampliar" type="button">⛶ Ampliar vista</button>
+    <button class="sm-btn sm-btn-suave me-volver" type="button">← Predio</button>
+    <span class="me-ruta"></span>
+  </div>
+  <div class="me-prototipo" role="note">Plano referencial en construcción. Confirma la ubicación oficial de cada activo en su ficha.</div>
+  <nav class="me-pasos sm-card" aria-label="Recorrido del mapa">
+    <button type="button" data-paso="predio">1. Predio</button>
+    <button type="button" data-paso="edificio">2. Edificio</button>
+    <button type="button" data-paso="piso">3. Piso</button>
+    <button type="button" data-paso="espacio">4. Oficina</button>
+  </nav>
+  <div class="me-herramientas sm-card" role="toolbar" aria-label="Herramientas de visualización">
+    <div class="me-tool-group"><span class="me-tool-group-title">Recorrer</span>
+      <button type="button" class="me-mini" data-tool="pan" title="M: mover la vista; también puedes mantener Espacio o la rueda pulsada">Mover vista</button>
+      <button type="button" class="me-mini" data-action="zoomIn" title="Acercar; también puedes usar la rueda sobre el punto deseado">Zoom +</button>
+      <button type="button" class="me-mini" data-action="zoomOut" title="Alejar">Zoom −</button>
+      <button type="button" class="me-mini" data-action="fit" title="F: ajustar toda la vista">Ajustar vista</button>
+      <label class="me-zoom-control">Zoom <input class="me-zoom-range" type="range" min="0" max="1000" value="400" aria-label="Zoom de vista entre 10 y 3200 por ciento"><span class="me-zoom-label">100%</span></label>
+    </div>
+    <div class="me-tool-group" data-3d="true"><span class="me-tool-group-title">Cámara 3D</span>
+      <button type="button" class="me-mini" data-action="cameraLeft" title="Girar 8 grados a la izquierda">↶ Girar</button>
+      <button type="button" class="me-mini" data-action="cameraRight" title="Girar 8 grados a la derecha">Girar ↷</button>
+      <button type="button" class="me-mini" data-action="cameraUp" title="Elevar la cámara 6 grados">Más arriba</button>
+      <button type="button" class="me-mini" data-action="cameraDown" title="Bajar la cámara 6 grados">Más abajo</button>
+      <button type="button" class="me-mini" data-action="cameraReset" title="Volver a la orientación inicial">Vista inicial</button>
+    </div>
+    <div class="me-tool-group"><span class="me-tool-group-title">Capas</span><details class="me-capas"><summary>Mostrar capas</summary>
+      <label><input type="checkbox" data-capa="edificios" checked> Edificios</label>
+      <label><input type="checkbox" data-capa="espacios" checked> Espacios</label>
+      <label><input type="checkbox" data-capa="detalles" checked> Paredes y detalles</label>
+      <label><input type="checkbox" data-capa="fondo" checked> Imagen de referencia</label>
+    </details></div>
+    <details class="me-shortcuts"><summary>⌨ Gestos y atajos</summary><div class="me-shortcuts-grid">
+      <span>Rueda</span><span>Acercar donde apunta el cursor</span><span>Botón derecho o rueda pulsada + arrastrar</span><span>Mover el mapa</span>
+      <span>Arrastrar con botón izquierdo</span><span>Girar la cámara 3D</span><span>Mayús + arrastrar</span><span>Mover la vista</span>
+      <span>Flechas</span><span>Girar e inclinar la cámara</span><span>Clic en edificio</span><span>Abrir sus pisos o la planta baja</span>
+      <span>+ / − / F</span><span>Acercar / alejar / ajustar</span><span>Esc</span><span>Volver al nivel anterior</span>
+    </div></details>
+    <span class="me-tool-status" aria-live="polite"></span>
+  </div>
+  <div class="me-layout">
+    <section class="sm-card me-canvas-card"><div class="me-canvas-scroll"><svg class="me-canvas" role="img" aria-label="Mapa del predio" tabindex="0"></svg><div class="me-canvas-hint"></div></div>
+      <div class="me-ayuda">Selecciona una construcción, un piso o una oficina para acercarte.</div></section>
+    <aside class="sm-card me-panel"><div class="me-panel-contenido"></div></aside>
+  </div>
+</div>
+<link rel="stylesheet" href="/assets/css/mapa-espacial.css" />
+<script src="/assets/js/mapa-espacial.js"></script>
+<script>window.MapaEspacial.iniciar(document.getElementById('mapaExplorar'));</script>

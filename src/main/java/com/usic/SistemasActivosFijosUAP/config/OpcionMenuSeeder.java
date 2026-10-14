@@ -96,9 +96,13 @@ public class OpcionMenuSeeder {
         { "opcion_municipio",      "grp_geo",          "Municipio",                    "ti ti-map-pin",          "cyan",   "/administracion/municipio/vista",                    "/administracion/municipio",             "" },
         { "opcion_predio",         "grp_geo",          "Predio",                       "ti ti-home-2",           "teal",   "/administracion/predio/vista",                       "/administracion/predio",                "" },
         { "opcion_oficina",        "grp_geo",          "Oficinas",                     "ti ti-door",             "purple", "/administracion/oficina/vista",                      "/administracion/oficina",               "" },
+        { "opcion_mapa_diseno",    "grp_geo",          "Diseñar mapa espacial",        "ti ti-pencil",           "purple", "/administracion/mapa-espacial/diseno",                "/administracion/mapa-espacial/diseno",  "" },
+        { "opcion_mapa_explorar",  "grp_geo",          "Explorar mapa espacial",       "ti ti-map",              "teal",   "/administracion/mapa-espacial/explorar",              "/administracion/mapa-espacial/explorar", "" },
 
         { "opcion_activo",         "grp_adminactivos", "Registro Activos",             "ti ti-clipboard-list",   "green",  "/administracion/activo/vista",                       "/administracion/activo",                "" },
         { "opcion_activop",        "grp_adminactivos", "Registro Activos Pendientes",  "ti ti-clock-exclamation","amber",  "/administracion/activo/vistap",                      "/administracion/activo/vistap",         "PEND." },
+        // Bienes donados: correlativo propio con D (…-D00001), solo en el SCIAF (no van al VSIAF).
+        { "opcion_donacion",       "grp_adminactivos", "Registro de Donaciones",       "ti ti-gift",             "purple", "/administracion/donacion/vista",                     "/administracion/donacion",              "DON." },
 
         { "opcion_transferencia",  "grp_transfer",     "Transferencia de Activos",     "ti ti-arrows-exchange",  "green",  "/administracion/trasnferencia/transferencia",        "/administracion/trasnferencia/transferencia", "" },
         // Interna y externa se unificaron en la opción de arriba; estos dos se retiran al
@@ -142,6 +146,7 @@ public class OpcionMenuSeeder {
      * { codigo, padreGrupo, descripcion, icono, color }
      */
     private static final String[][] PERMISOS = {
+        { "opcion_mapa_publicar",     "grp_geo",          "Publicar mapa espacial",               "ti ti-world-upload", "teal" },
         { "opcion_activo_editar_codigo", "grp_adminactivos", "Editar código de activo (urgente)", "ti ti-barcode-off", "red" },
         { "opcion_activo_editar",        "grp_adminactivos", "Editar activo",                     "ti ti-pencil",      "amber" },
         { "opcion_activo_desaprobar",    "grp_adminactivos", "Desaprobar activo (VSIAF)",          "ti ti-arrow-down-circle", "red" },

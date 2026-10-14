@@ -37,9 +37,14 @@ public class ParserQrActivoService {
      * <p>El prefijo es opcional y los cuatro segmentos son obligatorios, así que
      * {@code 01-04-02-03609} no se confunde con un código prefijado: para que
      * {@code 01} fuera prefijo harían falta cuatro segmentos más y solo hay tres.
+     * <p>El correlativo admite una D delante: los bienes donados (solo SCIAF) llevan
+     * su propia serie {@code 01-04-06-D00001}.
      */
     private static final Pattern CODIGO = Pattern.compile(
-            "(?:(\\d{2,4})-)?(\\d{2})-(\\d{2})-(\\d{2})-(\\d{3,6})");
+            "(?:(\\d{2,4})-)?(\\d{2})-(\\d{2})-(\\d{2})-(D?\\d{3,6})");
+
+    /** Solo el correlativo de una donación, tecleado: D1, D00001… */
+    private static final Pattern SOLO_CORRELATIVO_DONACION = Pattern.compile("^D(\\d{1,5})$");
 
     private static final Pattern CODIGO_COMPLETO = Pattern.compile("^\\s*" + CODIGO.pattern() + "\\s*$");
 
@@ -157,6 +162,13 @@ public class ParserQrActivoService {
                 return new PayloadQr(texto, List.of(), null, null, null, null, null,
                         null, null, null, null, null, null, correlativo, true, true);
             }
+        }
+
+        Matcher don = SOLO_CORRELATIVO_DONACION.matcher(limpio);
+        if (don.matches()) {
+            String correlativo = "D" + String.format("%05d", Long.parseLong(don.group(1)));
+            return new PayloadQr(texto, List.of(), null, null, null, null, null,
+                    null, null, null, null, null, null, correlativo, true, true);
         }
 
         // Podría venir pegado a otro texto; último intento.

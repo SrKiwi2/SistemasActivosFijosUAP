@@ -20,6 +20,21 @@
      * Registro de Activos; se mantiene para que todas las pantallas se lean igual.
      * Si el catálogo no trae código devuelve solo el nombre, sin separador colgando.
      */
+    /** ¿Código de un bien donado (serie D, solo SCIAF): 01-04-06-D00001? */
+    function esCodigoDonacion(cod) {
+        return /-D\d{5}$/i.test(String(cod == null ? '' : cod).trim());
+    }
+
+    /**
+     * Pastilla «DONACIÓN» para poner junto a un código de activo (vacío si no lo es).
+     * Estilo global .sciaf-don en sciaf-modulo.css.
+     */
+    function marcaDonacion(cod) {
+        return esCodigoDonacion(cod)
+            ? ' <span class="sciaf-don" title="Bien donado: existe solo en el SCIAF, no se registra en el VSIAF"><i class="ti ti-gift"></i> DONACIÓN</span>'
+            : '';
+    }
+
     function etiquetaCodigo(cod, nombre) {
         const c = (cod === null || cod === undefined) ? '' : String(cod).trim();
         const n = (nombre === null || nombre === undefined) ? '' : String(nombre).trim();
@@ -206,7 +221,8 @@
         etiquetaCodigo, codigoGrupoVisible, normalizarTexto,
         MARCA_ACCESORIOS, tieneAccesorios, quitarAccesorios, ponerAccesorios,
         estadoAccesoriosLote, aArreglo,
-        crearAuxiliarRapido, ponerAuxiliarEnSelect
+        crearAuxiliarRapido, ponerAuxiliarEnSelect,
+        esCodigoDonacion, marcaDonacion
     };
 
     // Alias globales: las plantillas ya llamaban a estos nombres directamente.

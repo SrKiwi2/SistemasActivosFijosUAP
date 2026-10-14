@@ -1136,6 +1136,25 @@ html[data-theme="dark"] .sm-pastilla-aviso { color: #fbbf24; }
 .sm-campo > select.is-invalid ~ .invalid-feedback,
 .sm-campo > .sm-input-grupo:has(.is-invalid) ~ .invalid-feedback { display: block; }
 
+/* Distintivo de bien donado (serie D, solo SCIAF) junto al código: SciafCatalogos.marcaDonacion */
+.sciaf-don {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-left: 0.25rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    color: #fff;
+    background: #7c3aed;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.sciaf-don i { font-size: 0.75rem; }
+
 /* Sub-formulario desplegable dentro de un formulario (alta rápida de una persona…) */
 .sm-subformulario {
     margin-top: 0.75rem;

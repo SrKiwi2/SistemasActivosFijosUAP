@@ -15,6 +15,16 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 
 public interface IOficinaDao extends JpaRepository<Oficina, Long> {
 
+    @Query("""
+        SELECT o.idOficina AS id, p.unidad AS unidad, o.codOfi AS codOfi, o.nombre AS nombre
+        FROM Oficina o JOIN o.predio p
+        WHERE p.idPredio = :predioId AND o.estado = 'ACTIVO'
+          AND (UPPER(o.nombre) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR CAST(o.codOfi AS String) LIKE CONCAT('%', :q, '%'))
+        ORDER BY o.codOfi
+        """)
+    List<OficinaOpcion> opcionesDePredio(@Param("predioId") Long predioId, @Param("q") String q, Pageable pageable);
+
     /** Lo que muestra un buscador de oficinas (select2): sin cargar entidades ni su predio. */
     interface OficinaOpcion {
         Long getId();

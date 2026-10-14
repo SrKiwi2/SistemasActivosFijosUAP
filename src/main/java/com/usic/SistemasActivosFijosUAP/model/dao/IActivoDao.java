@@ -22,6 +22,52 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 
 public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificationExecutor<Activo>{
+    interface ActivoInventarioMapa {
+        Long getId();
+        String getCodigo();
+        String getDescripcion();
+        String getResponsable();
+        String getEstadoFisico();
+    }
+
+    interface ActivoDetalleMapa {
+        Long getId();
+        String getCodigo();
+        String getDescripcion();
+        String getResponsable();
+        String getEstadoFisico();
+        String getEstado();
+        Long getOficinaId();
+        String getOficinaNombre();
+    }
+
+    @Query("""
+        SELECT a.idActivo AS id, a.codigo AS codigo, a.descripcion AS descripcion,
+               TRIM(CONCAT(COALESCE(per.nombre, ''), ' ', COALESCE(per.paterno, ''), ' ', COALESCE(per.materno, ''))) AS responsable,
+               ea.nombre AS estadoFisico, a.estado AS estado, o.idOficina AS oficinaId, o.nombre AS oficinaNombre
+        FROM Activo a LEFT JOIN a.oficina o LEFT JOIN a.responsable r
+             LEFT JOIN r.persona per LEFT JOIN a.estadoActivo ea
+        WHERE a.idActivo = :activoId
+        """)
+    Optional<ActivoDetalleMapa> detalleMapa(@Param("activoId") Long activoId);
+
+    @Query(value = """
+        SELECT a.idActivo AS id, a.codigo AS codigo, a.descripcion AS descripcion,
+               TRIM(CONCAT(COALESCE(per.nombre, ''), ' ', COALESCE(per.paterno, ''), ' ', COALESCE(per.materno, ''))) AS responsable,
+               ea.nombre AS estadoFisico
+        FROM Activo a LEFT JOIN a.responsable r LEFT JOIN r.persona per LEFT JOIN a.estadoActivo ea
+        WHERE a.oficina.idOficina = :oficinaId AND a.estado = 'ACTIVO'
+          AND (UPPER(COALESCE(a.codigo, '')) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(a.descripcion) LIKE UPPER(CONCAT('%', :q, '%')))
+        ORDER BY a.codigo
+        """, countQuery = """
+        SELECT COUNT(a) FROM Activo a
+        WHERE a.oficina.idOficina = :oficinaId AND a.estado = 'ACTIVO'
+          AND (UPPER(COALESCE(a.codigo, '')) LIKE UPPER(CONCAT('%', :q, '%'))
+               OR UPPER(a.descripcion) LIKE UPPER(CONCAT('%', :q, '%')))
+        """)
+    Page<ActivoInventarioMapa> inventarioMapa(@Param("oficinaId") Long oficinaId,
+                                               @Param("q") String q, Pageable pageable);
     
     @Query("SELECT a FROM Activo a WHERE a.nombre = ?1 AND a.estado = 'ACTIVO'")
     Activo buscarPorNombre(String nombre);
@@ -193,13 +239,15 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
     /**
      * Proyección ligera para la conciliación BD↔DBF: trae solo lo necesario para
      * comparar por código y diagnosticar, sin cargar la entidad ni sus relaciones.
-     * Excluye los ELIMINADO (baja lógica intencional, no son divergencias reales).
+     * Excluye los ELIMINADO (baja lógica intencional, no son divergencias reales) y las
+     * donaciones, que existen solo en el SCIAF: no estar en el VSIAF es lo correcto.
      */
     @Query("""
             SELECT new com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.DivergenciaActivoDto(
                 a.idActivo, a.codigo, a.nombre, a.descripcion, a.estado, a.fechaUltimaSync)
             FROM Activo a
             WHERE a.estado NOT IN ('ELIMINADO', 'CANCELADO') AND a.codigo IS NOT NULL
+              AND (a.procedencia IS NULL OR a.procedencia <> 'DONACION')
             """)
     List<DivergenciaActivoDto> listarParaConciliacion();
 

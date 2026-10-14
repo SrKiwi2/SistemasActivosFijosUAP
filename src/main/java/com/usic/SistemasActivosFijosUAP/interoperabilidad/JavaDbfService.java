@@ -1300,6 +1300,13 @@ public class JavaDbfService {
             LocalDate fechaUlt,
             String    usuario) throws Exception {
 
+        // Un bien donado (…-D00001) existe solo en el SCIAF: no hay fila que tocar.
+        // Este camino (Londra) escribe directo y no pasa por ActualDbfWriterService.
+        if (com.usic.SistemasActivosFijosUAP.model.entity.Activo.esCodigoDonacion(codigoActivo)) {
+            log.info("⏭ actualizarActivoParaTransferencia: {} es solo del SCIAF (donación), omitido", codigoActivo);
+            return;
+        }
+
         Path file = baseDir.resolve("ACTUAL.DBF");
         if (!Files.exists(file)) {
             throw new IllegalStateException("ACTUAL.DBF no encontrado en: " + file);

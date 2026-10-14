@@ -138,7 +138,8 @@ public class CustodiaFaltantesRepo {
             rs.getLong("resueltos"),
             rs.getInt("numero_reiterativa"),
             rs.getLong("vinculados"),
-            rs.getBoolean("reiterada"));
+            rs.getBoolean("reiterada"),
+            rs.getLong("movidos_vsiaf"));
 
     /** Actas de faltantes, las más nuevas primero; de una persona si se indica. */
     public List<ActaResumenDTO> actas(Long idPersona, int tope) {
@@ -153,9 +154,13 @@ public class CustodiaFaltantesRepo {
                    coalesce(af.numero_reiterativa, 0)                                        as numero_reiterativa,
                    count(h.id_hallazgo)                                                      as vinculados,
                    exists (select 1 from acta_faltante r
-                            where r.id_acta_anterior = af.id_acta and r.estado_acta <> 'ANULADA')    as reiterada
+                            where r.id_acta_anterior = af.id_acta and r.estado_acta <> 'ANULADA')    as reiterada,
+                   count(*) filter (where (h.fecha_envio_custodia is not null or h.estado_hallazgo in ('EN_CUSTODIA', 'RESUELTO'))
+                                      and (ac.id_activo is null or (coalesce(ac.procedencia, '') <> 'DONACION'
+                                                                    and coalesce(ac.codigo, '') !~ '-D[0-9]{5}$'))) as movidos_vsiaf
             from acta_faltante af
             left join hallazgo_inventario h on h.id_acta = af.id_acta
+            left join activo ac on ac.id_activo = h.id_activo
             where (cast(? as bigint) is null or af.id_persona = ?)
             group by af.id_acta
             order by af.fecha_emision desc

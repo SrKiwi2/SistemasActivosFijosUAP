@@ -688,7 +688,7 @@
         const estado = (a.estadoActivo?.nombre || 'SIN ESTADO').toUpperCase();
         const pill = (estado === 'MALO' || estado === 'OBSOLETO') ? 'tf-pill-r' : 'tf-pill-g';
         tr.innerHTML = `
-            <td class="tf-code">${x(a.codigo)}</td>
+            <td class="tf-code">${x(a.codigo)}${window.SciafCatalogos && SciafCatalogos.marcaDonacion ? SciafCatalogos.marcaDonacion(a.codigo) : ''}</td>
             <td class="tf-desc" title="${x(a.descripcion || '')}">${x(a.descripcion || '—')}</td>
             <td class="tf-meta">${x(a.grupoContable?.nombre || '—')}</td>
             <td class="tf-meta">${x(a.predio?.unidad || '—')}</td>

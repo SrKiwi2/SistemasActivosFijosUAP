@@ -206,6 +206,48 @@ public class Activo extends AuditoriaConfig{
     public static final String SINC_EN_COLA = "EN_COLA";
     public static final String SINC_CONFIRMADO = "CONFIRMADO";
     public static final String SINC_ERROR = "ERROR";
+    /** El bien no va al VSIAF (donación): nunca se envía nada y este valor no cambia. */
+    public static final String SINC_NO_APLICA = "NO_APLICA";
+
+    /*
+     * ── Procedencia ─────────────────────────────────────────────────────────────────
+     *   null       registro normal (compra, VSIAF): el comportamiento de siempre
+     *   DONACION   bien donado, registrado en Administración de activos → Donaciones.
+     *              Su correlativo empieza con D (MUN-PRED-GRP-D00001) y existe SOLO en
+     *              el SCIAF: ActualDbfWriterService descarta toda orden sobre él.
+     */
+    public static final String PROCEDENCIA_DONACION = "DONACION";
+
+    /** Correlativo de donación: el último tramo del código es D + 5 dígitos. */
+    private static final java.util.regex.Pattern CODIGO_DONACION =
+            java.util.regex.Pattern.compile("^.+-D\\d{5}$");
+
+    @Column(name = "procedencia", length = 20)
+    private String procedencia;
+
+    /** ¿El código tiene la forma de un correlativo de donación (…-D00001)? */
+    public static boolean esCodigoDonacion(String codigo) {
+        return codigo != null && CODIGO_DONACION.matcher(codigo.trim().toUpperCase()).matches();
+    }
+
+    /**
+     * El bien existe solo en el SCIAF y nada de él debe viajar al VSIAF. Se mira la
+     * procedencia y también el código: si algún camino copiara el bien sin la
+     * procedencia, la D del correlativo lo sigue delatando.
+     */
+    public boolean esSoloSciaf() {
+        return PROCEDENCIA_DONACION.equals(procedencia) || esCodigoDonacion(getCodigo());
+    }
+
+    /**
+     * Un bien solo del SCIAF queda siempre en {@link #SINC_NO_APLICA}. Varios flujos
+     * (asignación, transferencia, custodia, reintentos) marcan EN_COLA / CONFIRMADO /
+     * ERROR después de llamar al writer, que para estos bienes no encola nada: sin esta
+     * barrera quedaría «EN_COLA» para siempre esperando una orden que no existe.
+     */
+    public void setSincVsiaf(String sincVsiaf) {
+        this.sincVsiaf = esSoloSciaf() ? SINC_NO_APLICA : sincVsiaf;
+    }
 
     /**
      * Valor de {@code _estado} de un bien vigente: el único que se puede mover, asignar o

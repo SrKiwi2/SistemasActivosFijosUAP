@@ -364,10 +364,12 @@ public class EnvioCustodiaService {
             h.setFechaEnvioCustodia(ahora);
             h.setUsuarioEnvioCustodia(usuario);
             h.setMensajeEnvio(null);
-            if (cola) {
+            if (cola && !h.getActivo().esSoloSciaf()) {
                 h.setEstadoEnvio(ENVIADO);
             } else {
-                // Sin worker (modo bytes) la escritura ya se hizo: queda en custodia.
+                // Sin worker (modo bytes) la escritura ya se hizo: queda en custodia. Un bien
+                // donado (solo SCIAF) no genera orden de ACTUAL: esperar su confirmación lo
+                // dejaría ENVIADO para siempre, sin poder resolverse ni anularse el acta.
                 h.setEstadoEnvio(CONFIRMADO);
                 h.setEstadoHallazgo(ControlActivosService.EN_CUSTODIA);
             }
@@ -418,10 +420,11 @@ public class EnvioCustodiaService {
                 });
                 boolean cola = actualDbfWriterService.esModoCola();
                 for (HallazgoInventario h : hs) {
+                    boolean esperaWorker = cola && !h.getActivo().esSoloSciaf();
                     h.setFechaEnvioCustodia(ahora);
                     h.setMensajeEnvio(null);
-                    h.setEstadoEnvio(cola ? ENVIADO : CONFIRMADO);
-                    if (!cola) h.setEstadoHallazgo(ControlActivosService.EN_CUSTODIA);
+                    h.setEstadoEnvio(esperaWorker ? ENVIADO : CONFIRMADO);
+                    if (!esperaWorker) h.setEstadoHallazgo(ControlActivosService.EN_CUSTODIA);
                 }
                 return null;
             });
@@ -445,6 +448,14 @@ public class EnvioCustodiaService {
                 // Solo los que siguen esperando: uno ya resuelto (p. ej. apareció y se devolvió)
                 // tiene órdenes de ACTUAL posteriores que NO son su traslado a la custodia.
                 if (!ControlActivosService.ABIERTO.equals(h.getEstadoHallazgo())) continue;
+                // Un bien donado (solo SCIAF) nunca tiene orden de ACTUAL: ya está en custodia.
+                if (h.getActivo().esSoloSciaf()) {
+                    h.setEstadoEnvio(CONFIRMADO);
+                    h.setEstadoHallazgo(ControlActivosService.EN_CUSTODIA);
+                    h.setMensajeEnvio(null);
+                    n++;
+                    continue;
+                }
                 Optional<DbfColaOrden> orden = colaDao
                         .findFirstByIdActivoAndTablaAndFechaEncoladoGreaterThanEqualOrderByIdOrdenDesc(
                                 h.getActivo().getIdActivo(), "ACTUAL", h.getFechaEnvioCustodia().minusSeconds(5));

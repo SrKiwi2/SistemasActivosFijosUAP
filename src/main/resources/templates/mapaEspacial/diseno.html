@@ -1,0 +1,88 @@
+<div class="sm-pagina me-root" id="mapaDiseno" data-modo="diseno">
+  <header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-building-community"></i></div>
+    <div class="sm-cabecera-texto"><nav class="sm-migas">Ámbito geográfico · Mapa espacial</nav>
+      <h1 class="sm-titulo">Diseñador de predios</h1>
+      <p class="sm-subtitulo">Construye edificios, pisos y espacios referenciales; vincula oficinas y activos existentes.</p></div>
+    <div class="sm-cabecera-acciones"><span class="sm-dato me-estado">Sin cambios</span><button class="sm-btn me-guardar" type="button">Guardar borrador</button><button class="sm-btn me-publicar" type="button" hidden>Publicar</button></div>
+  </header>
+  <div class="me-toolbar sm-card">
+    <label>Predio <select class="sm-select me-predio"></select></label>
+    <button class="sm-btn me-nuevo-edificio" type="button" data-tipo="EDIFICIO">+ Trazar edificio por puntos</button>
+    <button class="sm-btn sm-btn-suave me-nuevo-edificio" type="button" data-tipo="OFICINA_INDEPENDIENTE">+ Trazar oficina independiente</button>
+    <button class="sm-btn sm-btn-suave me-ampliar" type="button">⛶ Ampliar vista</button>
+    <button class="sm-btn sm-btn-suave me-vista" type="button">Vista 3D</button>
+    <button class="sm-btn sm-btn-suave me-volver" type="button">← Volver</button>
+    <span class="me-ruta"></span>
+  </div>
+  <div class="me-prototipo" role="note">Plano referencial: tus cambios quedan en borrador hasta publicarlos; no modifican la oficina oficial de ningún activo.</div>
+  <details class="sm-card me-publicaciones"><summary><strong>Publicación e historial</strong> <span class="me-publicacion-estado">Sin publicar</span></summary><div class="me-publicaciones-lista">Selecciona un predio para ver sus versiones.</div></details>
+  <nav class="me-pasos sm-card" aria-label="Pasos de diseño">
+    <button type="button" data-paso="predio">1. Predio y edificios</button>
+    <button type="button" data-paso="edificio">2. Edificio y pisos</button>
+    <button type="button" data-paso="piso">3. Piso y oficinas</button>
+    <button type="button" data-paso="espacio">4. Espacio y activos</button>
+  </nav>
+  <div class="me-herramientas sm-card" role="toolbar" aria-label="Herramientas del plano">
+    <div class="me-tool-group"><span class="me-tool-group-title">Editar</span>
+      <button type="button" class="me-mini" data-action="undo" title="Ctrl + Z: deshacer último cambio">↶ Deshacer</button>
+      <button type="button" class="me-mini" data-action="redo" title="Ctrl + Y o Ctrl + Mayús + Z: rehacer">↷ Rehacer</button>
+      <button type="button" class="me-mini" data-tool="select" title="V: seleccionar figuras">Seleccionar</button>
+      <button type="button" class="me-mini" data-tool="pan" title="M: mover la vista; también puedes mantener Espacio o la rueda pulsada">Mover vista</button>
+      <button type="button" class="me-mini" data-tool="polygonBuilding" data-context="predio" title="Marca las esquinas y termina el contorno">Trazar edificio</button>
+      <button type="button" class="me-mini" data-tool="polygonOffice" data-context="piso" title="Marca el contorno de una oficina en este piso">Dibujar oficina</button>
+      <button type="button" class="me-mini" data-tool="polygonRoom" data-context="espacio" title="Marca el contorno de un cuarto dentro de este espacio">Dibujar cuarto</button>
+      <button type="button" class="me-mini" data-tool="MURO" data-context="piso" title="Marca los dos extremos de una pared">Pared</button>
+      <button type="button" class="me-mini" data-tool="PUERTA" data-context="piso" title="Marca los dos extremos de una puerta">Puerta</button>
+      <button type="button" class="me-mini" data-tool="VENTANA" data-context="piso" title="Marca los dos extremos de una ventana">Ventana</button>
+      <button type="button" class="me-mini" data-tool="ESCALERA" data-context="piso" title="Marca los dos extremos de una escalera">Escalera</button>
+      <button type="button" class="me-mini me-fin-dibujo" data-action="finish">Terminar contorno</button>
+      <button type="button" class="me-mini me-cancelar-dibujo" data-action="cancel">Cancelar dibujo</button>
+    </div>
+    <div class="me-tool-group"><span class="me-tool-group-title">Vista</span>
+      <button type="button" class="me-mini" data-action="zoomIn" title="Acercar; también puedes usar la rueda sobre el punto deseado">Zoom +</button>
+      <button type="button" class="me-mini" data-action="zoomOut" title="Alejar">Zoom −</button>
+      <button type="button" class="me-mini" data-action="fit" title="F: ajustar toda la vista">Ajustar vista</button>
+      <button type="button" class="me-mini" data-action="focusBuildings" data-context="predio" title="Centrar las construcciones del predio sin moverlas">Centrar edificios</button>
+      <label class="me-zoom-control">Zoom <input class="me-zoom-range" type="range" min="0" max="1000" value="400" aria-label="Zoom de vista entre 10 y 3200 por ciento"><span class="me-zoom-label">100%</span></label>
+    </div>
+    <div class="me-tool-group" data-3d="true"><span class="me-tool-group-title">Cámara 3D</span>
+      <button type="button" class="me-mini" data-action="cameraLeft" title="Girar 8 grados a la izquierda">↶ Girar</button>
+      <button type="button" class="me-mini" data-action="cameraRight" title="Girar 8 grados a la derecha">Girar ↷</button>
+      <button type="button" class="me-mini" data-action="cameraUp" title="Elevar la cámara 6 grados">Más arriba</button>
+      <button type="button" class="me-mini" data-action="cameraDown" title="Bajar la cámara 6 grados">Más abajo</button>
+      <button type="button" class="me-mini" data-action="cameraReset" title="Volver a la orientación inicial">Vista inicial</button>
+      <button type="button" class="me-mini" data-tool="move3d" title="Arrastra el edificio para cambiar su posición">Mover edificio</button>
+      <label class="me-switch"><input type="checkbox" class="me-techo3d" checked> Mostrar techo</label>
+    </div>
+    <div class="me-tool-group"><span class="me-tool-group-title">Referencia</span>
+      <label class="me-switch"><input type="checkbox" class="me-cuadricula" checked> Cuadrícula</label>
+      <label class="me-switch"><input type="checkbox" class="me-ajuste"> Ajustar puntos</label>
+      <details class="me-capas"><summary>Capas</summary>
+      <label><input type="checkbox" data-capa="edificios" checked> Edificios</label>
+      <label><input type="checkbox" data-capa="espacios" checked> Espacios</label>
+      <label><input type="checkbox" data-capa="detalles" checked> Paredes y detalles</label>
+      <label><input type="checkbox" data-capa="fondo" checked> Imagen de referencia</label>
+      </details>
+      <button type="button" class="me-mini" data-action="upload" data-context="predio" title="Añadir o sustituir la imagen de referencia">Subir plano</button>
+    </div>
+    <details class="me-shortcuts"><summary>⌨ Gestos y atajos</summary><div class="me-shortcuts-grid">
+      <span>Rueda</span><span>Acercar donde apunta el cursor</span><span>Rueda pulsada o Espacio + arrastrar</span><span>Mover el plano</span>
+      <span>Clic en punto naranja</span><span>Seleccionar vértice; arrastrar para cambiar la forma</span><span>Clic en punto blanco</span><span>Añadir vértice; arrastrar para mover el lado</span>
+      <span>Mayús + arrastrar punto o lado</span><span>Restringir el movimiento a un eje</span><span>Cuadrícula</span><span>Activa «Ajustar puntos» para colocar vértices cada 5 unidades</span>
+      <span>Arrastrar en 3D</span><span>Girar la cámara con precisión</span><span>Mayús + arrastrar edificio en 3D</span><span>Mover el edificio</span>
+      <span>Ctrl + Z / Ctrl + Y</span><span>Deshacer / rehacer</span><span>Ctrl + S</span><span>Guardar el plano</span>
+      <span>+ / − / F</span><span>Acercar / alejar / ajustar</span><span>Esc</span><span>Salir de la herramienta o volver</span>
+    </div></details>
+    <input type="file" class="me-fondo-file" accept="image/png,image/jpeg" hidden>
+    <span class="me-tool-status" aria-live="polite"></span>
+  </div>
+  <div class="me-layout">
+    <section class="sm-card me-canvas-card"><div class="me-canvas-scroll"><svg class="me-canvas" role="img" aria-label="Plano editable" tabindex="0"></svg><div class="me-canvas-hint"></div></div>
+      <div class="me-ayuda">Sobre el plano de fondo, marca las esquinas del edificio y pulsa «Terminar contorno» para rellenarlo. Después configura pisos y sus alturas; en 3D puedes girar la vista y seleccionar cada piso. Las medidas son referenciales.</div></section>
+    <aside class="sm-card me-panel"><div class="me-panel-contenido"></div></aside>
+  </div>
+</div>
+<link rel="stylesheet" href="/assets/css/mapa-espacial.css" />
+<script src="/assets/js/mapa-espacial.js"></script>
+<script>window.MapaEspacial.iniciar(document.getElementById('mapaDiseno'));</script>

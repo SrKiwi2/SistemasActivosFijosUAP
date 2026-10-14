@@ -733,6 +733,9 @@ public class AsignacionEdicionService {
 
     /** Encola el UPDATE de cada bien publicado. Un fallo se informa, no se traga. */
     private String enviarAlVsiaf(List<Activo> activos, Usuario usuario, List<String> avisos) {
+        // Los bienes donados (código …-D00001) existen solo en el SCIAF: no se envían, y si
+        // el movimiento es solo de donaciones tampoco hace falta mandar oficina ni responsable.
+        activos = activos.stream().filter(a -> !a.esSoloSciaf()).toList();
         if (activos.isEmpty()) return AsignacionMovimiento.VSIAF_NO_APLICA;
 
         // Primero la oficina y el responsable de destino, si todavía no están en el VSIAF

@@ -102,6 +102,16 @@ public class PermisoOpcionInterceptor implements HandlerInterceptor {
                     "/administracion/responsable/registrar-responsable",
                     "/administracion/responsable/registrar-responsable-forzado")),
 
+            // Registro de Donaciones: crea oficina/responsable al vuelo (subiéndolos al VSIAF
+            // o dejándolos pendientes, a elección).
+            Map.entry("opcion_donacion", Set.of(
+                    "/administracion/oficina/registrar-oficina",
+                    "/administracion/oficina/siguiente-codigo/*",
+                    "/administracion/responsable/obtener-siguiente-codigo-funcionario",
+                    "/administracion/responsable/api/personas/buscar-por-ci",
+                    "/administracion/responsable/registrar-responsable",
+                    "/administracion/responsable/registrar-responsable-forzado")),
+
             // Registro de Activos Pendientes: casi toda su API vive bajo /activo/api.
             Map.entry("opcion_activop", Set.of(
                     "/administracion/activo/api/agregar-activo-pendiente",

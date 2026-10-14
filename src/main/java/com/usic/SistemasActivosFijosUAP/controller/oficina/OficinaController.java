@@ -61,6 +61,7 @@ public class OficinaController {
     private final JavaDbfService dbfService;
     private final SyncControlService syncControlService;
     private final VsiafApoyoService vsiafApoyoService;
+    private final com.usic.SistemasActivosFijosUAP.model.service.AvisoPendienteVsiafService avisoPendienteVsiaf;
     private final ResponsableAltaService responsableAltaService;
     private final IResponsableService responsableService;
     private final IOficinaDao oficinaDao;
@@ -288,7 +289,11 @@ public class OficinaController {
             @RequestParam(required = false) String respCorreo,
             @RequestParam(required = false) String respCargo,
             @RequestParam(required = false) String respCodigoFuncionario,
-            @RequestParam(defaultValue = "false") boolean respForzar) {
+            @RequestParam(defaultValue = "false") boolean respForzar,
+            // false = no subirla ahora: queda pendiente (pendienteDbf) y se avisa a los
+            // administradores. Solo para el alta sola (sin responsable); la usa Donaciones.
+            @RequestParam(defaultValue = "true") boolean subirVsiaf,
+            @RequestParam(required = false) String desde) {
 
         Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
 
@@ -326,6 +331,21 @@ public class OficinaController {
         // esperaba a que se aprobara el activo y la oficina quedaba pendiente mientras tanto.
         oficina.setPendienteDbf(true);
         if (usuario != null) oficina.setRegistroIdUsuario(usuario.getIdUsuario());
+
+        if (!subirVsiaf && (!conResponsable || modoRapido)) {
+            oficinaService.save(oficina);
+            String origen = desde != null && !desde.isBlank() ? desde.trim() : "otro módulo";
+            registrarActividadAlta(usuario, oficina, " (desde " + origen + ", pendiente de subir al VSIAF)");
+            avisoPendienteVsiaf.oficinaPendiente(oficina.getIdOficina(), OficinaGestionService.referencia(oficina),
+                    usuarioNombre, origen);
+            return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "vsiafOk", true,
+                "pendiente", true,
+                "msg", "Oficina registrada en el SCIAF. Quedó PENDIENTE de subir al VSIAF; se avisó a los administradores.",
+                "id", oficina.getIdOficina()
+            ));
+        }
 
         if (!conResponsable || modoRapido) {
             oficinaService.save(oficina);

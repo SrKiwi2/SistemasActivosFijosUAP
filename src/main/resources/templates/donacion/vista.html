@@ -1,0 +1,1984 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Registro de donaciones — plantilla de pantallas (docs/PLANTILLA_MODULOS.md)
+     Bienes donados con correlativo propio D (MUN-PRED-GRP-D00001) que existen SOLO en el
+     SCIAF: no se registran en el VSIAF (la barrera está en ActualDbfWriterService).
+     Cada registro es un ACTA (donante + documento + destino) con sus bienes.
+
+     Llega con los catálogos y la primera página de actas (${inicial}): un solo pedido.
+     Todo vive dentro de #modDonacion y el script no deja globales (pestañas).
+     Ojo Thymeleaf: nada de dos corchetes juntos en el script (ni en comentarios).
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina dn-pantalla" id="modDonacion">
+
+<style>
+    /* ── Identidad del módulo: morado sólido, distinta del azul del resto ──
+       Se redefinen los tokens de la plantilla (--sm-primario*) dentro del módulo: botones,
+       segmentos, paginación, foco de los campos y cabeceras quedan todos en morado. */
+    .dn-pantalla {
+        --dn: #7c3aed; --dn-claro: #8b5cf6; --dn-borde: #5b21b6; --dn-rgb: 124, 58, 237;
+        --dn-suave: rgba(var(--dn-rgb), 0.08);
+    }
+    html.dark-style .dn-pantalla, html[data-theme="dark"] .dn-pantalla {
+        --dn: #8b5cf6; --dn-claro: #a78bfa; --dn-borde: #6d28d9; --dn-rgb: 139, 92, 246;
+        --dn-suave: rgba(var(--dn-rgb), 0.14);
+    }
+    .dn-pantalla {
+        --sm-primario: var(--dn); --sm-primario-claro: var(--dn-claro);
+        --sm-primario-borde: var(--dn-borde); --sm-primario-rgb: var(--dn-rgb);
+        --bs-primary: var(--dn); --bs-primary-rgb: var(--dn-rgb);
+        --bs-link-color: var(--dn); --bs-link-hover-color: var(--dn-borde);
+    }
+    /* Íconos de cabecera: color sólido, sin degradado ni relieve */
+    .dn-pantalla .sm-cabecera-icono { background: var(--dn) !important; box-shadow: none !important; }
+    .dn-pantalla .sm-detalle-head { background: var(--dn-suave); }
+    .dn-pantalla .page-item.active .page-link { background: var(--dn) !important; border-color: var(--dn) !important; color: #fff !important; box-shadow: none; }
+    .dn-pantalla .page-link { color: var(--dn); }
+    .dn-pantalla .text-primary { color: var(--dn) !important; }
+    .dn-sello {
+        display: inline-flex; align-items: center; gap: .3rem; padding: .12rem .55rem; margin-left: .4rem;
+        border-radius: 999px; font-size: .72rem; font-weight: 700; letter-spacing: .03em; vertical-align: middle;
+        color: #fff; background: var(--dn);
+    }
+    .dn-pantalla .sm-dato strong { color: var(--dn); }
+
+    /* ── Código con la D destacada: la diferencia que se ve en todo el módulo ── */
+    .dn-codigo { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; letter-spacing: .02em; }
+    .dn-d {
+        display: inline-block; padding: 0 .28em; margin: 0 .05em; border-radius: 5px; color: #fff;
+        background: var(--dn);
+    }
+
+    /* ── Listado ── */
+    .dn-pantalla .js-tabla-actas tbody tr { cursor: pointer; }
+    .dn-pantalla .js-tabla-actas tbody tr.dn-fila-anulada td { opacity: .6; }
+    .dn-pantalla .js-tabla-actas tbody tr.dn-fila-anulada .dn-don-nombre { text-decoration: line-through; }
+    .dn-num-acta { font-weight: 800; color: var(--dn); white-space: nowrap; }
+    .dn-anulada { display: inline-block; font-size: .68rem; font-weight: 800; letter-spacing: .04em; padding: .05rem .4rem; border-radius: 6px;
+        color: var(--sm-peligro); background: rgba(var(--sm-peligro-rgb), .12); }
+    .dn-vigente { display: inline-block; font-size: .68rem; font-weight: 800; letter-spacing: .04em; padding: .05rem .4rem; border-radius: 6px;
+        color: var(--sm-exito); background: rgba(var(--sm-exito-rgb), .12); }
+
+    .dn-panel { padding: 0; overflow: hidden; }
+    .dn-panel-cuerpo { overflow-y: auto; }
+    .dn-vista { animation: dn-aparecer .3s ease both; }
+
+    /* ── Fotos ── */
+    .dn-fotos { display: flex; flex-wrap: wrap; gap: .5rem; align-items: stretch; }
+    .dn-foto { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); }
+    .dn-foto img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; display: block; }
+    .dn-foto-quitar { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center;
+        background: rgba(15, 23, 42, .65); color: #fff; font-size: .8rem; }
+    .dn-foto-quitar:hover { background: var(--sm-peligro); }
+    .dn-foto-add { width: 92px; height: 92px; border-radius: 10px; border: 2px dashed rgba(var(--dn-rgb), .45); background: var(--dn-suave); color: var(--dn);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; font-size: .78rem; font-weight: 700; cursor: pointer; margin: 0; }
+    .dn-foto-add i { font-size: 1.4rem; }
+    .dn-foto-add.oculto { display: none; }
+    .dn-foto-item { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .6rem .75rem; margin-bottom: .6rem; }
+    .dn-foto-item-tit { font-weight: 700; font-size: .88rem; margin-bottom: .45rem; color: var(--sm-texto); }
+
+    /* ── Asistente: pasos ── */
+    .dn-pasos { display: flex; gap: .4rem; padding: .9rem 1rem .5rem; border-bottom: 1px solid var(--sm-borde); position: relative; flex-wrap: wrap; }
+    .dn-paso {
+        flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: .55rem; border: 0; background: none; padding: .35rem .3rem;
+        color: var(--sm-texto-2); font-weight: 600; font-size: .88rem; border-radius: 10px; text-align: left;
+    }
+    .dn-paso:disabled { cursor: default; }
+    .dn-paso-num {
+        width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        border: 2px solid var(--sm-borde-fuerte); background: var(--sm-superficie); font-weight: 800; transition: all .25s ease;
+    }
+    .dn-paso.hecho .dn-paso-num { border-color: var(--dn); background: var(--dn-suave); color: var(--dn); }
+    .dn-paso.actual { color: var(--sm-texto); }
+    .dn-paso.actual .dn-paso-num { border-color: transparent; color: #fff; background: var(--dn); transform: scale(1.08); }
+    .dn-avance { height: 4px; background: var(--sm-superficie-3); }
+    .dn-avance > span { display: block; height: 100%; width: 25%; background: var(--dn); transition: width .45s cubic-bezier(.3,.9,.3,1); }
+    .dn-etapa { padding: 1rem 1.1rem; display: none; }
+    .dn-etapa.visible { display: block; animation: dn-deslizar .35s ease both; }
+    .dn-etapa.visible.atras { animation-name: dn-deslizar-atras; }
+    .dn-etapa-tit { font-size: 1.05rem; font-weight: 700; color: var(--sm-texto); margin-bottom: .2rem; }
+    .dn-ayuda { font-size: .85rem; color: var(--sm-texto-2); margin-bottom: .9rem; }
+    .dn-pie {
+        display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap;
+        padding: .75rem 1.1rem; border-top: 1px solid var(--sm-borde);
+        /* fondo sólido: en modo oscuro --sm-superficie-2 es translúcido y dejaba ver los campos */
+        background: linear-gradient(var(--sm-superficie-2), var(--sm-superficie-2)), var(--sm-superficie);
+        position: sticky; bottom: 0; z-index: 3;
+    }
+    .dn-pie .dn-atajo { margin-right: auto; font-size: .76rem; color: var(--sm-texto-2); }
+    .dn-pie kbd { font-size: .7rem; padding: .1rem .35rem; background: var(--sm-superficie-3); color: var(--sm-texto); border: 1px solid var(--sm-borde-fuerte); box-shadow: none; }
+
+    /* Segmento de tipo de donante */
+    .dn-pantalla .sm-segmento button.activo { background: var(--dn); color: #fff; }
+
+    /* select2 dentro del módulo: mismo aspecto que .sm-input */
+    .dn-pantalla .select2-container--default .select2-selection--single {
+        height: 44px; display: flex; align-items: center; border: 1px solid var(--sm-borde-fuerte); border-radius: 10px;
+        background: var(--sm-superficie); box-shadow: var(--sm-sombra-campo), 0 1px 0 var(--sm-brillo);
+    }
+    .dn-pantalla .select2-container .select2-selection__rendered { font-size: .95rem; color: var(--sm-texto); padding-left: .9rem; text-transform: uppercase; }
+    .dn-pantalla .select2-container .select2-selection__arrow { height: 42px; }
+    .dn-pantalla .select2-container--focus .select2-selection--single,
+    .dn-pantalla .select2-container--open .select2-selection--single { border-color: var(--dn); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--dn-rgb), .16); }
+    .dn-pantalla select.is-invalid + .select2-container .select2-selection { border-color: var(--sm-peligro); }
+    .dn-pantalla .sm-input:focus, .dn-pantalla .sm-select:focus { border-color: var(--dn); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--dn-rgb), .16); outline: 0; }
+    .dn-pantalla .sm-input.is-invalid, .dn-pantalla .sm-select.is-invalid { border-color: var(--sm-peligro); }
+    .dn-pantalla .select2-dropdown { border-color: var(--sm-borde-fuerte); background: var(--sm-superficie); color: var(--sm-texto); }
+    .dn-pantalla .select2-results__option--highlighted { background: var(--dn) !important; }
+    .dn-sin-mayus { text-transform: none !important; }
+
+    /* Altas rápidas de oficina / responsable */
+    .dn-sub-alta { border-color: rgba(var(--dn-rgb), .45); background: var(--dn-suave); }
+    .dn-sub-alta .sm-subformulario-cab > i { color: var(--dn); }
+    .dn-sub-pie { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; margin-top: .8rem; }
+
+    /* Tarjeta informativa (prefijo del código) */
+    .dn-info {
+        display: flex; gap: .8rem; align-items: center; border-radius: 12px; padding: .8rem 1rem; margin-top: 1rem;
+        background: var(--dn-suave); border: 1px solid rgba(var(--dn-rgb), .25);
+    }
+    .dn-info > i { font-size: 1.6rem; color: var(--dn); }
+    .dn-info .dn-codigo { font-size: 1.15rem; }
+
+    /* ── Bienes ── */
+    .dn-bien {
+        border: 1px solid var(--sm-borde); border-radius: 14px; background: var(--sm-superficie); margin-bottom: .9rem;
+        box-shadow: 0 10px 22px -20px rgba(15, 23, 42, .6); animation: dn-entrar .35s ease both; overflow: hidden;
+    }
+    .dn-bien.saliendo { animation: dn-salir .25s ease both; }
+    .dn-bien-cab { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; background: var(--sm-superficie-2); border-bottom: 1px solid var(--sm-borde); flex-wrap: wrap; }
+    .dn-bien-num {
+        width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem;
+        color: #fff; background: var(--dn);
+    }
+    .dn-bien-tit { font-weight: 700; color: var(--sm-texto); min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
+    .dn-rango { font-size: .82rem; padding: .2rem .55rem; border-radius: 8px; background: var(--dn-suave); border: 1px dashed rgba(var(--dn-rgb), .45); color: var(--sm-texto); }
+    .dn-rango.pulso { animation: dn-pulso .6s ease; }
+    .dn-rango.vacio { color: var(--sm-texto-2); border-color: var(--sm-borde-fuerte); background: transparent; font-style: italic; }
+    .dn-bien-cuerpo { padding: .8rem; }
+    .dn-bien.contraido .dn-bien-cuerpo { display: none; }
+    .dn-bien.contraido .js-contraer i { transform: rotate(-90deg); }
+    .dn-icono-btn {
+        width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie);
+        color: var(--sm-texto-2); display: inline-flex; align-items: center; justify-content: center; transition: all .15s ease;
+    }
+    .dn-icono-btn:hover { color: var(--dn); border-color: var(--dn); transform: translateY(-1px); }
+    .dn-icono-btn.peligro:hover { color: var(--sm-peligro); border-color: var(--sm-peligro); }
+    .dn-icono-btn i { transition: transform .2s ease; }
+    .dn-cantidad { display: flex; align-items: stretch; }
+    .dn-cantidad .sm-input { text-align: center; border-radius: 0; font-weight: 700; }
+    .dn-cantidad button { width: 40px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); color: var(--sm-texto); font-weight: 800; }
+    .dn-cantidad button:first-child { border-radius: 10px 0 0 10px; border-right: 0; }
+    .dn-cantidad button:last-child { border-radius: 0 10px 10px 0; border-left: 0; }
+    .dn-cantidad button:hover { color: var(--dn); }
+    .dn-sub { font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--dn); margin: .9rem 0 .45rem; display: flex; align-items: center; gap: .4rem; }
+    .dn-sub::after { content: ""; flex: 1; height: 1px; background: var(--sm-borde); }
+    .dn-previa {
+        margin-top: .7rem; padding: .6rem .75rem; border-radius: 10px; font-size: .84rem; background: var(--sm-superficie-2);
+        border: 1px solid var(--sm-borde); color: var(--sm-texto); line-height: 1.45; word-break: break-word;
+    }
+    .dn-previa b { color: var(--sm-texto-2); font-weight: 600; }
+    .dn-largo { float: right; font-size: .75rem; color: var(--sm-texto-2); }
+    .dn-largo.excede { color: var(--sm-peligro); font-weight: 700; }
+    .dn-series-info { font-size: .78rem; color: var(--sm-texto-2); margin-top: .25rem; }
+    .dn-series-info.mal { color: var(--sm-peligro); }
+    .dn-con-boton { display: flex; gap: .35rem; }
+    .dn-con-boton > :first-child { flex: 1; min-width: 0; }
+    .dn-totales { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .dn-total { padding: .35rem .7rem; border-radius: 9px; background: var(--sm-superficie-3); font-size: .84rem; color: var(--sm-texto-2); }
+    .dn-total strong { color: var(--sm-texto); font-size: .95rem; }
+    .dn-agregar {
+        width: 100%; border: 2px dashed rgba(var(--dn-rgb), .4); border-radius: 14px; background: var(--dn-suave); color: var(--dn);
+        font-weight: 700; padding: .8rem; transition: all .2s ease;
+    }
+    .dn-agregar:hover { background: rgba(var(--dn-rgb), .14); transform: translateY(-1px); }
+
+    /* ── Resumen y detalle ── */
+    .dn-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+    .dn-tarjeta { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .75rem .9rem; background: var(--sm-superficie-2); }
+    .dn-tarjeta-cab { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--dn); margin-bottom: .4rem; }
+    .dn-campo { margin-bottom: .35rem; }
+    .dn-campo small { display: block; font-size: .72rem; color: var(--sm-texto-2); }
+    .dn-campo span { font-weight: 600; color: var(--sm-texto); word-break: break-word; }
+    .dn-tabla { width: 100%; font-size: .87rem; border-collapse: separate; border-spacing: 0; }
+    .dn-tabla th { position: sticky; top: 0; background: var(--sm-superficie-3); color: var(--sm-texto-2); font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; padding: .5rem .6rem; z-index: 1; }
+    .dn-tabla td { padding: .5rem .6rem; border-bottom: 1px solid var(--sm-borde); color: var(--sm-texto); vertical-align: top; }
+    .dn-tabla tr { animation: dn-entrar .3s ease both; }
+    .dn-tabla td.text-end { white-space: nowrap; }
+    .dn-tabla-caja { border: 1px solid var(--sm-borde); border-radius: 12px; overflow: auto; max-height: 48vh; }
+    .dn-movido { display: inline-block; margin-top: .2rem; font-size: .72rem; padding: .05rem .4rem; border-radius: 6px; background: rgba(245, 158, 11, .15); color: #b45309; }
+
+    /* ── Éxito ── */
+    .dn-exito { text-align: center; padding: 2rem 1rem 1rem; position: relative; overflow: hidden; }
+    .dn-exito-icono {
+        width: 92px; height: 92px; border-radius: 50%; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: #fff;
+        background: var(--sm-exito);
+        
+    }
+    .dn-exito-icono i { font-size: inherit; }
+    .dn-confeti { position: absolute; top: 40px; left: 50%; width: 8px; height: 14px; border-radius: 2px; opacity: 0; animation: dn-confeti 1.4s ease-out forwards; pointer-events: none; }
+    .dn-codigos { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; margin: .5rem 0 1rem; }
+    .dn-chip { padding: .3rem .55rem; border-radius: 8px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie); font-size: .84rem; animation: dn-entrar .3s ease both; }
+
+    @keyframes dn-entrar { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+    @keyframes dn-salir { to { opacity: 0; transform: translateX(30px) scale(.96); } }
+    @keyframes dn-aparecer { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes dn-deslizar { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+    @keyframes dn-deslizar-atras { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+    @keyframes dn-pulso { 0% { box-shadow: 0 0 0 0 rgba(var(--dn-rgb), .55); } 100% { box-shadow: 0 0 0 10px rgba(var(--dn-rgb), 0); } }
+    @keyframes dn-confeti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--x), var(--y)) rotate(var(--r)); } }
+    @media (prefers-reduced-motion: reduce) {
+        .dn-pantalla *, .dn-pantalla *::before, .dn-pantalla *::after { animation: none !important; transition: none !important; }
+    }
+</style>
+
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono dn-icono"><i class="ti ti-gift"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Registro de donaciones
+        </nav>
+        <h1 class="sm-titulo">Registro de donaciones <span class="dn-sello"><i class="ti ti-shield-check"></i> SOLO SCIAF</span></h1>
+        <p class="sm-subtitulo">Bienes donados con código propio <span class="dn-codigo">01-04-06-<span class="dn-d">D</span>00001</span>.
+            Quedan activos en el SCIAF y <b>no se registran en el VSIAF</b>.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-t-actas">—</strong> actas</span>
+        <span class="sm-dato"><strong class="js-t-bienes">—</strong> bienes donados</span>
+        <span class="sm-dato"><strong class="js-t-valor">—</strong> valor ref.</span>
+        <button type="button" class="sm-btn js-nueva"><i class="ti ti-plus"></i> Nueva donación</button>
+    </div>
+</header>
+
+<!-- Listado de actas (tabla paginada en el servidor; clic en una fila = detalle en ventana) -->
+<section class="sm-card js-listado">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por N°, donante, C.I./NIT, documento o código…"
+                   autocomplete="off" aria-label="Buscar donación" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </label>
+    </div>
+    <table class="table sm-tabla align-middle js-tabla-actas">
+        <thead>
+            <tr>
+                <th style="width:150px;">N° de acta</th>
+                <th style="width:100px;">Fecha</th>
+                <th>Donante</th>
+                <th>Documento de respaldo</th>
+                <th>Destino</th>
+                <th class="text-center" style="width:80px;">Bienes</th>
+                <th class="text-end" style="width:130px;">Valor ref.</th>
+                <th style="width:110px;">Estado</th>
+            </tr>
+        </thead>
+    </table>
+</section>
+
+<!-- Registro: asistente y pantalla de éxito -->
+<section class="sm-card dn-panel js-panel-registro d-none">
+    <div class="dn-panel-cuerpo js-panel">
+
+            <!-- Asistente de registro -->
+            <form class="js-asistente d-none" autocomplete="off" novalidate>
+                <div class="dn-pasos">
+                    <button type="button" class="dn-paso" data-paso="1"><span class="dn-paso-num">1</span> Donante</button>
+                    <button type="button" class="dn-paso" data-paso="2"><span class="dn-paso-num">2</span> Destino</button>
+                    <button type="button" class="dn-paso" data-paso="3"><span class="dn-paso-num">3</span> Bienes</button>
+                    <button type="button" class="dn-paso" data-paso="4"><span class="dn-paso-num">4</span> Confirmar</button>
+                </div>
+                <div class="dn-avance"><span class="js-avance"></span></div>
+                <div class="sm-aviso sm-aviso-info mx-3 mt-3 mb-0 d-none js-banner-edicion"></div>
+
+                <!-- Paso 1: donante -->
+                <div class="dn-etapa" data-etapa="1">
+                    <div class="dn-etapa-tit">¿Quién dona?</div>
+                    <div class="dn-ayuda">Los datos del donante y del documento que respalda la entrega (nota, convenio o acta).</div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="sm-segmento js-tipo" role="group" aria-label="Tipo de donante">
+                                <button type="button" data-tipo="INSTITUCION" class="activo"><i class="ti ti-building-community"></i> Institución</button>
+                                <button type="button" data-tipo="PERSONA"><i class="ti ti-user"></i> Persona</button>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="sm-label"><span class="js-lbl-nombre">Nombre de la institución</span> <span class="sm-req">*</span></label>
+                            <div class="sm-campo"><i class="ti ti-heart-handshake"></i>
+                                <input type="text" class="sm-input" name="donanteNombre" maxlength="200" />
+                                <div class="invalid-feedback">Escriba el nombre del donante.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label js-lbl-doc">NIT</label>
+                            <div class="sm-campo"><i class="ti ti-id"></i>
+                                <input type="text" class="sm-input" name="donanteDocumento" maxlength="30" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label">Fecha de la donación <span class="sm-req">*</span></label>
+                            <div class="sm-campo"><i class="ti ti-calendar"></i>
+                                <input type="date" class="sm-input" name="fechaDonacion" />
+                                <div class="invalid-feedback">Indique una fecha que no sea futura.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label">Documento de respaldo</label>
+                            <div class="sm-campo"><i class="ti ti-file-certificate"></i>
+                                <input type="text" class="sm-input" name="documentoRespaldo" maxlength="120" placeholder="Ej: CONVENIO 12/2026" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label">Contacto</label>
+                            <div class="sm-campo"><i class="ti ti-phone"></i>
+                                <input type="text" class="sm-input dn-sin-mayus" data-sm-mayus="no" name="donanteContacto" maxlength="120" placeholder="Teléfono o correo" />
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="sm-label">Observación</label>
+                            <textarea class="sm-input dn-sin-mayus" data-sm-mayus="no" name="observacion" rows="2" style="min-height:70px" placeholder="Condiciones de la donación, quién la gestionó…"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paso 2: destino -->
+                <div class="dn-etapa" data-etapa="2">
+                    <div class="dn-etapa-tit">¿Dónde quedan los bienes?</div>
+                    <div class="dn-ayuda">Todos los bienes del acta quedan en esta oficina, a cargo de este responsable. Después se pueden asignar o transferir como cualquier activo.</div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="sm-label">Predio <span class="sm-req">*</span></label>
+                            <select class="js-predio" name="idPredio"><option value=""></option></select>
+                            <div class="invalid-feedback d-block js-err-predio" style="display:none!important"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="sm-label">Oficina <span class="sm-req">*</span></label>
+                            <div class="dn-con-boton">
+                                <div><select class="js-oficina" name="idOficina" disabled><option value=""></option></select></div>
+                                <button type="button" class="dn-icono-btn js-alta-oficina" style="height:44px;width:44px" disabled
+                                        title="Crear una oficina nueva en este predio"><i class="ti ti-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="sm-label">Responsable que recibe <span class="sm-req">*</span></label>
+                            <div class="dn-con-boton">
+                                <div><select class="js-responsable" name="idResponsable" disabled><option value=""></option></select></div>
+                                <button type="button" class="dn-icono-btn js-alta-resp" style="height:44px;width:44px" disabled
+                                        title="Registrar un responsable nuevo en esta oficina"><i class="ti ti-user-plus"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <!-- Alta rápida de oficina -->
+                            <div class="sm-subformulario dn-sub-alta js-sub-oficina d-none">
+                                <div class="sm-subformulario-cab"><i class="ti ti-door"></i>
+                                    <div><b>Nueva oficina</b> en <span class="js-sub-ofi-predio">—</span>
+                                        <div class="dn-ayuda mb-0">El código lo propone el sistema (el siguiente libre del predio).</div></div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-3"><label class="sm-label">Código <span class="sm-req">*</span></label>
+                                        <input type="number" class="sm-input js-ofi-cod" min="1" max="999" /></div>
+                                    <div class="col-md-9"><label class="sm-label">Nombre <span class="sm-req">*</span> <small class="text-muted js-ofi-cuenta">0 / 65</small></label>
+                                        <input type="text" class="sm-input js-ofi-nombre" maxlength="65" placeholder="Ej: LABORATORIO DE QUÍMICA" /></div>
+                                </div>
+                                <div class="dn-sub-pie">
+                                    <button type="button" class="sm-btn sm-btn-neutro js-sub-cerrar"><i class="ti ti-x"></i> Cancelar</button>
+                                    <button type="button" class="sm-btn sm-btn-suave js-ofi-crear" data-subir="false"
+                                            title="Se registra solo en el SCIAF y se avisa a los administradores para que la suban"><i class="ti ti-clock-pause"></i> Crear y dejar pendiente</button>
+                                    <button type="button" class="sm-btn js-ofi-crear" data-subir="true"><i class="ti ti-cloud-upload"></i> Crear y subir al VSIAF</button>
+                                </div>
+                            </div>
+
+                            <!-- Alta rápida de responsable -->
+                            <div class="sm-subformulario dn-sub-alta js-sub-resp d-none">
+                                <div class="sm-subformulario-cab"><i class="ti ti-user-plus"></i>
+                                    <div><b>Nuevo responsable</b> en <span class="js-sub-resp-ofi">—</span>
+                                        <div class="dn-ayuda mb-0">Escriba el C.I.: si la persona ya existe, se completan sus nombres.</div></div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-3"><label class="sm-label">C.I. <span class="sm-req">*</span></label>
+                                        <input type="text" class="sm-input js-resp-ci" maxlength="20" /></div>
+                                    <div class="col-md-3"><label class="sm-label">Nombre(s) <span class="sm-req">*</span></label>
+                                        <input type="text" class="sm-input js-resp-nombre js-resp-nom" maxlength="35" /></div>
+                                    <div class="col-md-3"><label class="sm-label">Ap. paterno <span class="sm-req">*</span></label>
+                                        <input type="text" class="sm-input js-resp-paterno js-resp-nom" maxlength="35" /></div>
+                                    <div class="col-md-3"><label class="sm-label">Ap. materno</label>
+                                        <input type="text" class="sm-input js-resp-materno js-resp-nom" maxlength="35" /></div>
+                                    <div class="col-md-7"><label class="sm-label">Cargo <span class="sm-req">*</span> <small class="text-muted">(elija o escriba uno nuevo)</small></label>
+                                        <select class="js-resp-cargo"><option value=""></option></select></div>
+                                    <div class="col-md-3"><label class="sm-label">Cód. funcionario <span class="sm-req">*</span></label>
+                                        <input type="number" class="sm-input js-resp-cod" min="1" /></div>
+                                    <div class="col-md-2 d-flex align-items-end"><small class="text-muted js-resp-cuenta">0 / 35</small></div>
+                                </div>
+                                <div class="dn-sub-pie">
+                                    <button type="button" class="sm-btn sm-btn-neutro js-sub-cerrar"><i class="ti ti-x"></i> Cancelar</button>
+                                    <button type="button" class="sm-btn sm-btn-suave js-resp-crear" data-subir="false"
+                                            title="Se registra solo en el SCIAF y se avisa a los administradores para que lo suban"><i class="ti ti-clock-pause"></i> Crear y dejar pendiente</button>
+                                    <button type="button" class="sm-btn js-resp-crear" data-subir="true"><i class="ti ti-cloud-upload"></i> Crear y subir al VSIAF</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="sm-label">Financiador <small class="text-muted">(opcional)</small></label>
+                            <select class="js-financiador" name="idOrganismoFinanciero"><option value=""></option></select>
+                        </div>
+                    </div>
+                    <div class="sm-aviso sm-aviso-aviso mt-3 mb-0 d-none js-nota-destino"><i class="ti ti-lock"></i>
+                        <div>Algunos bienes de esta acta ya tienen movimientos (asignación, transferencia, levantamiento o faltante):
+                            el destino no se cambia desde aquí. Muévalos con Transferencias o Asignaciones.</div></div>
+                    <div class="dn-info">
+                        <i class="ti ti-barcode"></i>
+                        <div>
+                            <div class="small text-muted">Los códigos de esta donación empezarán así:</div>
+                            <div class="dn-codigo js-prefijo-muestra">—</div>
+                            <div class="small text-muted">El grupo contable de cada bien completa el prefijo; la serie D arranca en D00001 por cada prefijo.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paso 3: bienes -->
+                <div class="dn-etapa" data-etapa="3">
+                    <div class="d-flex align-items-start gap-2 flex-wrap mb-2">
+                        <div class="me-auto">
+                            <div class="dn-etapa-tit">¿Qué bienes se reciben?</div>
+                            <div class="dn-ayuda mb-0">Una tarjeta por tipo de bien. Con cantidad mayor a 1 se crea un activo por unidad, cada uno con su código y, si la tiene, su serie.</div>
+                        </div>
+                        <div class="dn-totales js-totales"></div>
+                    </div>
+                    <div class="js-bienes"></div>
+                    <button type="button" class="dn-agregar js-agregar"><i class="ti ti-plus"></i> Agregar otro bien <small class="fw-normal">(Alt+N)</small></button>
+                </div>
+
+                <!-- Paso 4: confirmar -->
+                <div class="dn-etapa" data-etapa="4">
+                    <div class="dn-etapa-tit">Revise antes de registrar</div>
+                    <div class="dn-ayuda">Los códigos son los que corresponden ahora; si otro usuario registra antes, se usan los siguientes libres.</div>
+                    <div class="js-resumen"></div>
+                </div>
+
+                <div class="dn-pie">
+                    <span class="dn-atajo d-none d-md-inline"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> siguiente · <kbd>Alt</kbd>+<kbd>N</kbd> otro bien</span>
+                    <button type="button" class="sm-btn sm-btn-neutro js-cancelar"><i class="ti ti-x"></i> Cancelar</button>
+                    <button type="button" class="sm-btn sm-btn-neutro js-atras"><i class="ti ti-arrow-left"></i> Atrás</button>
+                    <button type="button" class="sm-btn js-siguiente">Siguiente <i class="ti ti-arrow-right"></i></button>
+                    <button type="button" class="sm-btn sm-btn-exito js-registrar d-none"><i class="ti ti-gift"></i> Registrar donación</button>
+                </div>
+            </form>
+
+            <!-- Éxito del registro (se dibuja por JS) -->
+            <div class="js-exito d-none"></div>
+    </div>
+</section>
+
+<!-- Detalle de un acta (se dibuja por JS) -->
+<div class="modal fade js-modal-acta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered sm-detalle-dialog">
+        <div class="modal-content sm-modal sm-detalle-content js-detalle"></div>
+    </div>
+</div>
+
+<!-- Plantilla de una tarjeta de bien -->
+<template class="js-plantilla-bien">
+    <div class="dn-bien">
+        <div class="dn-bien-cab">
+            <span class="dn-bien-num js-num">1</span>
+            <span class="dn-bien-tit js-tit">Bien nuevo</span>
+            <span class="dn-rango vacio js-rango">elija el grupo contable</span>
+            <button type="button" class="dn-icono-btn js-duplicar" title="Duplicar este bien (registro rápido de uno parecido)"><i class="ti ti-copy"></i></button>
+            <button type="button" class="dn-icono-btn peligro js-quitar" title="Quitar este bien"><i class="ti ti-trash"></i></button>
+            <button type="button" class="dn-icono-btn js-contraer" title="Contraer / expandir"><i class="ti ti-chevron-down"></i></button>
+        </div>
+        <div class="dn-bien-cuerpo">
+            <div class="row g-2">
+                <div class="col-lg-4 col-md-6">
+                    <label class="sm-label">Grupo contable <span class="sm-req">*</span></label>
+                    <select class="js-grupo"><option value=""></option></select>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="sm-label">Auxiliar <small class="text-muted">(opcional)</small></label>
+                    <div class="dn-con-boton">
+                        <div><select class="js-auxiliar" disabled><option value=""></option></select></div>
+                        <button type="button" class="dn-icono-btn js-nuevo-aux" style="height:44px;width:44px" title="Crear un auxiliar en este predio y grupo" disabled><i class="ti ti-plus"></i></button>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <label class="sm-label">Estado de conservación</label>
+                    <select class="sm-select js-estado"></select>
+                </div>
+                <div class="col-lg-3 col-md-6 col-6">
+                    <label class="sm-label">Cantidad <span class="sm-req">*</span></label>
+                    <div class="dn-cantidad">
+                        <button type="button" class="js-menos" aria-label="Uno menos">−</button>
+                        <input type="number" class="sm-input js-cantidad" min="1" max="200" value="1" />
+                        <button type="button" class="js-mas" aria-label="Uno más">+</button>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 col-6">
+                    <label class="sm-label">Valor unitario (Bs)</label>
+                    <input type="number" class="sm-input js-valor text-end" min="0" step="0.01" placeholder="0.00" />
+                </div>
+                <div class="col-lg-3 col-md-6 col-6">
+                    <label class="sm-label">Vida útil (años)</label>
+                    <input type="number" class="sm-input js-vida text-center" min="0" max="100" />
+                </div>
+                <div class="col-lg-3 col-md-6 col-6">
+                    <label class="sm-label">Subtotal</label>
+                    <div class="sm-input dn-sin-mayus js-subtotal text-end fw-bold" style="background:var(--sm-superficie-2)">Bs 0,00</div>
+                </div>
+                <div class="col-12">
+                    <label class="sm-label">Descripción <span class="sm-req">*</span></label>
+                    <textarea class="sm-input js-desc" rows="2" maxlength="600" style="min-height:64px" placeholder="Ej: COMPUTADORA DE ESCRITORIO CORE I7, 16 GB RAM, SSD 512 GB"></textarea>
+                    <div class="invalid-feedback">Escriba qué es el bien.</div>
+                </div>
+            </div>
+
+            <div class="dn-sub"><i class="ti ti-list-details"></i> Detalle</div>
+            <div class="row g-2">
+                <div class="col-lg-4 col-md-6"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" /></div>
+                <div class="col-lg-4 col-md-6"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" /></div>
+                <div class="col-lg-4 col-md-6"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" /></div>
+                <div class="col-lg-6 col-md-6"><label class="sm-label">Material</label><input type="text" class="sm-input js-material" maxlength="80" placeholder="Ej: MADERA, METAL, PLÁSTICO" /></div>
+                <div class="col-lg-6 col-md-6"><label class="sm-label">Medidas</label><input type="text" class="sm-input js-medidas" maxlength="80" placeholder="Ej: 120 X 60 X 75 CM" /></div>
+                <div class="col-md-6">
+                    <label class="sm-label">Series <small class="text-muted">(una por línea, en el orden de las unidades)</small></label>
+                    <textarea class="sm-input js-series" rows="2" style="min-height:64px" placeholder="Pegue aquí las series, una por línea"></textarea>
+                    <div class="dn-series-info js-series-info">Sin series.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="sm-label">Características adicionales</label>
+                    <textarea class="sm-input js-caract" rows="2" style="min-height:64px" maxlength="4000" placeholder="Accesorios, capacidad, estado al recibirlo…"></textarea>
+                </div>
+            </div>
+            <div class="dn-sub"><i class="ti ti-photo"></i> Fotos <small class="fw-normal text-muted text-lowercase">(hasta 3; las comparten todas las unidades)</small></div>
+            <div class="small text-muted d-none js-fotos-nota"><i class="ti ti-info-circle"></i> Las fotos de este bien se agregan o quitan en el detalle del acta.</div>
+            <div class="sm-aviso sm-aviso-aviso py-2 mb-2 d-none js-nota-vida"></div>
+            <div class="dn-fotos js-fotos">
+                <label class="dn-foto-add js-foto-add" title="Agregar fotos (JPG, PNG o WEBP)">
+                    <input type="file" class="d-none js-foto-input" accept="image/jpeg,image/png,image/webp" multiple />
+                    <i class="ti ti-camera-plus"></i><span>Agregar</span>
+                </label>
+            </div>
+            <div class="dn-previa">
+                <span class="dn-largo js-largo">0 / 1024</span>
+                <b>Así quedará la descripción del activo:</b><br><span class="js-previa">—</span>
+            </div>
+        </div>
+    </div>
+</template>
+
+</div>
+
+<script th:inline="javascript">
+(function () {
+    const URL = '/administracion/donacion';
+    const INICIAL = /*[[${inicial}]]*/ {};
+    const $raiz = $('#modDonacion');
+    const esc = SciafModulo.escapar;
+
+    const $listado = $raiz.find('.js-listado');
+    const $tablaActas = $raiz.find('.js-tabla-actas');
+    const $panelReg = $raiz.find('.js-panel-registro');
+    const $panel = $raiz.find('.js-panel');
+    const $form = $raiz.find('.js-asistente');
+    const $exito = $raiz.find('.js-exito');
+    const $modal = $raiz.find('.js-modal-acta');
+    const $detalle = $raiz.find('.js-detalle');
+    const MAX_FOTOS = INICIAL.maxFotos || 3;
+    const $bienes = $raiz.find('.js-bienes');
+    const plantillaBien = $raiz.find('.js-plantilla-bien')[0];
+
+    const PREDIOS = INICIAL.predios || [];
+    const GRUPOS = INICIAL.grupos || [];
+    const ESTADOS = INICIAL.estados || [];
+    const grupoPorId = {};
+    GRUPOS.forEach(function (g) { grupoPorId[g.id] = g; });
+    const predioPorId = {};
+    PREDIOS.forEach(function (p) { predioPorId[p.id] = p; });
+
+    const MAX_DESC = 1024;
+    const st = { paso: 1, tipo: 'INSTITUCION', idActa: null, enviando: false, token: null, edicion: null };
+
+    // ════════════════════════════════════════════════════════════
+    //  Utilidades
+    // ════════════════════════════════════════════════════════════
+
+    /** Fecha local AAAA-MM-DD (toISOString da la de mañana desde las 20:00 en Bolivia). */
+    function hoyLocal() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function fechaBonita(iso) {
+        if (!iso) return '—';
+        const p = String(iso).substring(0, 10).split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+    }
+    function bs(n) {
+        return 'Bs ' + (Number(n) || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function mayus(t) { return (t || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
+    /** Código con la D destacada: 01-04-06-[D]00001. */
+    function codigoHtml(c) {
+        if (!c) return '—';
+        const i = c.lastIndexOf('-D');
+        if (i < 0) return '<span class="dn-codigo">' + esc(c) + '</span>';
+        return '<span class="dn-codigo">' + esc(c.substring(0, i + 1)) + '<span class="dn-d">D</span>' + esc(c.substring(i + 2)) + '</span>';
+    }
+    /** Series por posición: la línea N es la unidad N; una línea vacía = esa unidad sin serie. */
+    function series(texto) {
+        const l = (texto || '').split(/\r?\n/).map(mayus);
+        while (l.length && !l[l.length - 1]) l.pop();
+        return l;
+    }
+    function repetidas(ser) {
+        const v = ser.filter(Boolean);
+        return v.filter(function (s, k) { return v.indexOf(s) !== k; });
+    }
+    function debounce(fn, ms) {
+        let t = null;
+        return function () { const a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, ms); };
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  Totales y lista de actas
+    // ════════════════════════════════════════════════════════════
+
+    function pintarTotales(t) {
+        if (!t) return;
+        $raiz.find('.js-t-actas').text((t.actas || 0).toLocaleString('es-BO'));
+        $raiz.find('.js-t-bienes').text((t.bienes || 0).toLocaleString('es-BO'));
+        $raiz.find('.js-t-valor').text(bs(t.valor));
+    }
+
+    let tabla = null;
+
+    /** Tabla de actas paginada en el servidor; un clic en la fila abre el detalle. */
+    function iniciarTabla() {
+        tabla = SciafModulo.tabla({
+            tabla: $tablaActas,
+            buscador: $raiz.find('.js-buscar'),
+            largo: $raiz.find('.js-largo'),
+            dt: {
+                serverSide: true,
+                ordering: false,
+                deferRender: true,
+                ajax: { url: URL + '/api/datatables', type: 'POST' },
+                language: { emptyTable: 'Todavía no hay donaciones registradas.', zeroRecords: 'Ninguna donación coincide con la búsqueda.' },
+                createdRow: function (tr, a) {
+                    tr.dataset.id = a.id;
+                    tr.tabIndex = 0;
+                    if (a.estado === 'ANULADA') tr.classList.add('dn-fila-anulada');
+                },
+                columns: [
+                    { data: 'numero', render: function (v) { return '<span class="dn-num-acta"><i class="ti ti-gift"></i> ' + esc(v) + '</span>'; } },
+                    { data: 'fecha', render: function (v) { return esc(fechaBonita(v)); } },
+                    { data: null, render: function (d, t, a) {
+                        const ic = a.donanteTipo === 'PERSONA' ? 'ti-user' : 'ti-building-community';
+                        return '<i class="ti ' + ic + ' text-muted"></i> <span class="dn-don-nombre sm-mayus">' + esc(a.donante) + '</span>'; } },
+                    { data: 'documentoRespaldo', render: function (v) { return v ? esc(v) : '<span class="text-muted">—</span>'; } },
+                    { data: null, render: function (d, t, a) {
+                        return esc(a.oficina || '—') + (a.predio ? '<br><small class="text-muted">' + esc(a.predio) + '</small>' : ''); } },
+                    { data: 'cantidad', className: 'text-center', render: function (v) { return '<b>' + esc(v || 0) + '</b>'; } },
+                    { data: 'valor', className: 'text-end', render: function (v) { return esc(bs(v)); } },
+                    { data: 'estado', render: function (v) {
+                        return v === 'ANULADA' ? '<span class="dn-anulada">ANULADA</span>' : '<span class="dn-vigente">VIGENTE</span>'; } }
+                ]
+            }
+        });
+        // Los totales de la cabecera llegan con cada página.
+        $tablaActas.on('xhr.dt', function (e, s, json) { if (json) pintarTotales(json.totales); });
+    }
+
+    function recargarTabla() { if (tabla) tabla.ajax.reload(null, false); }
+
+    $tablaActas.on('click', 'tbody tr[data-id]', function () { abrirActa(Number(this.dataset.id)); });
+    $tablaActas.on('keydown', 'tbody tr[data-id]', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirActa(Number(this.dataset.id)); }
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Cambio de vista: listado ↔ asistente ↔ éxito
+    // ════════════════════════════════════════════════════════════
+
+    function mostrar(cual) {
+        $listado.toggleClass('d-none', cual !== 'listado');
+        $panelReg.toggleClass('d-none', cual === 'listado');
+        $form.toggleClass('d-none', cual !== 'asistente');
+        $exito.toggleClass('d-none', cual !== 'exito');
+        const $v = cual === 'listado' ? $listado : cual === 'asistente' ? $form : $exito;
+        $v.removeClass('dn-vista');
+        void $v[0].offsetWidth;          // reinicia la animación de entrada
+        $v.addClass('dn-vista');
+        $panel.scrollTop(0);
+        if (cual === 'listado' && tabla) tabla.columns.adjust();
+    }
+
+    function asistenteConDatos() {
+        if ($form.hasClass('d-none')) return false;
+        if (mayus($form.find('[name=donanteNombre]').val())) return true;
+        let algo = false;
+        $bienes.find('.js-desc').each(function () { if (this.value.trim()) algo = true; });
+        return algo;
+    }
+
+    async function dejarAsistente() {
+        if (!asistenteConDatos() || st.enviando) return !st.enviando;
+        return sciafConfirmar({ titulo: '¿Descartar la donación en curso?', texto: 'Lo que cargó en el asistente se pierde.', aceptar: 'Sí, descartar', peligrosa: true });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  Asistente: pasos
+    // ════════════════════════════════════════════════════════════
+
+    function irAPaso(n, atras) {
+        st.paso = n;
+        $form.find('.dn-etapa').removeClass('visible atras');
+        $form.find('.dn-etapa[data-etapa="' + n + '"]').addClass('visible' + (atras ? ' atras' : ''));
+        $form.find('.dn-paso').each(function () {
+            const p = Number($(this).data('paso'));
+            $(this).toggleClass('actual', p === n).toggleClass('hecho', p < n).prop('disabled', p > n);
+        });
+        $form.find('.js-avance').css('width', (n * 25) + '%');
+        $form.find('.js-atras').toggleClass('d-none', n === 1);
+        $form.find('.js-siguiente').toggleClass('d-none', n === 4);
+        $form.find('.js-registrar').toggleClass('d-none', n !== 4);
+        if (n === 3 && !$bienes.children().length) agregarBien();
+        if (n === 4) { pintarResumen(); calcularCodigos().then(pintarResumen); }
+        $panel.scrollTop(0);
+        setTimeout(function () {
+            const $f = $form.find('.dn-etapa.visible').find('input:visible, textarea:visible').filter(function () { return !this.value; }).first();
+            if ($f.length && n !== 4) $f.trigger('focus');
+        }, 60);
+    }
+
+    function marcar($el, mal) {
+        $el.toggleClass('is-invalid', !!mal);
+        return !mal;
+    }
+
+    function validarPaso(n) {
+        if (n === 1) {
+            const okNombre = marcar($form.find('[name=donanteNombre]'), !mayus($form.find('[name=donanteNombre]').val()));
+            const f = $form.find('[name=fechaDonacion]').val();
+            const okFecha = marcar($form.find('[name=fechaDonacion]'), !f || f > hoyLocal());
+            if (!okNombre || !okFecha) { avisoFalta('Complete el nombre del donante y una fecha que no sea futura.'); return false; }
+            return true;
+        }
+        if (n === 2) {
+            const idPredio = $form.find('.js-predio').val();
+            const okPredio = marcar($form.find('.js-predio'), !idPredio || !(predioPorId[idPredio] || {}).prefijo);
+            const okOfi = marcar($form.find('.js-oficina'), !$form.find('.js-oficina').val());
+            const okResp = marcar($form.find('.js-responsable'), !$form.find('.js-responsable').val());
+            if (!okPredio) { avisoFalta('Elija un predio configurado (con municipio y código).'); return false; }
+            if (!okOfi || !okResp) { avisoFalta('Elija la oficina y el responsable que recibe los bienes.'); return false; }
+            return true;
+        }
+        if (n === 3) {
+            let primero = null;
+            const bienes = leerBienes();
+            if (!bienes.length) { avisoFalta('Agregue al menos un bien.'); return false; }
+            $bienes.children('.dn-bien').each(function (i) {
+                const $b = $(this);
+                const b = bienes[i];
+                const mal = [];
+                if (!marcar($b.find('.js-grupo'), !b.idGrupoContable)) mal.push('grupo contable');
+                if (!marcar($b.find('.js-desc'), !b.descripcion)) mal.push('descripción');
+                if (!marcar($b.find('.js-cantidad'), !(b.cantidad >= 1 && b.cantidad <= 200))) mal.push('cantidad (1 a 200)');
+                if (!marcar($b.find('.js-valor'), b.valorUnitario != null && b.valorUnitario < 0)) mal.push('valor');
+                const ser = b.series;
+                if (!marcar($b.find('.js-series'), ser.length > b.cantidad || repetidas(ser).length)) mal.push('series');
+                if (descripcionDe(b, ser.reduce(function (x, y) { return y.length > x.length ? y : x; }, '')).length > MAX_DESC) mal.push('descripción demasiado larga');
+                if (mal.length && !primero) primero = { $b: $b, i: i + 1, mal: mal };
+            });
+            if (primero) {
+                primero.$b.removeClass('contraido')[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                avisoFalta('Bien ' + primero.i + ': revise ' + primero.mal.join(', ') + '.');
+                return false;
+            }
+            return true;
+        }
+        return true;
+    }
+
+    function avisoFalta(texto) {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: texto, showConfirmButton: false, timer: 3500, timerProgressBar: true });
+    }
+
+    $raiz.on('click', '.js-siguiente', function () { if (validarPaso(st.paso)) irAPaso(st.paso + 1); });
+    $raiz.on('click', '.js-atras', function () { if (st.paso > 1) irAPaso(st.paso - 1, true); });
+    $raiz.on('click', '.dn-paso', function () {
+        const n = Number($(this).data('paso'));
+        if (n < st.paso) irAPaso(n, true);
+    });
+    $raiz.on('click', '.js-cancelar', async function () {
+        if (!await dejarAsistente()) return;
+        reiniciarAsistente();
+        mostrar('listado');
+    });
+    $raiz.on('click', '.js-nueva', async function () {
+        if (!$form.hasClass('d-none') && !st.edicion) { irAPaso(1, true); return; }
+        if (st.edicion && !await sciafConfirmar({ titulo: '¿Dejar la edición de ' + esc(st.edicion.numero) + '?',
+                texto: 'Los cambios que no guardó se pierden.', aceptar: 'Sí, dejarla', peligrosa: true })) return;
+        reiniciarAsistente();
+        mostrar('asistente');
+        irAPaso(1);
+    });
+
+    // Atajos de teclado (solo con el asistente a la vista)
+    $raiz.on('keydown', function (e) {
+        if ($form.hasClass('d-none')) return;
+        if (e.ctrlKey && e.key === 'Enter') {
+            e.preventDefault();
+            if (st.paso < 4) $form.find('.js-siguiente').trigger('click');
+            else $form.find('.js-registrar').trigger('click');
+        } else if (e.altKey && (e.key === 'n' || e.key === 'N') && st.paso === 3) {
+            e.preventDefault();
+            agregarBien();
+        }
+    });
+
+    // ── Paso 1: tipo de donante ──
+    function ponerTipo(tipo) {
+        st.tipo = tipo;
+        $form.find('.js-tipo button').each(function () { $(this).toggleClass('activo', $(this).data('tipo') === tipo); });
+        $form.find('.js-lbl-nombre').text(tipo === 'PERSONA' ? 'Nombre completo de la persona' : 'Nombre de la institución');
+        $form.find('.js-lbl-doc').text(tipo === 'PERSONA' ? 'C.I.' : 'NIT');
+    }
+    $raiz.on('click', '.js-tipo button', function () { ponerTipo($(this).data('tipo')); });
+
+    // Mayúsculas mientras se escribe (salvo los campos marcados como libres)
+    $raiz.on('input', 'input.sm-input[type=text]:not([data-sm-mayus=no]), textarea.js-desc, textarea.js-series, textarea.js-caract', function () {
+        const p = this.selectionStart, q = this.selectionEnd;
+        const v = this.value.toUpperCase();
+        if (v !== this.value) { this.value = v; try { this.setSelectionRange(p, q); } catch (e) { /* number/date */ } }
+    });
+    $raiz.on('input change', '.is-invalid', function () { $(this).removeClass('is-invalid'); });
+
+    // ════════════════════════════════════════════════════════════
+    //  Paso 2: destino (predio → oficina → responsable)
+    // ════════════════════════════════════════════════════════════
+
+    const $predio = $form.find('.js-predio');
+    const $oficina = $form.find('.js-oficina');
+    const $resp = $form.find('.js-responsable');
+    const $fin = $form.find('.js-financiador');
+    const s2 = { dropdownParent: $raiz, width: '100%' };
+
+    PREDIOS.forEach(function (p) {
+        const o = new Option(p.nombre + (p.prefijo ? '  ·  ' + p.prefijo : '  (sin configurar)'), p.id);
+        if (!p.prefijo) o.disabled = true;
+        $predio.append(o);
+    });
+    (INICIAL.financiadores || []).forEach(function (f) { $fin.append(new Option(f.texto, f.id)); });
+    $predio.select2(Object.assign({ placeholder: 'Elija el predio…' }, s2));
+    $oficina.select2(Object.assign({ placeholder: 'Primero elija el predio' }, s2));
+    $fin.select2(Object.assign({ placeholder: 'Sin financiador', allowClear: true }, s2));
+    $resp.select2(Object.assign({
+        placeholder: 'Primero elija la oficina',
+        ajax: {
+            url: '/api/responsables/buscar', dataType: 'json', delay: 250,
+            data: function (p) { return { q: p.term || '', page: p.page || 1, oficinaId: $oficina.val() || -1 }; },
+            processResults: function (d) { return d; }
+        }
+    }, s2));
+
+    function prefijoPredio() {
+        const p = predioPorId[$predio.val()];
+        return p && p.prefijo ? p.prefijo : null;
+    }
+    function pintarPrefijo() {
+        const pref = prefijoPredio();
+        $form.find('.js-prefijo-muestra').html(pref ? esc(pref) + '-<span class="text-muted">GG</span>-<span class="dn-d">D</span>00001' : '—');
+    }
+
+    async function cargarOficinas(idPredio, elegir) {
+        $oficina.prop('disabled', true).empty().append(new Option('', '')).trigger('change.select2');
+        $resp.prop('disabled', true).val(null).empty().trigger('change.select2');
+        if (!idPredio) return;
+        try {
+            const r = await SciafModulo.pedir('/api/buscar_oficinas?predioId=' + encodeURIComponent(idPredio), { metodo: 'GET' });
+            const lista = await r.json();
+            lista.forEach(function (o) {
+                const cod = o.codigo != null ? String(o.codigo).padStart(3, '0') + ' - ' : '';
+                $oficina.append(new Option(cod + o.nombre, o.id));
+            });
+            $oficina.prop('disabled', false);
+            if (elegir) $oficina.val(String(elegir));
+            $oficina.trigger('change.select2');
+        } catch (e) { SciafModulo.avisarError(e, 'No se pudieron traer las oficinas'); }
+    }
+
+    $predio.on('change', function () {
+        pintarPrefijo();
+        $form.find('.js-alta-oficina').prop('disabled', !this.value);
+        $form.find('.js-alta-resp').prop('disabled', true);
+        cerrarAltas();
+        cargarOficinas(this.value);
+        // El auxiliar depende del predio: hay que volver a elegirlo en cada bien.
+        $bienes.children('.dn-bien').each(function () { cargarAuxiliares($(this)); });
+        actualizarCodigos();
+    });
+    $oficina.on('change', function () {
+        $resp.val(null).empty().prop('disabled', !this.value).trigger('change.select2');
+        $form.find('.js-alta-resp').prop('disabled', !this.value);
+        cerrarAltas();
+        actualizarCodigos();
+        if (this.value) setTimeout(function () { $resp.select2('open'); }, 120);
+    });
+
+    // ── Altas rápidas: oficina y responsable (subir al VSIAF o dejar pendiente) ──
+
+    const $subOfi = $form.find('.js-sub-oficina');
+    const $subResp = $form.find('.js-sub-resp');
+    const $cargo = $form.find('.js-resp-cargo');
+    $cargo.select2(Object.assign({
+        placeholder: 'Buscar cargo…', tags: true, allowClear: true,
+        createTag: function (p) { const t = mayus(p.term); return t ? { id: t, text: t + '  (nuevo)', newTag: true } : null; },
+        ajax: {
+            url: '/api/cargos/search', dataType: 'json', delay: 250,
+            data: function (p) { return { q: p.term || '' }; },
+            processResults: function (d) { return { results: (d || []).map(function (c) { return { id: c.nombre, text: c.nombre }; }) }; }
+        }
+    }, s2));
+
+    function cerrarAltas() { $subOfi.addClass('d-none'); $subResp.addClass('d-none'); }
+    $raiz.on('click', '.js-sub-cerrar', cerrarAltas);
+
+    $raiz.on('click', '.js-alta-oficina', async function () {
+        const p = predioPorId[$predio.val()];
+        if (!p) return;
+        $subResp.addClass('d-none');
+        $subOfi.find('.js-sub-ofi-predio').text(p.nombre);
+        $subOfi.find('.js-ofi-nombre').val('');
+        $subOfi.find('.js-ofi-cuenta').text('0 / 65');
+        $subOfi.removeClass('d-none');
+        $subOfi.find('.js-ofi-nombre').trigger('focus');
+        try {
+            const r = await SciafModulo.pedir('/administracion/oficina/siguiente-codigo/' + p.id, { metodo: 'GET' });
+            if (r.ok) $subOfi.find('.js-ofi-cod').val(await r.json());
+        } catch (e) { /* lo escribe a mano */ }
+    });
+    $raiz.on('input', '.js-ofi-nombre', function () { $subOfi.find('.js-ofi-cuenta').text(this.value.length + ' / 65'); });
+
+    $raiz.on('click', '.js-ofi-crear', async function () {
+        const subir = $(this).data('subir') === true || $(this).data('subir') === 'true';
+        const p = predioPorId[$predio.val()];
+        const cod = Number($subOfi.find('.js-ofi-cod').val());
+        const nombre = mayus($subOfi.find('.js-ofi-nombre').val());
+        if (!p || !(cod >= 1) || !nombre) { avisoFalta('Escriba el código y el nombre de la oficina.'); return; }
+        const ok = await sciafConfirmar({
+            titulo: subir ? '¿Crear la oficina y subirla al VSIAF?' : '¿Crear la oficina y dejarla pendiente?',
+            texto: '<b>' + esc(String(cod).padStart(3, '0') + ' - ' + nombre) + '</b> en ' + esc(p.nombre) + '.<br><small>'
+                + (subir ? 'Se envía ahora al VSIAF.' : 'Queda solo en el SCIAF y se avisa a los administradores para que la suban.') + '</small>',
+            aceptar: subir ? 'Crear y subir' : 'Crear pendiente'
+        });
+        if (!ok) return;
+        const $b = $(this).prop('disabled', true);
+        try {
+            const res = await SciafModulo.pedirJson('/administracion/oficina/registrar-oficina', { datos: {
+                'predio.idPredio': p.id, codOfi: cod, nombre: nombre, modoRapido: true, subirVsiaf: subir, desde: 'Registro de donaciones' } });
+            if (!res.ok) throw new Error(res.msg || (res.errors || []).map(function (x) { return x.message; }).join(' ') || 'No se pudo crear.');
+            const texto = String(cod).padStart(3, '0') + ' - ' + nombre;
+            $oficina.append(new Option(texto + (res.pendiente ? '  · pendiente VSIAF' : ''), res.id, true, true)).trigger('change.select2').trigger('change');
+            cerrarAltas();
+            Swal.fire(res.vsiafOk === false ? { icon: 'warning', title: 'Oficina creada, con aviso', text: res.msg }
+                : { toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 3500 });
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se creó la oficina', esc(e.message), 'error');
+        } finally { $b.prop('disabled', false); }
+    });
+
+    $raiz.on('click', '.js-alta-resp', async function () {
+        if (!$oficina.val()) return;
+        $subOfi.addClass('d-none');
+        $subResp.find('.js-sub-resp-ofi').text(textoSel($oficina));
+        $subResp.find('input').val('');
+        $cargo.val(null).trigger('change');
+        $subResp.find('.js-resp-cuenta').text('0 / 35');
+        $subResp.removeClass('d-none');
+        $subResp.find('.js-resp-ci').trigger('focus');
+        try {
+            const r = await SciafModulo.pedir('/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=' + $oficina.val(), { metodo: 'GET' });
+            if (r.ok) $subResp.find('.js-resp-cod').val(await r.json());
+        } catch (e) { /* lo escribe a mano */ }
+    });
+    $raiz.on('input', '.js-resp-nom', function () {
+        const n = nombreResp().length;
+        $subResp.find('.js-resp-cuenta').text(n + ' / 35').toggleClass('text-danger fw-bold', n > 35);
+    });
+    function nombreResp() {
+        return [mayus($subResp.find('.js-resp-nombre').val()), mayus($subResp.find('.js-resp-paterno').val()), mayus($subResp.find('.js-resp-materno').val())]
+            .filter(Boolean).join(' ');
+    }
+    $raiz.on('change', '.js-resp-ci', async function () {
+        const ci = this.value.trim();
+        if (!ci) return;
+        try {
+            const r = await SciafModulo.pedir('/administracion/responsable/api/personas/buscar-por-ci?ci=' + encodeURIComponent(ci), { metodo: 'GET' });
+            if (!r.ok) return;
+            const p = await r.json();
+            if (p.nombre) $subResp.find('.js-resp-nombre').val(p.nombre);
+            if (p.paterno) $subResp.find('.js-resp-paterno').val(p.paterno);
+            if (p.materno) $subResp.find('.js-resp-materno').val(p.materno);
+            $subResp.find('.js-resp-nombre').trigger('input');
+        } catch (e) { /* persona nueva */ }
+    });
+
+    $raiz.on('click', '.js-resp-crear', async function () {
+        const subir = $(this).data('subir') === true || $(this).data('subir') === 'true';
+        const d = {
+            ci: ($subResp.find('.js-resp-ci').val() || '').trim(),
+            nombre: mayus($subResp.find('.js-resp-nombre').val()),
+            paterno: mayus($subResp.find('.js-resp-paterno').val()),
+            materno: mayus($subResp.find('.js-resp-materno').val()),
+            codigoFuncionario: ($subResp.find('.js-resp-cod').val() || '').trim(),
+            cargoNombre: mayus($cargo.val()),
+            idOficina: $oficina.val(), modoRapido: true, subirVsiaf: subir, desde: 'Registro de donaciones'
+        };
+        if (!d.ci || !d.nombre || !d.paterno || !d.codigoFuncionario || !d.cargoNombre) {
+            avisoFalta('Complete C.I., nombre, apellido paterno, cargo y código de funcionario.'); return;
+        }
+        if (nombreResp().length > 35) { avisoFalta('El nombre completo pasa de 35 caracteres (tope del VSIAF): abrévielo.'); return; }
+        if (d.cargoNombre.length > 40) { avisoFalta('El cargo admite hasta 40 caracteres.'); return; }
+        const ok = await sciafConfirmar({
+            titulo: subir ? '¿Registrar al responsable y subirlo al VSIAF?' : '¿Registrar al responsable y dejarlo pendiente?',
+            texto: '<b>' + esc(nombreResp()) + '</b> (C.I. ' + esc(d.ci) + '), ' + esc(d.cargoNombre) + '.<br><small>'
+                + (subir ? 'Se envía ahora al VSIAF (y su oficina, si estaba pendiente).' : 'Queda solo en el SCIAF y se avisa a los administradores para que lo suban.') + '</small>',
+            aceptar: subir ? 'Registrar y subir' : 'Registrar pendiente'
+        });
+        if (!ok) return;
+        const $b = $(this).prop('disabled', true);
+        try {
+            let res = await SciafModulo.pedirJson('/administracion/responsable/registrar-responsable', { datos: d });
+            if (!res.ok && res.personasCoincidentes) {
+                // 409: hay personas con nombre parecido. Se pregunta antes de crear otra.
+                const seguir = await sciafConfirmar({
+                    titulo: 'Hay una persona parecida', texto: esc(res.msg || '') + '<br><br>¿Es otra persona y quiere registrarla igual?',
+                    aceptar: 'Sí, es otra persona', peligrosa: true
+                });
+                if (!seguir) return;
+                res = await SciafModulo.pedirJson('/administracion/responsable/registrar-responsable-forzado', { datos: d });
+            }
+            if (!res.ok) throw new Error(res.msg || 'No se pudo registrar.');
+            const texto = d.codigoFuncionario + ' - ' + nombreResp() + (res.pendiente ? '  · pendiente VSIAF' : '');
+            $resp.prop('disabled', false).append(new Option(texto, res.id, true, true)).trigger('change.select2').trigger('change');
+            cerrarAltas();
+            Swal.fire(res.vsiafOk === false ? { icon: 'warning', title: 'Responsable registrado, con aviso', text: res.msg }
+                : { toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 3500 });
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se registró el responsable', esc(e.message), 'error');
+        } finally { $b.prop('disabled', false); }
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Paso 3: bienes
+    // ════════════════════════════════════════════════════════════
+
+    const auxCache = {};
+
+    async function cargarAuxiliares($b, elegir) {
+        const $aux = $b.find('.js-auxiliar');
+        const idPredio = $predio.val(), idGrupo = $b.find('.js-grupo').val();
+        $aux.prop('disabled', true).empty().append(new Option('', '')).trigger('change.select2');
+        $b.find('.js-nuevo-aux').prop('disabled', !(idPredio && idGrupo));
+        if (!idPredio || !idGrupo) return;
+        const clave = idPredio + '-' + idGrupo;
+        try {
+            if (!auxCache[clave]) {
+                const r = await SciafModulo.pedir('/api/buscar_auxiliar_lista?predioId=' + idPredio + '&grupoId=' + idGrupo, { metodo: 'GET' });
+                auxCache[clave] = await r.json();
+            }
+            auxCache[clave].forEach(function (a) { $aux.append(new Option(a.text, a.id)); });
+            $aux.prop('disabled', false);
+            if (elegir) $aux.val(String(elegir));
+            $aux.trigger('change.select2');
+        } catch (e) { SciafModulo.avisarError(e, 'No se pudieron traer los auxiliares'); }
+    }
+
+    function crearTarjeta() {
+        const $b = $(plantillaBien.content.firstElementChild.cloneNode(true));
+        const $g = $b.find('.js-grupo');
+        GRUPOS.forEach(function (g) { $g.append(new Option(g.cod + ' - ' + g.nombre, g.id)); });
+        const $e = $b.find('.js-estado');
+        ESTADOS.forEach(function (e) { $e.append(new Option(e.nombre, e.id)); });
+        if (ESTADOS.some(function (e) { return e.id === 1; })) $e.val('1');
+        return $b;
+    }
+
+    function iniciarSelects($b) {
+        $b.find('.js-grupo').select2(Object.assign({ placeholder: 'Elija el grupo…' }, s2));
+        $b.find('.js-auxiliar').select2(Object.assign({ placeholder: 'Sin auxiliar', allowClear: true }, s2));
+    }
+
+    function agregarBien(desde) {
+        const $b = crearTarjeta();
+        $bienes.append($b);
+        iniciarSelects($b);
+        if (desde) {
+            // Duplicar: todo menos las series (cada unidad tiene la suya).
+            const d = desde;
+            $b.find('.js-grupo').val(d.idGrupoContable ? String(d.idGrupoContable) : '').trigger('change.select2');
+            $b.find('.js-estado').val(d.idEstadoActivo ? String(d.idEstadoActivo) : '1');
+            $b.find('.js-cantidad').val(d.cantidad || 1);
+            $b.find('.js-valor').val(d.valorUnitario != null ? d.valorUnitario : '');
+            $b.find('.js-vida').val(d.vidaUtil != null ? d.vidaUtil : '');
+            $b.find('.js-desc').val(d.descripcion || '');
+            $b.find('.js-marca').val(d.marca || '');
+            $b.find('.js-modelo').val(d.modelo || '');
+            $b.find('.js-color').val(d.color || '');
+            $b.find('.js-material').val(d.material || '');
+            $b.find('.js-medidas').val(d.dimensiones || '');
+            $b.find('.js-caract').val(d.caracteristicas || '');
+            cargarAuxiliares($b, d.idAuxiliar);
+        }
+        renumerar();
+        refrescarBien($b);
+        actualizarCodigos();
+        $b[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(function () { $b.find(desde ? '.js-desc' : '.js-grupo').first().each(function () { if (desde) this.focus(); else $(this).select2('open'); }); }, 250);
+        return $b;
+    }
+
+    function renumerar() {
+        const $todos = $bienes.children('.dn-bien');
+        $todos.each(function (i) { $(this).find('.js-num').text(i + 1); });
+        $todos.find('.js-quitar').prop('disabled', $todos.length <= 1);
+    }
+
+    function leerBien($b) {
+        const n = function (sel) { const v = $b.find(sel).val(); return v === '' || v == null ? null : Number(v); };
+        return {
+            itemOriginal: $b.data('itemOriginal') || null,
+            idGrupoContable: n('.js-grupo'),
+            idAuxiliar: n('.js-auxiliar'),
+            idEstadoActivo: n('.js-estado'),
+            descripcion: mayus($b.find('.js-desc').val()),
+            cantidad: n('.js-cantidad') || 0,
+            valorUnitario: n('.js-valor'),
+            vidaUtil: n('.js-vida'),
+            marca: mayus($b.find('.js-marca').val()),
+            modelo: mayus($b.find('.js-modelo').val()),
+            color: mayus($b.find('.js-color').val()),
+            material: mayus($b.find('.js-material').val()),
+            dimensiones: mayus($b.find('.js-medidas').val()),
+            caracteristicas: ($b.find('.js-caract').val() || '').trim().toUpperCase(),
+            series: series($b.find('.js-series').val())
+        };
+    }
+    function leerBienes() {
+        return $bienes.children('.dn-bien').map(function () { return leerBien($(this)); }).get();
+    }
+
+    /** Mismo armado que el servidor (DonacionService.descripcionCon). */
+    function descripcionDe(b, serie) {
+        let s = b.descripcion || '';
+        if (b.material) s += ' MATERIAL ' + b.material;
+        if (b.dimensiones) s += ' MEDIDAS ' + b.dimensiones;
+        if (b.color) s += ' COLOR ' + b.color;
+        const t = [];
+        if (b.marca) t.push('M:' + b.marca);
+        if (b.modelo) t.push('MOD:' + b.modelo);
+        if (serie) t.push('N/S:' + serie);
+        if (t.length) s += ' ' + t.join(', ');
+        return s;
+    }
+
+    function refrescarBien($b) {
+        const b = leerBien($b);
+        $b.find('.js-tit').text(b.descripcion || 'Bien nuevo');
+        $b.find('.js-subtotal').text(bs((b.valorUnitario || 0) * (b.cantidad || 0)));
+        const ser = b.series;
+        const $si = $b.find('.js-series-info');
+        const rep = repetidas(ser);
+        const con = ser.filter(Boolean).length;
+        if (!con) $si.removeClass('mal').text(b.cantidad > 1 ? 'Sin series. Si las tiene, una por línea (línea vacía = unidad sin serie).' : 'Sin serie.');
+        else if (rep.length) $si.addClass('mal').text('Serie repetida: ' + rep[0]);
+        else if (ser.length > b.cantidad) $si.addClass('mal').text(ser.length + ' líneas de serie para ' + b.cantidad + ' unidad(es): sobran ' + (ser.length - b.cantidad) + '.');
+        else $si.removeClass('mal').text(con + ' de ' + b.cantidad + ' unidad(es) con serie.');
+        // En edición: qué código lleva cada línea (las series van por posición).
+        const cods = $b.data('codigos');
+        if (cods && cods.length) {
+            const vivas = $b.data('unidadesConVida') || [];
+            const partes = [];
+            for (let k = 0; k < Math.max(b.cantidad, 0); k++) {
+                const cod = k < cods.length ? cods[k].substring(cods[k].lastIndexOf('-') + 1) : 'nuevo';
+                partes.push('línea ' + (k + 1) + ' → ' + cod + (vivas[k] ? ' (no cambia)' : ''));
+            }
+            $si.append($('<div class="text-muted">').text(partes.join(' · ')));
+        }
+        const larga = ser.reduce(function (x, y) { return y.length > x.length ? y : x; }, '');
+        const desc = descripcionDe(b, larga || null);
+        $b.find('.js-previa').text(desc || '—');
+        $b.find('.js-largo').text(desc.length + ' / ' + MAX_DESC).toggleClass('excede', desc.length > MAX_DESC);
+        pintarTotalesBienes();
+    }
+
+    function pintarTotalesBienes() {
+        const bienes = leerBienes();
+        const unidades = bienes.reduce(function (s, b) { return s + (b.cantidad || 0); }, 0);
+        const valor = bienes.reduce(function (s, b) { return s + (b.valorUnitario || 0) * (b.cantidad || 0); }, 0);
+        $form.find('.js-totales').html(
+            '<span class="dn-total"><strong>' + bienes.length + '</strong> bien(es)</span>'
+            + '<span class="dn-total"><strong>' + unidades + '</strong> unidad(es) = códigos</span>'
+            + '<span class="dn-total"><strong>' + esc(bs(valor)) + '</strong></span>');
+    }
+
+    // Vista previa de códigos D: un pedido para todos los bienes, agrupado.
+    let previaN = 0;
+    async function calcularCodigos() {
+        const $todos = $bienes.children('.dn-bien');
+        if (!$todos.length) return;
+        const idOficina = $oficina.val();
+        const bienes = leerBienes().map(function (b) { return { idGrupoContable: b.idGrupoContable, cantidad: b.cantidad || 1 }; });
+        if (!idOficina) {
+            $todos.find('.js-rango').addClass('vacio').text('elija la oficina en el paso 2');
+            return;
+        }
+        const n = ++previaN;
+        try {
+            const d = await SciafModulo.pedirJson(URL + '/api/previsualizar', { json: { idOficina: Number(idOficina), bienes: bienes } });
+            if (n !== previaN || !d.ok) return;
+            $todos.each(function (i) {
+                const r = (d.bienes || [])[i];
+                const $r = $(this).find('.js-rango');
+                let html;
+                if (st.edicion && $(this).data('itemOriginal')) {
+                    html = rangoEdicion($(this));
+                    $r.removeClass('vacio').html(html).data('html', html);
+                    $(this).data('rango', { ok: true, html: html });
+                    return;
+                }
+                if (!r || !r.ok) { $r.addClass('vacio').text('elija el grupo contable'); return; }
+                html = r.cantidad > 1 ? codigoHtml(r.desde) + ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(r.hasta) : codigoHtml(r.desde);
+                if ($r.data('html') !== html) {
+                    $r.removeClass('vacio pulso').html(html).data('html', html);
+                    void $r[0].offsetWidth;
+                    $r.addClass('pulso');
+                }
+                $(this).data('rango', r);
+            });
+        } catch (e) { /* orientativa: si falla, se confirma al registrar */ }
+    }
+    const actualizarCodigos = debounce(calcularCodigos, 350);
+
+    /** Códigos de un bien que se está editando: los que conserva, los nuevos y los que se borran. */
+    function rangoEdicion($b) {
+        const cods = $b.data('codigos') || [];
+        const b = leerBien($b);
+        const mismo = String(b.idGrupoContable) === String($b.data('grupoOriginal'))
+            && String($predio.val()) === String(st.edicion.idPredio);
+        if (!mismo) return '<i class="ti ti-refresh"></i> códigos nuevos al guardar';
+        const quedan = Math.min(cods.length, b.cantidad || 0);
+        let h = quedan > 1 ? codigoHtml(cods[0]) + ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(cods[quedan - 1]) : codigoHtml(cods[0]);
+        if (b.cantidad > cods.length) h += ' <small>+' + (b.cantidad - cods.length) + ' nuevo(s)</small>';
+        if (b.cantidad < cods.length) h += ' <small class="text-danger">se borra(n): ' + cods.slice(b.cantidad).map(function (c) { return esc(c.substring(c.lastIndexOf('-') + 1)); }).join(', ') + '</small>';
+        return h;
+    }
+
+    $raiz.on('click', '.js-agregar', function () { agregarBien(); });
+    $raiz.on('click', '.js-duplicar', function () {
+        const $b = $(this).closest('.dn-bien');
+        const $nuevo = agregarBien(leerBien($b));
+        // Las fotos también: cada copia con su propia URL, para que quitar una no rompa la otra.
+        $nuevo.data('fotos', ($b.data('fotos') || []).map(function (f) {
+            return { blob: f.blob, nombre: f.nombre, url: URL_OBJ.createObjectURL(f.blob), propia: true };
+        }));
+        pintarFotosBien($nuevo);
+    });
+    $raiz.on('click', '.js-quitar', async function () {
+        const $b = $(this).closest('.dn-bien');
+        if ($bienes.children('.dn-bien').length <= 1) return;
+        if ($b.data('cantidadMinima')) { avisoFalta($b.data('conVida') > 0 ? 'Este bien tiene unidades con movimientos: no se puede quitar del acta.'
+            : 'Quitar un bien del acta lo hace un administrador.'); return; }
+        const b = leerBien($b);
+        if (b.descripcion && !await sciafConfirmar({ titulo: '¿Quitar este bien?', texto: esc(b.descripcion), aceptar: 'Quitar', peligrosa: true })) return;
+        $b.addClass('saliendo');
+        setTimeout(function () {
+            $b.find('select').each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
+            liberarFotos($b);
+            $b.remove();
+            renumerar();
+            pintarTotalesBienes();
+            actualizarCodigos();
+        }, 240);
+    });
+    $raiz.on('click', '.js-contraer', function () { $(this).closest('.dn-bien').toggleClass('contraido'); });
+    $raiz.on('click', '.js-menos, .js-mas', function () {
+        const $c = $(this).closest('.dn-cantidad').find('.js-cantidad');
+        const $bien = $(this).closest('.dn-bien');
+        const minimo = $bien.data('cantidadMinima') || 1;
+        const v = Math.max(minimo, Math.min(200, (Number($c.val()) || 1) + ($(this).hasClass('js-mas') ? 1 : -1)));
+        $c.val(v).trigger('input');
+    });
+    $raiz.on('change', '.js-grupo', function () {
+        const $b = $(this).closest('.dn-bien');
+        const g = grupoPorId[this.value];
+        if (g && g.vidaUtil != null) $b.find('.js-vida').val(g.vidaUtil);
+        cargarAuxiliares($b);
+        refrescarBien($b);
+        actualizarCodigos();
+    });
+    $raiz.on('input change', '.dn-bien input, .dn-bien textarea, .dn-bien .js-estado', function () {
+        const $b = $(this).closest('.dn-bien');
+        refrescarBien($b);
+        if ($(this).hasClass('js-cantidad')) actualizarCodigos();
+    });
+    $raiz.on('click', '.js-nuevo-aux', async function () {
+        const $b = $(this).closest('.dn-bien');
+        const g = grupoPorId[$b.find('.js-grupo').val()];
+        const p = predioPorId[$predio.val()];
+        if (!g || !p) return;
+        const aux = await SciafCatalogos.crearAuxiliarRapido({
+            idPredio: p.id, idGrupoContable: g.id,
+            contextoTexto: esc(p.nombre) + ' · grupo ' + esc(g.cod + ' - ' + g.nombre)
+        });
+        if (!aux) return;
+        delete auxCache[p.id + '-' + g.id];
+        await cargarAuxiliares($b, aux.idAuxiliar != null ? aux.idAuxiliar : aux.id);
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Paso 4: resumen y registro
+    // ════════════════════════════════════════════════════════════
+
+    function textoSel($s) { const d = $s.select2('data'); return d && d[0] && d[0].id ? d[0].text : '—'; }
+
+    function pintarResumen() {
+        const bienes = leerBienes();
+        const unidades = bienes.reduce(function (s, b) { return s + (b.cantidad || 0); }, 0);
+        const valor = bienes.reduce(function (s, b) { return s + (b.valorUnitario || 0) * (b.cantidad || 0); }, 0);
+        let filas = '';
+        $bienes.children('.dn-bien').each(function (i) {
+            const b = bienes[i];
+            const r = $(this).data('rango');
+            const g = grupoPorId[b.idGrupoContable];
+            const codigos = r && r.html ? r.html : r && r.ok ? (r.cantidad > 1 ? codigoHtml(r.desde) + '<br><small class="text-muted">a</small> ' + codigoHtml(r.hasta) : codigoHtml(r.desde)) : '<i class="text-muted">al registrar</i>';
+            filas += '<tr style="animation-delay:' + Math.min(i, 15) * 35 + 'ms"><td>' + (i + 1) + '</td><td>' + codigos + '</td>'
+                + '<td><div class="fw-semibold">' + esc(descripcionDe(b, b.series[0] || null)) + '</div>'
+                + (b.series.filter(Boolean).length > 1 ? '<small class="text-muted">+ ' + (b.series.filter(Boolean).length - 1) + ' serie(s) más</small>' : '')
+                + (($(this).data('fotos') || []).length ? '<div class="small text-muted"><i class="ti ti-photo"></i> ' + $(this).data('fotos').length + ' foto(s)</div>' : '') + '</td>'
+                + '<td>' + esc(g ? g.cod + ' - ' + g.nombre : '—') + '</td>'
+                + '<td class="text-center">' + b.cantidad + '</td><td class="text-end">' + esc(bs((b.valorUnitario || 0) * b.cantidad)) + '</td></tr>';
+        });
+        const tipo = st.tipo === 'PERSONA' ? 'Persona' : 'Institución';
+        const campo = function (et, v) { return '<div class="dn-campo"><small>' + et + '</small><span>' + (v ? esc(v) : '—') + '</span></div>'; };
+        $form.find('.js-resumen').html(
+            '<div class="dn-tarjetas">'
+            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-heart-handshake"></i> Donante</div>'
+            + campo(tipo, mayus($form.find('[name=donanteNombre]').val()))
+            + campo(st.tipo === 'PERSONA' ? 'C.I.' : 'NIT', mayus($form.find('[name=donanteDocumento]').val()))
+            + campo('Fecha', fechaBonita($form.find('[name=fechaDonacion]').val()))
+            + campo('Documento de respaldo', mayus($form.find('[name=documentoRespaldo]').val())) + '</div>'
+            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-map-pin"></i> Destino</div>'
+            + campo('Predio', textoSel($predio)) + campo('Oficina', textoSel($oficina))
+            + campo('Responsable', textoSel($resp)) + campo('Financiador', textoSel($fin)) + '</div>'
+            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-sum"></i> Totales</div>'
+            + campo('Bienes', String(bienes.length)) + campo('Unidades (activos que se crean)', String(unidades))
+            + campo('Valor referencial', bs(valor))
+            + '<div class="sm-aviso sm-aviso-info mt-2 mb-0 py-2"><i class="ti ti-cloud-off"></i><div class="small">Quedan <b>ACTIVOS</b> en el SCIAF. No se envían al VSIAF.</div></div></div>'
+            + '</div>'
+            + '<div class="dn-tabla-caja"><table class="dn-tabla"><thead><tr><th>#</th><th>Código(s)</th><th>Descripción</th><th>Grupo</th><th class="text-center">Cant.</th><th class="text-end">Subtotal</th></tr></thead><tbody>'
+            + filas + '</tbody></table></div>');
+    }
+
+    function armarPedido() {
+        return {
+            token: st.token,
+            revision: st.edicion ? st.edicion.revision : null,
+            donanteTipo: st.tipo,
+            donanteNombre: mayus($form.find('[name=donanteNombre]').val()),
+            donanteDocumento: mayus($form.find('[name=donanteDocumento]').val()) || null,
+            donanteContacto: ($form.find('[name=donanteContacto]').val() || '').trim() || null,
+            documentoRespaldo: mayus($form.find('[name=documentoRespaldo]').val()) || null,
+            fechaDonacion: $form.find('[name=fechaDonacion]').val(),
+            observacion: ($form.find('[name=observacion]').val() || '').trim() || null,
+            idOficina: Number($oficina.val()),
+            idResponsable: Number($resp.val()),
+            idOrganismoFinanciero: $fin.val() ? Number($fin.val()) : null,
+            bienes: leerBienes()
+        };
+    }
+
+    $raiz.on('click', '.js-registrar', async function () {
+        if (st.enviando) return;
+        for (let p = 1; p <= 3; p++) {
+            if (!validarPaso(p)) { irAPaso(p, true); return; }
+        }
+        const pedido = armarPedido();
+        // Las fotos se toman ahora, junto con el pedido: si se tomaran después de enviar, un
+        // bien quitado o duplicado durante el envío haría subirlas al ítem equivocado.
+        const fotos = $bienes.children('.dn-bien').map(function (i) {
+            return { item: i + 1, fotos: ($(this).data('fotos') || []).slice() };
+        }).get().filter(function (f) { return f.fotos.length; });
+        const unidades = pedido.bienes.reduce(function (s, b) { return s + b.cantidad; }, 0);
+        const ed = st.edicion;
+        const ok = await sciafConfirmar(ed ? {
+            titulo: '¿Guardar los cambios de ' + esc(ed.numero) + '?',
+            texto: 'El acta quedará con <b>' + unidades + '</b> bien(es). Los bienes que quitó o cuya cantidad bajó se <b>borran</b>; '
+                + 'los que cambiaron de grupo contable o de predio reciben <b>código nuevo</b> (si ya imprimió sus etiquetas, vuelva a imprimirlas).',
+            aceptar: 'Sí, guardar'
+        } : {
+            titulo: '¿Registrar la donación?',
+            texto: 'Se crearán <b>' + unidades + '</b> activo(s) con código <b>D</b> a cargo de <b>' + esc(textoSel($resp)) + '</b>.<br>'
+                + '<small>Donante: ' + esc(pedido.donanteNombre) + '. No se envían al VSIAF.</small>',
+            aceptar: 'Sí, registrar'
+        });
+        if (!ok) return;
+
+        const $btn = $(this);
+        st.enviando = true;
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> ' + (ed ? 'Guardando…' : 'Registrando…'));
+        try {
+            const r = await SciafModulo.pedirJson(ed ? URL + '/api/acta/' + ed.id + '/editar' : URL + '/api/registrar', { json: pedido });
+            if (!r.ok) throw new Error(r.msg || 'No se pudo registrar.');
+            const destino = { idPredio: $predio.val(), idOficina: $oficina.val(), resp: $resp.select2('data')[0], idFin: $fin.val() };
+            reiniciarAsistente();
+            st.idActa = r.idDonacion;
+            pintarExito(r, destino, !!ed);
+            recargarTabla();
+            // También en un reintento: el intento anterior nunca subió sus fotos (no recibió el
+            // número del acta). El servidor no deja pasar de 3 por bien.
+            if (fotos.length) subirFotosDelAlta(r.idDonacion, fotos);
+        } catch (e) {
+            if (!e.sesionPerdida) {
+                Swal.fire(ed ? 'No se guardaron los cambios' : 'No se pudo confirmar el registro', esc(e.message || 'Intente de nuevo.')
+                    + (ed ? '' : '<br><small>Puede volver a pulsar «Registrar»: si la donación ya se había guardado, no se duplica.</small>'), 'error');
+            }
+        } finally {
+            st.enviando = false;
+            $btn.prop('disabled', false).html(st.edicion ? '<i class="ti ti-device-floppy"></i> Guardar cambios' : '<i class="ti ti-gift"></i> Registrar donación');
+        }
+    });
+
+    /**
+     * Marca de este intento de registro: si la respuesta se pierde y se vuelve a pulsar
+     * Registrar, el servidor devuelve el acta ya creada en vez de duplicarla. Se renueva solo
+     * al empezar otra donación (crypto.randomUUID no existe fuera de https).
+     */
+    function nuevoToken() {
+        try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* http */ }
+        return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2, 8);
+    }
+
+    function reiniciarAsistente() {
+        st.token = nuevoToken();
+        st.edicion = null;
+        $form.find('.js-banner-edicion').addClass('d-none').empty();
+        $form.find('.js-nota-destino').addClass('d-none');
+        $predio.prop('disabled', false);
+        $form.find('.js-registrar').html('<i class="ti ti-gift"></i> Registrar donación');
+        $form[0].reset();
+        $form.find('.is-invalid').removeClass('is-invalid');
+        $bienes.find('select').each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
+        $bienes.children('.dn-bien').each(function () { liberarFotos($(this)); });
+        $bienes.empty();
+        ponerTipo('INSTITUCION');
+        $form.find('[name=fechaDonacion]').val(hoyLocal()).attr('max', hoyLocal());
+        $predio.val(null).trigger('change.select2');
+        $oficina.empty().append(new Option('', '')).prop('disabled', true).trigger('change.select2');
+        $resp.val(null).empty().prop('disabled', true).trigger('change.select2');
+        $fin.val(null).trigger('change.select2');
+        $form.find('.js-alta-oficina, .js-alta-resp').prop('disabled', true);
+        $form.find('.js-sub-oficina, .js-sub-resp').addClass('d-none');
+        pintarPrefijo();
+        $form.find('.js-resumen').empty();
+        $form.find('.js-totales').empty();
+    }
+
+    /** Pantalla de éxito con los códigos generados y la opción de seguir con el mismo destino. */
+    function pintarExito(r, destino, editado) {
+        const colores = ['#7c3aed', '#db2777', '#f59e0b', '#10b981', '#3b82f6', '#a855f7'];
+        let confeti = '';
+        for (let i = 0; i < 28; i++) {
+            const x = Math.round((Math.random() - .5) * 520) + 'px', y = Math.round(Math.random() * 260 + 40) + 'px';
+            confeti += '<span class="dn-confeti" style="background:' + colores[i % colores.length] + ';--x:' + x + ';--y:' + y
+                + ';--r:' + Math.round(Math.random() * 720) + 'deg;animation-delay:' + (i * 15) + 'ms"></span>';
+        }
+        let chips = '';
+        let k = 0;
+        (r.bienes || []).forEach(function (b) {
+            (b.codigos || []).forEach(function (c) { chips += '<span class="dn-chip" style="animation-delay:' + Math.min(k++, 40) * 25 + 'ms">' + codigoHtml(c) + '</span>'; });
+        });
+        $exito.html(
+            '<div class="dn-exito">' + confeti
+            + '<div class="dn-exito-icono"><i class="ti ti-check"></i></div>'
+            + '<h3 class="mb-1" style="color:var(--sm-texto)">' + (editado ? 'Cambios guardados en ' : 'Donación ')
+            + '<span style="color:var(--dn)">' + esc(r.numero) + '</span>' + (editado ? '' : ' registrada') + '</h3>'
+            + (r.repetido ? '<div class="sm-aviso sm-aviso-aviso text-start mx-auto" style="max-width:640px"><i class="ti ti-alert-triangle"></i><div>'
+                + esc(r.msg) + '</div></div>' : '')
+            + '<p class="text-muted">' + (editado ? 'El acta queda con ' + esc(r.cantidad) + ' bien(es). Sus códigos:'
+                : esc(r.cantidad) + ' activo(s) creados. Ya están vigentes en el SCIAF; no se enviaron al VSIAF.') + '</p>'
+            + '<div class="dn-codigos">' + chips + '</div>'
+            + '<div class="js-fotos-estado mb-3"></div>'
+            + '<div class="d-flex gap-2 justify-content-center flex-wrap">'
+            + '<button type="button" class="sm-btn sm-btn-neutro js-volver"><i class="ti ti-list"></i> Volver al listado</button>'
+            + '<button type="button" class="sm-btn sm-btn-suave js-copiar"><i class="ti ti-clipboard"></i> Copiar códigos</button>'
+            + '<button type="button" class="sm-btn sm-btn-suave js-etiquetas" data-id="' + r.idDonacion + '"><i class="ti ti-qrcode"></i> Imprimir etiquetas</button>'
+            + '<button type="button" class="sm-btn sm-btn-neutro js-ver-acta" data-id="' + r.idDonacion + '"><i class="ti ti-file-description"></i> Ver acta</button>'
+            + '<button type="button" class="sm-btn js-otra-mismo"><i class="ti ti-repeat"></i> Otra donación al mismo destino</button>'
+            + '</div></div>');
+        $exito.data('codigos', (r.bienes || []).flatMap(function (b) { return b.codigos || []; }));
+        $exito.data('destino', destino);
+        mostrar('exito');
+    }
+
+    $raiz.on('click', '.js-volver', function () { mostrar('listado'); });
+
+    $raiz.on('click', '.js-copiar', function () {
+        const lista = ($exito.data('codigos') || []).join('\n');
+        const listo = function () { Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Códigos copiados', showConfirmButton: false, timer: 1800 }); };
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(lista).then(listo, function () { Swal.fire('Códigos', '<pre class="text-start">' + esc(lista) + '</pre>'); });
+        else Swal.fire('Códigos', '<pre class="text-start">' + esc(lista) + '</pre>');
+    });
+    $raiz.on('click', '.js-ver-acta', function () { abrirActa(Number($(this).data('id'))); });
+    $raiz.on('click', '.js-otra-mismo', async function () {
+        const d = $exito.data('destino') || {};
+        reiniciarAsistente();
+        st.idActa = null;
+        mostrar('asistente');
+        irAPaso(1);
+        if (d.idPredio) {
+            $predio.val(d.idPredio).trigger('change.select2');
+            pintarPrefijo();
+            await cargarOficinas(d.idPredio, d.idOficina);
+            $form.find('.js-alta-oficina').prop('disabled', false);
+            $form.find('.js-alta-resp').prop('disabled', !d.idOficina);
+            if (d.resp && d.resp.id) {
+                $resp.prop('disabled', false).append(new Option(d.resp.text, d.resp.id, true, true)).trigger('change.select2');
+            }
+            if (d.idFin) $fin.val(d.idFin).trigger('change.select2');
+        }
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Detalle de un acta
+    // ════════════════════════════════════════════════════════════
+
+    /** Abre el acta en la ventana de detalle (la tabla queda detrás). */
+    async function abrirActa(id) {
+        st.idActa = id;
+        $detalle.html('<div class="js-cargando-acta" style="min-height:320px"></div>');
+        bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+        const carga = SciafPrecarga.montar($detalle.find('.js-cargando-acta'), { compacta: true, texto: 'Abriendo la donación…', alReintentar: function () { abrirActa(id); } });
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/acta/' + encodeURIComponent(id), { metodo: 'GET' });
+            const d = await r.json();
+            if (!r.ok || d.ok === false) throw new Error(d.msg || 'No se pudo abrir.');
+            carga.cerrar();
+            pintarActa(d);
+        } catch (e) {
+            if (!e.sesionPerdida) carga.error('No se pudo abrir la donación', e.message || '');
+        }
+    }
+
+    function pintarActa(d) {
+        const campo = function (et, v) { return '<div class="dn-campo"><small>' + et + '</small><span>' + (v != null && v !== '' ? esc(v) : '—') + '</span></div>'; };
+        const anulada = d.estado === 'ANULADA';
+        const fotos = d.fotos || {};
+        let filas = '';
+        // Unidades de un mismo bien comparten el número de ítem: se muestran 1·1, 1·2…
+        const porItem = {}, vistos = {}, base = {};
+        (d.bienes || []).forEach(function (b) { porItem[b.item] = (porItem[b.item] || 0) + 1; if (!base[b.item]) base[b.item] = b.descripcionBase || b.descripcion; });
+        (d.bienes || []).forEach(function (b, i) {
+            vistos[b.item] = (vistos[b.item] || 0) + 1;
+            const nro = porItem[b.item] > 1 ? b.item + '·' + vistos[b.item] : String(b.item);
+            const detalle = [b.material ? 'Material: ' + b.material : null, b.dimensiones ? 'Medidas: ' + b.dimensiones : null]
+                .filter(Boolean).map(esc).join(' · ');
+            const nf = (fotos[b.item] || []).length;
+            filas += '<tr style="animation-delay:' + Math.min(i, 20) * 25 + 'ms">'
+                + '<td class="text-nowrap">' + esc(nro) + '</td>'
+                + '<td>' + codigoHtml(b.codigo) + (b.estado && b.estado !== 'ACTIVO' ? '<br><span class="sm-pastilla sm-pastilla-peligro">' + esc(b.estado) + '</span>' : '') + '</td>'
+                + '<td><div class="fw-semibold">' + esc(b.descripcion) + '</div>'
+                + (detalle ? '<small class="text-muted">' + detalle + '</small>' : '')
+                + (b.caracteristicas ? '<div class="small text-muted" style="white-space:pre-line">' + esc(b.caracteristicas) + '</div>' : '')
+                + (nf ? '<div class="small text-muted"><i class="ti ti-photo"></i> ' + nf + ' foto(s)</div>' : '') + '</td>'
+                + '<td>' + esc(b.grupo || '—') + (b.auxiliar ? '<br><small class="text-muted">' + esc(b.auxiliar) + '</small>' : '') + '</td>'
+                + '<td>' + esc(b.conservacion || '—') + '</td>'
+                + '<td class="text-end">' + esc(bs(b.valor)) + '</td>'
+                + '<td><small>' + esc(b.oficinaActual || '—') + '<br>' + esc(b.responsableActual || '') + '</small>'
+                + (b.movido ? '<br><span class="dn-movido"><i class="ti ti-arrows-exchange"></i> movido desde el alta</span>' : '') + '</td></tr>';
+        });
+
+        // Fotos por ítem (las comparten sus unidades); se agregan o quitan aquí mismo.
+        let galeria = '';
+        Object.keys(porItem).sort(function (a, b) { return a - b; }).forEach(function (item) {
+            const lista = fotos[item] || [];
+            let html = '';
+            lista.forEach(function (f) {
+                html += '<div class="dn-foto"><img src="' + esc(f.url) + '" alt="Foto del bien ' + esc(item) + '" class="js-foto-ver" data-url="' + esc(f.url) + '" loading="lazy">'
+                    + (anulada ? '' : '<button type="button" class="dn-foto-quitar js-foto-quitar" data-id="' + esc(f.id) + '" title="Quitar foto"><i class="ti ti-x"></i></button>') + '</div>';
+            });
+            if (!anulada && lista.length < MAX_FOTOS) {
+                html += '<label class="dn-foto-add" title="Agregar fotos"><input type="file" class="d-none js-foto-detalle" data-item="' + esc(item)
+                    + '" accept="image/jpeg,image/png,image/webp" multiple><i class="ti ti-camera-plus"></i><span>Agregar</span></label>';
+            }
+            if (!html) html = '<span class="text-muted small">Sin fotos.</span>';
+            galeria += '<div class="dn-foto-item"><div class="dn-foto-item-tit">Bien ' + esc(item) + ' · ' + esc(base[item] || '')
+                + ' <small class="text-muted fw-normal">(' + lista.length + ' de ' + MAX_FOTOS + ')</small></div><div class="dn-fotos">' + html + '</div></div>';
+        });
+
+        $detalle.html(
+            '<div class="sm-detalle-head">'
+            + '<div class="sm-cabecera-icono dn-icono"><i class="ti ti-gift"></i></div>'
+            + '<div class="flex-grow-1"><span class="sm-detalle-kicker">Acta de donación · ' + (anulada ? '<span class="dn-anulada">ANULADA</span>' : '<span class="dn-vigente">VIGENTE</span>') + '</span>'
+            + '<h5 class="sm-modal-titulo" style="color:var(--dn)">' + esc(d.numero) + '</h5>'
+            + '<small>' + esc(fechaBonita(d.fecha)) + ' · ' + esc(d.cantidad) + ' bien(es) · ' + esc(bs(d.valor)) + ' · registrada por ' + esc(d.usuario || '—') + '</small></div>'
+            + '<div class="d-flex gap-2 flex-wrap justify-content-end">'
+            + (anulada ? '' : '<button type="button" class="sm-btn sm-btn-suave js-imprimir"><i class="ti ti-printer"></i> Imprimir acta</button>'
+                + '<button type="button" class="sm-btn sm-btn-suave js-etiquetas" data-id="' + d.id + '"><i class="ti ti-qrcode"></i> Etiquetas</button>')
+            + (!anulada && d.edicion ? '<button type="button" class="sm-btn js-editar"><i class="ti ti-edit"></i> Editar</button>' : '')
+            + (!anulada && INICIAL.esAdmin ? '<button type="button" class="sm-btn sm-btn-neutro js-anular" data-id="' + d.id + '" title="Deja el acta y sus bienes como registro (CANCELADO)"><i class="ti ti-ban"></i> Anular</button>' : '')
+            + (INICIAL.esAdmin && d.eliminable ? '<button type="button" class="sm-btn sm-btn-peligro js-eliminar" title="Borra el acta y sus bienes y libera su número y sus códigos"><i class="ti ti-trash"></i> Eliminar</button>' : '')
+            + '</div>'
+            + '<button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Cerrar"></button>'
+            + '</div>'
+            + '<div class="sm-detalle-scroll">'
+            + (anulada ? '<div class="sm-aviso sm-aviso-peligro mb-3"><i class="ti ti-ban"></i><div><b>Donación ANULADA</b> el '
+                + esc(fechaBonita(d.fechaAnulacion)) + ' por ' + esc(d.usuarioAnulacion || '—') + '. Motivo: ' + esc(d.motivoAnulacion || '—')
+                + '<br><small>Sus bienes quedaron CANCELADOS; sus códigos D no se vuelven a usar.</small></div></div>' : '')
+            + '<div class="dn-tarjetas">'
+            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-heart-handshake"></i> Donante</div>'
+            + campo(d.donanteTipo === 'PERSONA' ? 'Persona' : 'Institución', d.donante)
+            + campo(d.donanteTipo === 'PERSONA' ? 'C.I.' : 'NIT', d.donanteDocumento)
+            + campo('Contacto', d.donanteContacto) + campo('Documento de respaldo', d.documentoRespaldo) + '</div>'
+            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-map-pin"></i> Destino al registrar</div>'
+            + campo('Predio', d.predio) + campo('Oficina', d.oficina) + campo('Responsable', d.responsable) + '</div>'
+            + (d.observacion ? '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-notes"></i> Observación</div><div style="white-space:pre-line">' + esc(d.observacion) + '</div></div>' : '')
+            + '</div>'
+            + '<div class="dn-sub"><i class="ti ti-package"></i> Bienes</div>'
+            + '<div class="dn-tabla-caja"><table class="dn-tabla"><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Grupo / auxiliar</th><th>Conservación</th><th class="text-end">Valor</th><th>Dónde está hoy</th></tr></thead><tbody>'
+            + filas + '</tbody></table></div>'
+            + '<div class="dn-sub"><i class="ti ti-photo"></i> Fotografías</div>'
+            + galeria
+            + '</div>');
+        $detalle.data('acta', d);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  Fotografías
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Reduce la foto en el navegador (lado mayor 1600 px, JPG 85 %) antes de subirla: una
+     * foto de celular de 4-8 MB queda en unos cientos de KB. Si el navegador no puede, va tal cual.
+     */
+    async function reducirImagen(file) {
+        const LADO = 1600;
+        try {
+            if (!window.createImageBitmap || !/^image\//.test(file.type)) throw new Error('sin soporte');
+            const img = await createImageBitmap(file);
+            const k = Math.min(1, LADO / Math.max(img.width, img.height));
+            const c = document.createElement('canvas');
+            c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            const blob = await new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.85); });
+            if (!blob) throw new Error('sin blob');
+            return { blob: blob, nombre: (file.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg' };
+        } catch (e) {
+            return { blob: file, nombre: file.name || 'foto.jpg' };
+        }
+    }
+
+    function esImagenValida(file) {
+        return /^image\/(jpeg|png|webp)$/.test(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name || '');
+    }
+
+    // ── En la tarjeta del bien (asistente): se guardan en memoria y se suben al registrar ──
+    function pintarFotosBien($b) {
+        const lista = $b.data('fotos') || [];
+        const $c = $b.find('.js-fotos');
+        $c.find('.dn-foto').remove();
+        lista.forEach(function (f, i) {
+            $('<div class="dn-foto">')
+                .append($('<img alt="Foto">').attr('src', f.url).addClass('js-foto-ver').attr('data-url', f.url))
+                .append('<button type="button" class="dn-foto-quitar js-foto-mem-quitar" data-i="' + i + '" title="Quitar foto"><i class="ti ti-x"></i></button>')
+                .insertBefore($c.find('.js-foto-add'));
+        });
+        $c.find('.js-foto-add').toggleClass('oculto', lista.length >= MAX_FOTOS);
+    }
+
+    function liberarFotos($b) {
+        ($b.data('fotos') || []).forEach(function (f) { if (f.propia) { try { URL_OBJ.revokeObjectURL(f.url); } catch (e) { /* ya liberada */ } } });
+        $b.data('fotos', []);
+    }
+    const URL_OBJ = window.URL || window.webkitURL;
+
+    $raiz.on('change', '.js-foto-input', async function () {
+        const $b = $(this).closest('.dn-bien');
+        const lista = ($b.data('fotos') || []).slice();
+        const archivos = Array.from(this.files || []);
+        this.value = '';
+        const malas = archivos.filter(function (f) { return !esImagenValida(f); });
+        if (malas.length) avisoFalta('Solo se aceptan fotos JPG, PNG o WEBP.');
+        for (const f of archivos.filter(esImagenValida)) {
+            if (lista.length >= MAX_FOTOS) { avisoFalta('Cada bien admite hasta ' + MAX_FOTOS + ' fotos.'); break; }
+            const r = await reducirImagen(f);
+            lista.push({ blob: r.blob, nombre: r.nombre, url: URL_OBJ.createObjectURL(r.blob), propia: true });
+        }
+        $b.data('fotos', lista);
+        pintarFotosBien($b);
+    });
+    $raiz.on('click', '.js-foto-mem-quitar', function () {
+        const $b = $(this).closest('.dn-bien');
+        const lista = ($b.data('fotos') || []).slice();
+        const f = lista.splice(Number($(this).data('i')), 1)[0];
+        if (f && f.propia) { try { URL_OBJ.revokeObjectURL(f.url); } catch (e) { /* ya liberada */ } }
+        $b.data('fotos', lista);
+        pintarFotosBien($b);
+    });
+
+    /** Visor simple: la foto en grande. */
+    $raiz.on('click', '.js-foto-ver', function () {
+        Swal.fire({ imageUrl: $(this).attr('data-url'), imageAlt: 'Foto del bien', showConfirmButton: false, showCloseButton: true,
+                    width: 'min(92vw, 1000px)', padding: '0.5rem', background: 'var(--sm-superficie)' });
+    });
+
+    async function enviarFotos(idDonacion, item, fotos) {
+        const fd = new FormData();
+        fd.append('item', item);
+        fotos.forEach(function (f) { fd.append('fotos', f.blob, f.nombre); });
+        const res = await SciafModulo.pedirJson(URL + '/api/acta/' + idDonacion + '/fotos', { datos: fd });
+        if (!res.ok) throw new Error(res.msg || 'No se pudieron guardar las fotos.');
+        return res;
+    }
+
+    /** Tras el alta: sube las fotos de cada bien y lo informa en la pantalla de éxito. */
+    async function subirFotosDelAlta(idDonacion, porItem) {
+        const $e = $exito.find('.js-fotos-estado');
+        const total = porItem.reduce(function (s, x) { return s + x.fotos.length; }, 0);
+        let hechas = 0;
+        const fallas = [];
+        $e.html('<div class="sm-aviso sm-aviso-info d-inline-flex"><span class="spinner-border spinner-border-sm"></span><div class="js-fotos-txt">Subiendo fotos 0 de ' + total + '…</div></div>');
+        for (const x of porItem) {
+            try { await enviarFotos(idDonacion, x.item, x.fotos); hechas += x.fotos.length; }
+            catch (err) { fallas.push('Bien ' + x.item + ': ' + (err.sesionPerdida ? 'la sesión se cerró' : (err.message || 'error'))); }
+            $e.find('.js-fotos-txt').text('Subiendo fotos ' + hechas + ' de ' + total + '…');
+            x.fotos.forEach(function (f) { if (f.propia) { try { URL_OBJ.revokeObjectURL(f.url); } catch (e2) { /* ya liberada */ } } });
+        }
+        $e.html(fallas.length
+            ? '<div class="sm-aviso sm-aviso-aviso d-inline-flex text-start"><i class="ti ti-alert-triangle"></i><div>Se guardaron ' + hechas + ' de ' + total
+                + ' fotos. La donación sí quedó registrada; agregue las que faltan desde «Ver acta».<br><small>' + fallas.map(esc).join('<br>') + '</small></div></div>'
+            : '<div class="sm-aviso sm-aviso-exito d-inline-flex"><i class="ti ti-photo-check"></i><div>' + hechas + ' foto(s) guardada(s).</div></div>');
+    }
+
+    // ── En el detalle del acta: agregar o quitar sobre lo ya registrado ──
+    $raiz.on('change', '.js-foto-detalle', async function () {
+        const d = $detalle.data('acta');
+        const item = Number($(this).data('item'));
+        const archivos = Array.from(this.files || []).filter(esImagenValida);
+        this.value = '';
+        if (!d || !archivos.length) { avisoFalta('Solo se aceptan fotos JPG, PNG o WEBP.'); return; }
+        const ya = ((d.fotos || {})[item] || []).length;
+        if (ya + archivos.length > MAX_FOTOS) { avisoFalta('Cada bien admite hasta ' + MAX_FOTOS + ' fotos (ya tiene ' + ya + ').'); return; }
+        const $lbl = $(this).closest('.dn-foto-add').css('opacity', .5);
+        try {
+            const fotos = [];
+            for (const f of archivos) fotos.push(await reducirImagen(f));
+            await enviarFotos(d.id, item, fotos);
+            abrirActa(d.id);
+        } catch (e) {
+            $lbl.css('opacity', 1);
+            if (!e.sesionPerdida) Swal.fire('No se guardaron las fotos', esc(e.message || ''), 'error');
+        }
+    });
+    $raiz.on('click', '.js-foto-quitar', async function () {
+        const d = $detalle.data('acta');
+        if (!d) return;
+        const ok = await sciafConfirmar({ titulo: '¿Quitar esta foto?', texto: 'Deja de mostrarse en el acta.', aceptar: 'Quitar', peligrosa: true });
+        if (!ok) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/foto/' + encodeURIComponent($(this).data('id')) + '/quitar', {});
+            if (!res.ok) throw new Error(res.msg);
+            abrirActa(d.id);
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se quitó la foto', esc(e.message || ''), 'error');
+        }
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Editar y eliminar un acta
+    // ════════════════════════════════════════════════════════════
+
+    $raiz.on('click', '.js-editar', function () { abrirEdicion($detalle.data('acta')); });
+
+    /** Abre el asistente con el acta cargada para corregir cualquier dato. */
+    async function abrirEdicion(d) {
+        const e = d && d.edicion;
+        if (!e) return;
+        bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+        reiniciarAsistente();
+        st.edicion = { id: d.id, numero: d.numero, idPredio: e.idPredio, destinoBloqueado: !!e.destinoBloqueado, revision: e.revision || 0 };
+        // Borrar activos (quitar bienes, bajar cantidades, rehacer códigos) es de administradores.
+        const soloDatos = !INICIAL.esAdmin;
+        $form.find('.js-banner-edicion').removeClass('d-none').html('<i class="ti ti-edit"></i><div>Editando la donación <b>'
+            + esc(d.numero) + '</b>. Los bienes conservan su código salvo que cambie su grupo contable o el predio. '
+            + (soloDatos ? 'Puede corregir datos y agregar bienes; quitar bienes o bajar cantidades lo hace un administrador.'
+                         : 'Lo que quite o reduzca se borra al guardar.') + '</div>');
+        $form.find('.js-registrar').html('<i class="ti ti-device-floppy"></i> Guardar cambios');
+
+        // Paso 1
+        ponerTipo(e.donanteTipo || 'INSTITUCION');
+        $form.find('[name=donanteNombre]').val(e.donanteNombre || '');
+        $form.find('[name=donanteDocumento]').val(e.donanteDocumento || '');
+        $form.find('[name=donanteContacto]').val(e.donanteContacto || '');
+        $form.find('[name=documentoRespaldo]').val(e.documentoRespaldo || '');
+        $form.find('[name=fechaDonacion]').val(e.fechaDonacion || hoyLocal());
+        $form.find('[name=observacion]').val(e.observacion || '');
+
+        // Paso 2
+        $predio.val(e.idPredio != null ? String(e.idPredio) : null).trigger('change.select2');
+        pintarPrefijo();
+        await cargarOficinas(e.idPredio, e.idOficina);
+        if (e.idResponsable) $resp.prop('disabled', false).append(new Option(e.responsableTexto || '', e.idResponsable, true, true)).trigger('change.select2');
+        if (e.idOrganismoFinanciero) $fin.val(String(e.idOrganismoFinanciero)).trigger('change.select2');
+        const bloq = st.edicion.destinoBloqueado;
+        $predio.prop('disabled', bloq || soloDatos);   // otro predio rehace todos los códigos
+        $oficina.prop('disabled', bloq);
+        $resp.prop('disabled', bloq);
+        $form.find('.js-alta-oficina').prop('disabled', bloq);
+        $form.find('.js-alta-resp').prop('disabled', bloq || !e.idOficina);
+        $form.find('.js-nota-destino').toggleClass('d-none', !bloq);
+
+        // Paso 3: una tarjeta por bien, con sus códigos actuales
+        (e.bienes || []).forEach(function (it) {
+            const $b = agregarBien(it);
+            $b.find('.js-series').val((it.series || []).join('\n'));
+            $b.data('itemOriginal', it.item).data('codigos', it.codigos || []).data('conVida', it.conVida || 0)
+              .data('cantidadOriginal', it.cantidad).data('grupoOriginal', it.idGrupoContable);
+            $b.find('.js-fotos, .js-foto-add').addClass('d-none');
+            $b.find('.js-fotos-nota').removeClass('d-none');
+            $b.data('unidadesConVida', it.unidadesConVida || []);
+            if (it.conVida > 0 || soloDatos) {
+                $b.find('.js-grupo').prop('disabled', true);
+                $b.find('.js-quitar').prop('disabled', true);
+                $b.data('cantidadMinima', it.cantidad);
+            }
+            if (it.conVida > 0) {
+                $b.find('.js-nota-vida').removeClass('d-none').html('<i class="ti ti-lock"></i><div class="small">' + esc(it.conVida)
+                    + ' unidad(es) ya tienen movimientos (se movieron, se dieron de baja o están en un acta): <b>no se modifican</b> al guardar; '
+                    + 'corríjalas desde Registro de activos. Tampoco se puede cambiar el grupo contable ni bajar la cantidad de ' + esc(it.cantidad) + '.</div>');
+            }
+            refrescarBien($b);
+        });
+        renumerar();
+        mostrar('asistente');
+        irAPaso(1);
+        actualizarCodigos();
+    }
+
+    // Eliminar: solo un acta sin uso (el servidor lo comprueba); se escribe el número para confirmar.
+    $raiz.on('click', '.js-eliminar', async function () {
+        const d = $detalle.data('acta');
+        if (!d) return;
+        const r = await Swal.fire({
+            title: 'Eliminar la donación ' + esc(d.numero),
+            html: '<p class="text-start mb-2" style="font-size:.9rem">Se <b>borran</b> el acta, sus <b>' + esc(d.cantidad) + '</b> bien(es) y sus fotos. '
+                + 'El número del acta y los códigos D quedan <b>libres</b> para volver a usarse. No se puede deshacer.</p>'
+                + '<p class="text-start mb-2" style="font-size:.85rem">Si ya imprimió y pegó sus etiquetas, retírelas: esos códigos se darán a otros bienes. '
+                + 'Y el número <b>' + esc(d.numero) + '</b> podrá darse a otra acta: si el acta en papel ya se firmó, no la elimine, <b>anúlela</b>.</p>'
+                + '<label class="form-label small text-start d-block">Escriba <b>' + esc(d.numero) + '</b> para confirmar</label>'
+                + '<input id="dn-confirma" class="form-control" autocomplete="off">',
+            icon: 'warning', showCancelButton: true, focusCancel: true,
+            confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar',
+            customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-label-secondary ms-2' }, buttonsStyling: false,
+            preConfirm: function () {
+                const v = (document.getElementById('dn-confirma').value || '').trim().toUpperCase();
+                if (v !== String(d.numero).toUpperCase()) { Swal.showValidationMessage('Escriba ' + d.numero); return false; }
+                return v;
+            }
+        });
+        if (!r.isConfirmed) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/acta/' + d.id + '/eliminar', { json: { confirmacion: r.value } });
+            if (!res.ok) throw new Error(res.msg);
+            bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            recargarTabla();
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 4000 });
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se eliminó', esc(e.message || 'Intente de nuevo.'), 'error');
+        }
+    });
+
+    // Etiquetas con QR (PDF del servidor, en otra pestaña)
+    $raiz.on('click', '.js-etiquetas', function () {
+        window.open(URL + '/api/acta/' + encodeURIComponent($(this).data('id')) + '/etiquetas', '_blank', 'noopener');
+    });
+
+    // Anular una donación registrada por error (solo administradores; el servidor lo valida).
+    $raiz.on('click', '.js-anular', async function () {
+        const d = $detalle.data('acta');
+        if (!d) return;
+        const r = await Swal.fire({
+            title: 'Anular la donación ' + esc(d.numero),
+            html: '<p class="text-start mb-2" style="font-size:.9rem">El acta queda <b>ANULADA</b> (no se borra) y sus <b>' + esc(d.cantidad)
+                + '</b> bien(es) pasan a <b>CANCELADO</b> (sus códigos D no se vuelven a usar, por si ya tenían etiqueta). '
+                + 'No se puede si algún bien ya se movió, se asignó, está en un levantamiento abierto o tiene un faltante. Es irreversible.</p>'
+                + '<textarea id="dn-motivo" class="form-control" rows="3" placeholder="Motivo (por ejemplo: registrada por error, duplicada…)"></textarea>',
+            icon: 'warning', showCancelButton: true, focusCancel: true,
+            confirmButtonText: 'Anular donación', cancelButtonText: 'Cancelar',
+            customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-label-secondary ms-2' }, buttonsStyling: false,
+            preConfirm: function () {
+                const m = (document.getElementById('dn-motivo').value || '').trim();
+                if (!m) { Swal.showValidationMessage('Indique el motivo'); return false; }
+                return m;
+            }
+        });
+        if (!r.isConfirmed) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/acta/' + d.id + '/anular', { json: { motivo: r.value } });
+            if (!res.ok) throw new Error(res.msg);
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 3500 });
+            recargarTabla();
+            abrirActa(d.id);
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se anuló', esc(e.message || 'Intente de nuevo.'), 'error');
+        }
+    });
+
+    /** Acta imprimible en una ventana aparte (sin servidor: se arma con lo que ya llegó). */
+    $raiz.on('click', '.js-imprimir', function () {
+        const d = $detalle.data('acta');
+        if (!d) return;
+        const filas = (d.bienes || []).map(function (b) {
+            return '<tr><td>' + esc(b.item) + '</td><td style="white-space:nowrap"><b>' + esc(b.codigo) + '</b></td><td>' + esc(b.descripcion)
+                + (b.caracteristicas ? '<br><small>' + esc(b.caracteristicas) + '</small>' : '') + '</td><td>' + esc(b.conservacion || '') + '</td><td style="text-align:right">' + esc(bs(b.valor)) + '</td></tr>';
+        }).join('');
+        const w = window.open('', '_blank');
+        if (!w) { Swal.fire('Ventana bloqueada', 'Permita las ventanas emergentes para imprimir.', 'info'); return; }
+        w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(d.numero) + '</title><style>'
+            + 'body{font-family:Arial,sans-serif;font-size:12px;margin:28px;color:#111}h1{font-size:17px;text-align:center;margin:0}'
+            + '.sub{text-align:center;margin:4px 0 18px;color:#444}table{width:100%;border-collapse:collapse;margin-top:10px}'
+            + 'th,td{border:1px solid #999;padding:5px;vertical-align:top}th{background:#eee}.datos td{border:0;padding:2px 6px}'
+            + '.firmas{display:flex;justify-content:space-around;margin-top:70px}.firmas div{border-top:1px solid #000;width:220px;text-align:center;padding-top:4px}'
+            + '</style></head><body>'
+            + '<h1>ACTA DE RECEPCIÓN DE BIENES EN DONACIÓN</h1><div class="sub">' + esc(d.numero) + ' · Universidad Amazónica de Pando</div>'
+            + '<table class="datos"><tr><td><b>Donante:</b> ' + esc(d.donante) + '</td><td><b>' + (d.donanteTipo === 'PERSONA' ? 'C.I.' : 'NIT') + ':</b> ' + esc(d.donanteDocumento || '—') + '</td></tr>'
+            + '<tr><td><b>Fecha de donación:</b> ' + esc(fechaBonita(d.fecha)) + '</td><td><b>Documento de respaldo:</b> ' + esc(d.documentoRespaldo || '—') + '</td></tr>'
+            + '<tr><td><b>Oficina:</b> ' + esc(d.oficina || '—') + '</td><td><b>Responsable:</b> ' + esc(d.responsable || '—') + '</td></tr></table>'
+            + '<table><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Estado</th><th>Valor ref.</th></tr></thead><tbody>' + filas
+            + '<tr><td colspan="4" style="text-align:right"><b>TOTAL (' + esc(d.cantidad) + ' bienes)</b></td><td style="text-align:right"><b>' + esc(bs(d.valor)) + '</b></td></tr></tbody></table>'
+            + (d.observacion ? '<p><b>Observación:</b> ' + esc(d.observacion) + '</p>' : '')
+            + '<div class="firmas"><div>ENTREGUÉ CONFORME<br>' + esc(d.donante) + '</div><div>RECIBÍ CONFORME<br>' + esc((d.responsable || '').replace(/^.*— /, '')) + '</div></div>'
+            + '<script>window.onload=function(){window.print();}<\/script></body></html>');
+        w.document.close();
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Arranque
+    // ════════════════════════════════════════════════════════════
+
+    pintarTotales(INICIAL.totales);
+    reiniciarAsistente();
+    iniciarTabla();
+    mostrar('listado');
+    SciafModulo.ajustarAlto($panel, 12);
+})();
+</script>

@@ -891,6 +891,12 @@ public class ActivosController {
                     activoOriginal.getCodigo(), "Modificó el activo " + activoOriginal.getCodigo(),
                     activoOriginal.getIdActivo());
 
+            // Bien donado (código …-D00001): existe solo en el SCIAF, no hay nada que enviar.
+            if (estabaActivo && activoOriginal.esSoloSciaf()) {
+                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", Activo.SINC_NO_APLICA,
+                        "msg", "Cambios guardados. Es un bien donado: existe solo en el SCIAF y no se envía al VSIAF."));
+            }
+
             if (estabaActivo) {
                 try {
 
@@ -1015,6 +1021,13 @@ public class ActivosController {
             }
             if (nuevoCodigo.equalsIgnoreCase(codigoOriginal)) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "El nuevo código es igual al actual."));
+            }
+            // Un bien donado lleva la serie D, propia del SCIAF: pasarlo a un número de la serie
+            // normal lo haría chocar con lo que el VSIAF asigne a ese número (y la
+            // sincronización de ACTUAL le sobrescribiría los datos).
+            if (activo.esSoloSciaf()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código de un bien donado (serie D) no se cambia: existe solo en el SCIAF."));
             }
             if (!nuevoCodigo.matches("^[^-]+-[^-]+-[0-9]+-[0-9]+$")) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false,
@@ -1542,12 +1555,17 @@ public class ActivosController {
             // ── Orden: 1) oficina destino, 2) responsable destino, 3) ACTUAL ───────
             // Si la oficina destino se creó al vuelo y sigue pendiente, sale primero ella.
             // La cola se aplica en el orden en que se deja, así el ACTUAL nunca llega antes.
-            List<String> avisosDependencias = vsiafApoyoService.asegurarEnVsiaf(ofDestino, null, usuNombre);
+            // Si solo se mueven bienes donados (solo SCIAF), no hay nada que mandar: ni el
+            // ACTUAL ni la oficina/responsable destino, que pueden estar pendientes a propósito
+            // (alta desde Donaciones a la espera de que un administrador los suba).
+            boolean soloDonaciones = !acos.isEmpty() && acos.stream().allMatch(ac -> ac.activo.esSoloSciaf());
+            List<String> avisosDependencias = soloDonaciones ? List.of()
+                    : vsiafApoyoService.asegurarEnVsiaf(ofDestino, null, usuNombre);
 
             // ── Sincronizar Responsable destino si es nuevo ───────────────────────
             try {
                 Short codOfic = ofDestino.getCodOfi();
-                if (codOfic != null && respDestino.getCodigoFuncionario() != null) {
+                if (!soloDonaciones && codOfic != null && respDestino.getCodigoFuncionario() != null) {
                     String onlyDigits = respDestino.getCodigoFuncionario().replaceAll("\\D+", "");
                     if (!onlyDigits.isEmpty()) {
                         Integer codResp = Integer.valueOf(onlyDigits);
@@ -1966,7 +1984,10 @@ public class ActivosController {
                             rangoCodigos(codigosAsig)), codigosAsig.size(), null);
 
             // ── Orden: 1) oficina, 2) responsable destino, 3) ACTUAL ──────────────────────
-            List<String> avisosDependencias = vsiafApoyoService.asegurarEnVsiaf(oficina, null, usuNombre);
+            // Solo bienes donados (solo SCIAF): nada que mandar, ni la oficina/responsable destino.
+            boolean soloDonaciones = !activos.isEmpty() && activos.stream().allMatch(Activo::esSoloSciaf);
+            List<String> avisosDependencias = soloDonaciones ? List.of()
+                    : vsiafApoyoService.asegurarEnVsiaf(oficina, null, usuNombre);
 
             // ── Sincronizar Responsable destino si es nuevo (apiEstado == 1) ──────────────
             try {
@@ -1980,7 +2001,7 @@ public class ActivosController {
                                 ? oficina.getPredio().getEntidad().getEntidadCodigo() : "";
                 }
                 Short codOfic = oficina.getCodOfi();
-                if (codOfic != null && respDestino.getCodigoFuncionario() != null) {
+                if (!soloDonaciones && codOfic != null && respDestino.getCodigoFuncionario() != null) {
                     String onlyDigits = respDestino.getCodigoFuncionario().replaceAll("\\D+", "");
                     if (!onlyDigits.isEmpty()) {
                         Integer codResp = Integer.valueOf(onlyDigits);

@@ -1291,10 +1291,14 @@
                 // Una regularización no movió nada: se anula mientras no haya resueltos.
                 var esReg = (a.numero || '').indexOf('AR-') === 0;
                 // Una reiterativa tampoco movió nada: al anularla, sus faltantes vuelven a la que reiteraba.
+                // Si lo trasladado a la custodia son solo bienes donados (no están en el VSIAF),
+                // también se anula: vuelven a quien los tenía, solo dentro del SCIAF.
+                var soloDonados = (a.enCustodia || a.enviados) && !a.movidosVsiaf;
                 if (a.estadoActa === 'VIGENTE' && !a.resueltos && !reiterada &&
-                    (esReg || a.numeroReiterativa > 0 || (!a.enCustodia && !a.enviados))) {
+                    (esReg || a.numeroReiterativa > 0 || (!a.enCustodia && !a.enviados) || soloDonados)) {
                     acciones += ' <button class="sm-btn sm-btn-sm sm-btn-peligro cf-acta-anular" data-id="' + a.idActa +
-                                '" data-numero="' + esc(numDoc(a.numero)) + '" title="Anular"><i class="ti ti-ban"></i></button>';
+                                '" data-numero="' + esc(numDoc(a.numero)) + '" data-donados="' + (soloDonados ? 1 : 0) +
+                                '" title="Anular"><i class="ti ti-ban"></i></button>';
                 }
                 return '<tr>' +
                     '<td><span class="cf-cod">' + esc(numDoc(a.numero)) + '</span>' +
@@ -1327,12 +1331,15 @@
 
         $(document).on('click.cf', '#cf-wrap .cf-acta-anular', function () {
             var id = $(this).data('id'), numero = $(this).data('numero');
+            var donados = Number($(this).data('donados')) === 1;
             if (!window.Swal) { aviso('Anular', 'Se necesita SweetAlert para anular.', 'error'); return; }
             Swal.fire({
                 title: 'Anular el acta ' + numero,
                 html: '<p class="mb-2" style="font-size:.9rem;">El acta queda como <b>ANULADA</b> (no se borra: la verificación '
                     + 'por QR lo mostrará). Sus faltantes vuelven a quedar sin registrar; si es una <b>reiterativa</b>, '
                     + 'vuelven a la notificación que reiteraba.</p>'
+                    + (donados ? '<p class="mb-2 text-start" style="font-size:.88rem;"><b>Bienes donados en la custodia:</b> vuelven a la '
+                        + 'oficina y al responsable que los tenían (solo en el SCIAF; no están en el VSIAF).</p>' : '')
                     + '<textarea id="sw-motivo" class="form-control" rows="3" placeholder="Motivo de la anulación"></textarea>',
                 icon: 'warning', showCancelButton: true, focusCancel: true,
                 confirmButtonText: 'Anular acta', cancelButtonText: 'Cancelar',
