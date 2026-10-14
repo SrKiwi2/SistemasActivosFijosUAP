@@ -3,26 +3,24 @@
     <div class="sm-cabecera-icono"><i class="ti ti-building-community"></i></div>
     <div class="sm-cabecera-texto"><nav class="sm-migas">Ámbito geográfico · Mapa espacial</nav>
       <h1 class="sm-titulo">Diseñador de predios</h1>
-      <p class="sm-subtitulo">Construye edificios, pisos y espacios referenciales; vincula oficinas y activos existentes.</p></div>
-    <div class="sm-cabecera-acciones"><span class="sm-dato me-estado">Sin cambios</span><button class="sm-btn me-guardar" type="button">Guardar borrador</button><button class="sm-btn me-publicar" type="button" hidden>Publicar</button></div>
+      <p class="sm-subtitulo">Dibuja el plano y organiza sus oficinas y activos.</p></div>
+    <div class="sm-cabecera-acciones"><span class="sm-dato me-estado">Sin cambios</span><button class="sm-btn sm-btn-suave me-guardar" type="button">Guardar borrador</button><button class="sm-btn me-publicar" type="button" hidden>Publicar versión</button></div>
   </header>
   <div class="me-toolbar sm-card">
     <label>Predio <select class="sm-select me-predio"></select></label>
-    <button class="sm-btn me-nuevo-edificio" type="button" data-tipo="EDIFICIO">+ Trazar edificio por puntos</button>
-    <button class="sm-btn sm-btn-suave me-nuevo-edificio" type="button" data-tipo="OFICINA_INDEPENDIENTE">+ Trazar oficina independiente</button>
-    <button class="sm-btn sm-btn-suave me-ampliar" type="button">⛶ Ampliar vista</button>
+    <button class="sm-btn sm-btn-suave me-ampliar" type="button">⛶ Abrir estudio</button>
     <button class="sm-btn sm-btn-suave me-vista" type="button">Vista 3D</button>
     <button class="sm-btn sm-btn-suave me-volver" type="button">← Volver</button>
     <span class="me-ruta"></span>
   </div>
-  <div class="me-prototipo" role="note">Plano referencial: tus cambios quedan en borrador hasta publicarlos; no modifican la oficina oficial de ningún activo.</div>
-  <details class="sm-card me-publicaciones"><summary><strong>Publicación e historial</strong> <span class="me-publicacion-estado">Sin publicar</span></summary><div class="me-publicaciones-lista">Selecciona un predio para ver sus versiones.</div></details>
+  <div class="me-prototipo" role="note">Plano referencial. Guardar conserva el borrador; publicar actualiza el explorador. No modifica la oficina oficial de los activos.</div>
   <nav class="me-pasos sm-card" aria-label="Pasos de diseño">
     <button type="button" data-paso="predio">1. Predio y edificios</button>
     <button type="button" data-paso="edificio">2. Edificio y pisos</button>
     <button type="button" data-paso="piso">3. Piso y oficinas</button>
     <button type="button" data-paso="espacio">4. Espacio y activos</button>
   </nav>
+  <div class="me-workspace">
   <div class="me-herramientas sm-card" role="toolbar" aria-label="Herramientas del plano">
     <div class="me-tool-group"><span class="me-tool-group-title">Editar</span>
       <button type="button" class="me-mini" data-action="undo" title="Ctrl + Z: deshacer último cambio">↶ Deshacer</button>
@@ -78,11 +76,22 @@
     <span class="me-tool-status" aria-live="polite"></span>
   </div>
   <div class="me-layout">
-    <section class="sm-card me-canvas-card"><div class="me-canvas-scroll"><svg class="me-canvas" role="img" aria-label="Plano editable" tabindex="0"></svg><div class="me-canvas-hint"></div></div>
-      <div class="me-ayuda">Sobre el plano de fondo, marca las esquinas del edificio y pulsa «Terminar contorno» para rellenarlo. Después configura pisos y sus alturas; en 3D puedes girar la vista y seleccionar cada piso. Las medidas son referenciales.</div></section>
-    <aside class="sm-card me-panel"><div class="me-panel-contenido"></div></aside>
+    <section class="sm-card me-canvas-card"><div class="me-canvas-scroll"><svg class="me-canvas" role="img" aria-label="Plano editable" tabindex="0"></svg>
+      <div class="me-canvas-actions" aria-label="Acciones rápidas del plano">
+        <div data-quick-context="predio"><button type="button" class="me-mini me-quick-primary me-nuevo-edificio" data-tipo="EDIFICIO">+ Trazar edificio</button><button type="button" class="me-mini me-nuevo-edificio" data-tipo="OFICINA_INDEPENDIENTE">+ Oficina independiente</button></div>
+        <div data-quick-context="edificio"><span>Elige un piso en el panel o sobre el modelo.</span></div>
+        <div data-quick-context="piso"><button type="button" class="me-mini me-quick-primary" data-quick-tool="polygonOffice">+ Dibujar oficina</button><button type="button" class="me-mini" data-quick-action="addOffice">+ Oficina rectangular</button><button type="button" class="me-mini" data-quick-action="addHall">+ Pasillo</button></div>
+        <div data-quick-context="espacio"><button type="button" class="me-mini me-quick-primary" data-quick-tool="polygonRoom">+ Dibujar cuarto</button><button type="button" class="me-mini" data-quick-tab="activos">Ver activos</button></div>
+        <div class="me-quick-drawing" hidden><strong>Marca las esquinas en el plano</strong><button type="button" class="me-mini me-quick-primary" data-quick-action="finish">✓ Terminar contorno</button><button type="button" class="me-mini" data-quick-action="cancel">Cancelar</button></div>
+      </div><div class="me-canvas-hint"></div></div>
+      <div class="me-ayuda">Rueda para acercar · Espacio + arrastrar para mover · Clic en una figura para editarla. Las medidas son referenciales.</div></section>
+    <aside class="sm-card me-panel"><nav class="me-panel-tabs" role="tablist" aria-label="Panel de diseño">
+      <button type="button" role="tab" data-panel-tab="editar">Editar</button><button type="button" role="tab" data-panel-tab="elementos">Elementos</button><button type="button" role="tab" data-panel-tab="activos">Activos</button><button type="button" role="tab" data-panel-tab="ajustes">Ajustes</button><button type="button" role="tab" data-panel-tab="historial">Historial</button>
+    </nav><div class="me-panel-contenido"></div><section class="me-publicaciones" role="tabpanel" aria-label="Historial de publicaciones" hidden><h2>Publicación e historial</h2><p class="me-publicacion-estado">Sin publicar</p><p class="me-muted">Recuperar una versión solo cambia el borrador. Pulsa Publicar versión para actualizar el explorador.</p><div class="me-publicaciones-lista">Selecciona un predio para ver sus versiones.</div></section></aside>
   </div>
+  </div>
+  <div class="me-modal" role="dialog" aria-modal="true" aria-labelledby="me-modal-titulo" aria-describedby="me-modal-texto" hidden><div class="me-modal-card"><span class="me-modal-icono">◎</span><h2 id="me-modal-titulo"></h2><p id="me-modal-texto"></p><div class="me-modal-acciones"><button type="button" class="sm-btn sm-btn-suave" data-modal-cancelar>Cancelar</button><button type="button" class="sm-btn" data-modal-aceptar>Continuar</button></div></div></div>
 </div>
-<link rel="stylesheet" href="/assets/css/mapa-espacial.css" />
-<script src="/assets/js/mapa-espacial.js"></script>
+<link rel="stylesheet" href="/assets/css/mapa-espacial.css?v=20261014-vista2d" />
+<script src="/assets/js/mapa-espacial.js?v=20261014-vista2d"></script>
 <script>window.MapaEspacial.iniciar(document.getElementById('mapaDiseno'));</script>

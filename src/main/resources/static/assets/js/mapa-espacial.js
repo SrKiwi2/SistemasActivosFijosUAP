@@ -48,6 +48,7 @@
     return escena;
   }
   function redondear(n) { return Math.round(n * 10) / 10; }
+  function redondearFino(n) { return Math.round(n * 10000) / 10000; }
   function contienePunto(puntos, x, y) {
     var dentro = false;
     for (var i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
@@ -66,8 +67,94 @@
     var s = { predioId: null, escena: { edificios: [] }, version: -1, modoEdicion: edita, puedePublicar: false, numeroPublicacion: 0, oficinas: {}, activos: {}, edificio: null, piso: null, espacio: null, vista3d: false, cargaVista3d: 0, dirty: false, q: '', inventario: null, consultaInventario: 0,
       historial: [], indice: 0, guardado: '', modo: '', dibujo: [], tipoDibujo: 'EDIFICIO', editarEdificio: null, editarEspacio: null, vertice: -1,
       snap: false, cuadricula: true, capas: { edificios: true, espacios: true, detalles: true, fondo: true },
-      zoom: 1, panX: 0, panY: 0, camara: 38, inclinacion: 38, techo3d: true, tieneFondo: false, fondoRevision: 0, detallesCargados: {}, cargaEdificio: 0, espacioPulsado: false, enfoqueInicial: false, marco3dFijo: null, cuartoSeleccionado: null, muebleSeleccionado: null, detallesActivos: {}, destacadoEdificio: null, busquedaSeleccionada: null, resultadosBusqueda: [] };
+      zoom: 1, panX: 0, panY: 0, camara: 38, inclinacion: 38, techo3d: true, tieneFondo: false, fondoRevision: 0, detallesCargados: {}, cargaEdificio: 0, espacioPulsado: false, enfoqueInicial: false, marco3dFijo: null, cuartoSeleccionado: null, muebleSeleccionado: null, detallesActivos: {}, destacadoEdificio: null, busquedaSeleccionada: null, resultadosBusqueda: [], panelTab: 'editar', panelSelectionKey: '', filtroConstrucciones: '', publicacionEnCarga: 0 };
     function avisar(msg, error) { if (estado) { estado.textContent = msg; estado.className = 'sm-dato me-estado ' + (error ? 'me-status-error' : 'me-status-ok'); } else if (error) panel.insertAdjacentHTML('afterbegin', '<p class="me-status-error">' + esc(msg) + '</p>'); }
+    function activarPanel(tab) {
+      if (!edita) return;
+      var pagina = panel.querySelector('[data-inspector-page="' + tab + '"]');
+      if (tab !== 'historial' && (!pagina || !pagina.children.length)) tab = 'editar';
+      s.panelTab = tab;
+      Array.prototype.forEach.call(root.querySelectorAll('[data-panel-tab]'), function (b) {
+        var disponible = b.dataset.panelTab === 'historial' || !!panel.querySelector('[data-inspector-page="' + b.dataset.panelTab + '"] > *');
+        b.hidden = !disponible;
+        b.classList.toggle('me-tab-active', b.dataset.panelTab === tab);
+        b.setAttribute('aria-selected', b.dataset.panelTab === tab ? 'true' : 'false');
+      });
+      Array.prototype.forEach.call(panel.querySelectorAll('[data-inspector-page]'), function (paginaActual) {
+        paginaActual.hidden = paginaActual.dataset.inspectorPage !== tab;
+      });
+      panel.hidden = tab === 'historial';
+      var historial = root.querySelector('.me-publicaciones'); if (historial) historial.hidden = tab !== 'historial';
+    }
+    function aplicarFiltroConstrucciones() {
+      var lista = panel.querySelector('[data-inspector-page="elementos"] > .me-list');
+      if (!lista) return;
+      var q = s.filtroConstrucciones.trim().toLocaleLowerCase();
+      Array.prototype.forEach.call(lista.children, function (item) { item.hidden = item.textContent.toLocaleLowerCase().indexOf(q) < 0; });
+    }
+    function organizarPanel(e, p, a, stageKey) {
+      if (!edita) return;
+      var paginas = {}, nombres = ['editar', 'elementos', 'activos', 'ajustes'];
+      nombres.forEach(function (nombre) { var pagina = document.createElement('div'); pagina.dataset.inspectorPage = nombre; pagina.setAttribute('role', 'tabpanel'); pagina.setAttribute('aria-label', nombre); paginas[nombre] = pagina; });
+      var nodos = Array.prototype.slice.call(panel.children), grupo = 'editar';
+      nodos.forEach(function (n) {
+        var titulo = n.textContent.trim();
+        if (!e) {
+          if (n.classList.contains('me-details')) grupo = 'ajustes';
+          else if (n.classList.contains('me-resumen') || n.classList.contains('me-list')) grupo = 'elementos';
+          else grupo = 'editar';
+        } else if (!p) {
+          if (n.tagName === 'H3' && titulo.indexOf('Pisos de este edificio') === 0) grupo = 'elementos';
+        } else if (!a) {
+          if (n.classList.contains('me-resumen')) grupo = 'elementos';
+        } else {
+          if (n.classList.contains('me-interior-section')) grupo = titulo.indexOf('Activos ubicados') >= 0 ? 'activos' : 'elementos';
+          else if (n.tagName === 'H3' && titulo.indexOf('Inventario de esta oficina') === 0) grupo = 'activos';
+        }
+        paginas[grupo].appendChild(n);
+      });
+      if (!e && paginas.elementos.children.length) paginas.elementos.insertAdjacentHTML('afterbegin', '<h2>Construcciones del predio</h2><p class="me-muted">Selecciona una construcción para entrar a sus pisos y oficinas.</p><input class="me-list-filter" placeholder="Filtrar construcciones por nombre" aria-label="Filtrar construcciones del predio" value="' + esc(s.filtroConstrucciones) + '">');
+      panel.innerHTML = '';
+      nombres.forEach(function (nombre) { panel.appendChild(paginas[nombre]); });
+      var seleccion = stageKey + '|' + (s.editarEdificio || s.editarEspacio || s.cuartoSeleccionado || s.muebleSeleccionado || s.activoSeleccionado || '');
+      if (s.panelSelectionKey !== seleccion) {
+        s.panelSelectionKey = seleccion;
+        s.panelTab = s.activoSeleccionado ? 'activos' : s.cuartoSeleccionado || s.muebleSeleccionado ? 'elementos' :
+          (s.editarEdificio || s.editarEspacio || (a && !a.oficinaId)) ? 'editar' : a ? 'activos' : 'elementos';
+      }
+      activarPanel(s.panelTab);
+      if (!e) aplicarFiltroConstrucciones();
+    }
+    function confirmarModal(titulo, mensaje, accion) {
+      return new Promise(function (resolve) {
+        var modal = root.querySelector('.me-modal');
+        if (!modal) { resolve(false); return; }
+        var previo = document.activeElement, aceptar = modal.querySelector('[data-modal-aceptar]'), cancelar = modal.querySelector('[data-modal-cancelar]');
+        modal.querySelector('#me-modal-titulo').textContent = titulo;
+        modal.querySelector('#me-modal-texto').textContent = mensaje;
+        aceptar.textContent = accion;
+        modal.hidden = false; aceptar.focus();
+        function cerrar(resultado) {
+          modal.hidden = true;
+          modal.removeEventListener('click', clic);
+          modal.removeEventListener('keydown', teclado);
+          if (previo && previo.focus) previo.focus();
+          resolve(resultado);
+        }
+        function clic(ev) {
+          if (ev.target === modal || ev.target.closest('[data-modal-cancelar]')) cerrar(false);
+          else if (ev.target.closest('[data-modal-aceptar]')) cerrar(true);
+        }
+        function teclado(ev) {
+          if (ev.key === 'Escape') { ev.preventDefault(); cerrar(false); }
+          else if (ev.key === 'Tab') {
+            if (ev.shiftKey && document.activeElement === cancelar) { ev.preventDefault(); aceptar.focus(); }
+            else if (!ev.shiftKey && document.activeElement === aceptar) { ev.preventDefault(); cancelar.focus(); }
+          }
+        }
+        modal.addEventListener('click', clic); modal.addEventListener('keydown', teclado);
+      });
+    }
     function actualizarPublicacion() {
       if (!edita) return;
       var etiqueta = root.querySelector('.me-publicacion-estado');
@@ -86,6 +173,8 @@
           return '<div class="me-publicacion-item"><span><strong>Versión ' + item.numero + (item.actual ? ' · actual' : '') + '</strong><small>' + esc(item.fecha || '') + ' · ' + esc(item.usuario || '') + '</small></span>' +
             '<button type="button" class="me-mini" data-restaurar="' + item.numero + '">Recuperar en borrador</button></div>';
         }).join('') : '<p class="me-muted">Aún no hay versiones publicadas.</p>';
+        var tab = root.querySelector('[data-panel-tab="historial"]');
+        if (tab) tab.textContent = 'Historial' + (items.length ? ' (' + items.length + ')' : '');
       }).catch(function (error) { if (s.predioId === id) lista.textContent = error.message; });
     }
     function dirty() {
@@ -130,12 +219,18 @@
     }
     function alturaTotal(e) { return redondear((e.pisos || []).reduce(function (total, p) { return total + Number(p.altura || 4); }, 0)); }
     function sincronizarAltura(e) { if (e) e.altura = alturaTotal(e); }
-    function ajustarNumero(v) { return s.snap ? Math.round(v / 5) * 5 : redondear(v); }
+    function ajustarNumero(v) { return s.snap ? Math.round(v / 5) * 5 : redondearFino(v); }
     function coordenadaPlano(ev) {
       var punto = puntoSvg(ev), e = edificio();
       var limite = contexto() === 'predio' ? { ancho: 2000, fondo: 2000 } : contexto() === 'espacio' ? espacio() : e;
       return { x: Math.max(0, Math.min(limite.ancho, ajustarNumero(punto.x))),
         y: Math.max(0, Math.min(limite.fondo, ajustarNumero(punto.y))) };
+    }
+    function actualizarZoomIndicador() {
+      var barraZoom = root.querySelector('.me-herramientas'); if (!barraZoom) return;
+      var control = barraZoom.querySelector('.me-zoom-range'), etiqueta = barraZoom.querySelector('.me-zoom-label');
+      if (control) control.value = valorDelZoom(s.zoom);
+      if (etiqueta) etiqueta.textContent = Math.round(s.zoom * 100) + '%';
     }
     function actualizarHerramientas() {
       var barra = root.querySelector('.me-herramientas'); if (!barra) return;
@@ -149,36 +244,42 @@
       var dibujando = s.modo === 'polygonBuilding' || s.modo === 'polygonOffice' || s.modo === 'polygonRoom' || ['MURO', 'PUERTA', 'VENTANA', 'ESCALERA'].indexOf(s.modo) >= 0;
       if (fin) { fin.hidden = !dibujando || s.modo[0] !== 'p'; fin.disabled = s.dibujo.length < 3; }
       if (cancelar) cancelar.hidden = !dibujando;
+      Array.prototype.forEach.call(root.querySelectorAll('[data-quick-context]'), function (grupo) { grupo.hidden = dibujando || s.vista3d || grupo.dataset.quickContext !== stage; });
+      var dibujoRapido = root.querySelector('.me-quick-drawing');
+      if (dibujoRapido) {
+        dibujoRapido.hidden = !dibujando;
+        dibujoRapido.querySelector('strong').textContent = s.modo[0] === 'p' ? 'Marca las esquinas en el plano (' + s.dibujo.length + ' puntos)' : 'Marca los dos extremos en el plano';
+        var terminarRapido = dibujoRapido.querySelector('[data-quick-action="finish"]');
+        terminarRapido.hidden = s.modo[0] !== 'p'; terminarRapido.disabled = s.dibujo.length < 3;
+      }
       var estadoTool = barra.querySelector('.me-tool-status');
       if (estadoTool) estadoTool.textContent = s.vista3d ? ('Cámara ' + Math.round(s.camara) + '° · inclinación ' + Math.round(s.inclinacion) + '°. ' + (s.modo === 'move3d' ? 'Arrastra un edificio para moverlo.' : 'Arrastra para girar; selecciona un piso para ver oficinas.')) : s.modo === 'polygonBuilding'
         ? 'Marca las esquinas del edificio sobre el plano y pulsa Terminar contorno. Se rellenará al cerrarlo.' : s.modo === 'polygonOffice' || s.modo === 'polygonRoom'
         ? 'Marca al menos 3 puntos y pulsa Terminar contorno.' : ['MURO', 'PUERTA', 'VENTANA', 'ESCALERA'].indexOf(s.modo) >= 0
-          ? 'Marca el inicio y el final del detalle.' : s.editarEdificio ? 'Puntos naranjas: forma · cuadrado azul: escala · círculo verde: giro.' : s.modo === 'vertices' || s.editarEspacio || s.cuartoSeleccionado ? 'Arrastra los puntos naranjas; pulsa los círculos blancos para añadir lados.' : s.modo === 'pan' ? 'Arrastra el plano.' : '';
+          ? 'Marca el inicio y el final del detalle.' : s.editarEdificio ? 'Puntos naranjas: forma · azul: escala · verde: giro. Mayús fija un eje; desactiva Ajustar puntos para precisión libre.' : s.modo === 'vertices' || s.editarEspacio || s.cuartoSeleccionado ? 'Arrastra puntos naranjas con precisión libre; Mayús fija un eje. Los círculos blancos añaden lados.' : s.modo === 'pan' ? 'Arrastra el plano.' : '';
       var guia = root.querySelector('.me-canvas-hint');
       if (guia) guia.textContent = s.vista3d ? 'Arrastra: girar · Botón derecho, rueda pulsada o Mayús + arrastrar: mover vista · Rueda: zoom · Flechas: cámara · Clic: abrir edificio' :
         'Rueda: zoom bajo el cursor · Espacio + arrastrar o rueda pulsada: mover plano · Clic: seleccionar · Arrastra un punto naranja: cambiar contorno';
       Array.prototype.forEach.call(barra.querySelectorAll('[data-3d]'), function (b) { b.hidden = !s.vista3d; });
       var techo = barra.querySelector('.me-techo3d'); if (techo) techo.checked = s.techo3d;
-      var zoomControl = barra.querySelector('.me-zoom-range'), zoomLabel = barra.querySelector('.me-zoom-label');
-      if (zoomControl) zoomControl.value = valorDelZoom(s.zoom);
-      if (zoomLabel) zoomLabel.textContent = Math.round(s.zoom * 100) + '%';
+      actualizarZoomIndicador();
     }
     function recalcularForma(o) {
       var antesX = o.x, antesY = o.y, b = caja(o.puntos);
-      o.x = redondear(b.x); o.y = redondear(b.y);
-      o.ancho = redondear(b.ancho); o.fondo = redondear(b.fondo);
+      o.x = redondearFino(b.x); o.y = redondearFino(b.y);
+      o.ancho = redondearFino(b.ancho); o.fondo = redondearFino(b.fondo);
       var dx = o.x - antesX, dy = o.y - antesY;
       if (o.pisos && (dx || dy)) o.pisos.forEach(function (p) {
         p.espacios.forEach(function (r) {
-          r.puntos.forEach(function (pt) { pt.x = redondear(pt.x - dx); pt.y = redondear(pt.y - dy); });
-          r.x = redondear(r.x - dx); r.y = redondear(r.y - dy);
+          r.puntos.forEach(function (pt) { pt.x = redondearFino(pt.x - dx); pt.y = redondearFino(pt.y - dy); });
+          r.x = redondearFino(r.x - dx); r.y = redondearFino(r.y - dy);
         });
-        p.trazos.forEach(function (t) { t.x1 = redondear(t.x1 - dx); t.x2 = redondear(t.x2 - dx); t.y1 = redondear(t.y1 - dy); t.y2 = redondear(t.y2 - dy); });
+        p.trazos.forEach(function (t) { t.x1 = redondearFino(t.x1 - dx); t.x2 = redondearFino(t.x2 - dx); t.y1 = redondearFino(t.y1 - dy); t.y2 = redondearFino(t.y2 - dy); });
       });
       if (o.activos && (dx || dy)) {
-        o.activos.concat(o.mobiliario || []).forEach(function (z) { z.x = redondear(z.x - dx); z.y = redondear(z.y - dy); });
-        (o.cuartos || []).forEach(function (c) { c.x = redondear(c.x - dx); c.y = redondear(c.y - dy);
-          c.puntos.forEach(function (pt) { pt.x = redondear(pt.x - dx); pt.y = redondear(pt.y - dy); }); });
+        o.activos.concat(o.mobiliario || []).forEach(function (z) { z.x = redondearFino(z.x - dx); z.y = redondearFino(z.y - dy); });
+        (o.cuartos || []).forEach(function (c) { c.x = redondearFino(c.x - dx); c.y = redondearFino(c.y - dy);
+          c.puntos.forEach(function (pt) { pt.x = redondearFino(pt.x - dx); pt.y = redondearFino(pt.y - dy); }); });
       }
     }
     function poligonoSimple(puntos) {
@@ -186,6 +287,7 @@
       var area = 0;
       for (var i = 0; i < puntos.length; i++) {
         var a = puntos[i], b = puntos[(i + 1) % puntos.length]; area += a.x * b.y - b.x * a.y;
+        if (Math.hypot(a.x - b.x, a.y - b.y) < .05) return false;
       }
       if (Math.abs(area) <= .02) return false;
       function orientacion(a, b, c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); }
@@ -212,16 +314,16 @@
       if (b.ancho < .1 || b.fondo < .1) { avisar('El contorno es demasiado pequeño.', true); return; }
       if (s.modo === 'polygonBuilding') {
         var tipoConstruccion = s.tipoDibujo === 'OFICINA_INDEPENDIENTE' ? 'OFICINA_INDEPENDIENTE' : 'EDIFICIO';
-        var e = { id: uid(), nombre: tipoConstruccion === 'EDIFICIO' ? 'NUEVO EDIFICIO' : 'OFICINA INDEPENDIENTE', tipo: tipoConstruccion, x: redondear(b.x), y: redondear(b.y), ancho: redondear(b.ancho), fondo: redondear(b.fondo), altura: 4,
+        var e = { id: uid(), nombre: tipoConstruccion === 'EDIFICIO' ? 'NUEVO EDIFICIO' : 'OFICINA INDEPENDIENTE', tipo: tipoConstruccion, x: redondearFino(b.x), y: redondearFino(b.y), ancho: redondearFino(b.ancho), fondo: redondearFino(b.fondo), altura: 4,
           puntos: s.dibujo.slice(), pisos: [{ id: uid(), nombre: 'PLANTA BAJA', altura: 4, espacios: [], trazos: [] }] };
         s.escena.edificios.push(e); s.edificio = s.piso = s.espacio = null; s.editarEdificio = e.id;
       } else if (s.modo === 'polygonOffice') {
-        var r = { id: uid(), nombre: 'NUEVA OFICINA', tipo: 'OFICINA', x: redondear(b.x), y: redondear(b.y), ancho: redondear(b.ancho), fondo: redondear(b.fondo), puntos: s.dibujo.slice(), oficinaId: null, cuartos: [], mobiliario: [], activos: [] };
+        var r = { id: uid(), nombre: 'NUEVA OFICINA', tipo: 'OFICINA', x: redondearFino(b.x), y: redondearFino(b.y), ancho: redondearFino(b.ancho), fondo: redondearFino(b.fondo), puntos: s.dibujo.slice(), oficinaId: null, cuartos: [], mobiliario: [], activos: [] };
         piso().espacios.push(r); s.espacio = r.id;
       } else {
         var a = espacio();
         var c = { id: uid(), nombre: 'CUARTO ' + ((a.cuartos || []).length + 1), tipo: 'CUARTO_INTERIOR',
-          x: redondear(b.x), y: redondear(b.y), ancho: redondear(b.ancho), fondo: redondear(b.fondo), puntos: s.dibujo.slice() };
+          x: redondearFino(b.x), y: redondearFino(b.y), ancho: redondearFino(b.ancho), fondo: redondearFino(b.fondo), puntos: s.dibujo.slice() };
         a.cuartos.push(c); s.cuartoSeleccionado = c.id;
       }
       s.dibujo = []; s.modo = ''; s.tipoDibujo = 'EDIFICIO'; dirty(); pintar();
@@ -230,7 +332,7 @@
     function cambiarPredio(id) {
       if (s.dirty && !confirm('Hay cambios sin guardar. ¿Cambiar de predio?')) { sel.value = s.predioId; return; }
       s.cargaVista3d++;
-      s.predioId = Number(id); s.edificio = s.piso = s.espacio = null; s.vista3d = false; s.inventario = null; s.consultaInventario++; s.detallesCargados = {}; s.detallesActivos = {}; s.cuartoSeleccionado = s.muebleSeleccionado = s.activoSeleccionado = null; s.cargaEdificio++; s.viewport = null; s.enfoqueInicial = edita; s.marco3dFijo = null; s.destacadoEdificio = s.busquedaSeleccionada = null; s.resultadosBusqueda = [];
+      s.predioId = Number(id); s.edificio = s.piso = s.espacio = null; s.vista3d = false; s.inventario = null; s.consultaInventario++; s.detallesCargados = {}; s.detallesActivos = {}; s.cuartoSeleccionado = s.muebleSeleccionado = s.activoSeleccionado = null; s.cargaEdificio++; s.viewport = null; s.enfoqueInicial = edita; s.marco3dFijo = null; s.destacadoEdificio = s.busquedaSeleccionada = null; s.resultadosBusqueda = []; s.filtroConstrucciones = '';
       if (filtro) filtro.value = '';
       var resultadosAnteriores = root.querySelector('.me-search-results'); if (resultadosAnteriores) resultadosAnteriores.hidden = true;
       s.modo = ''; s.dibujo = []; s.tipoDibujo = 'EDIFICIO'; s.editarEdificio = null; s.editarEspacio = null; s.zoom = 1; s.panX = s.panY = 0; s.camara = 38; s.inclinacion = 38;
@@ -239,6 +341,7 @@
         if (solicitud !== s.cargaVista3d || predioSolicitado !== s.predioId) return;
         s.escena = normalizarGeometria(d.escena || { edificios: [] }); s.version = d.version;
         s.puedePublicar = !!d.puedePublicar; s.numeroPublicacion = Number(d.numeroPublicacion || 0);
+        s.publicacionEnCarga = 0;
         s.oficinas = d.oficinas || {}; s.activos = d.activos || {}; s.dirty = false;
         s.tieneFondo = !!d.tieneFondo; s.fondoRevision = edita ? Date.now() : s.numeroPublicacion;
         s.guardado = JSON.stringify(s.escena); s.historial = [s.guardado]; s.indice = 0;
@@ -251,7 +354,24 @@
           if (solicitud !== s.cargaVista3d || predioSolicitado !== s.predioId) return;
           pintar(); avisar(error.message, true);
         });
-      }).catch(function (e) { if (solicitud === s.cargaVista3d) avisar(e.message, true); });
+      }).catch(function (e) { if (solicitud === s.cargaVista3d) { s.publicacionEnCarga = 0; avisar(e.message, true); } });
+    }
+    function recibirPublicacion(datos) {
+      if (edita || !root.isConnected || !datos || Number(datos.predioId) !== s.predioId || Number(datos.numero) <= Math.max(s.numeroPublicacion, s.publicacionEnCarga)) return;
+      s.publicacionEnCarga = Number(datos.numero);
+      cambiarPredio(s.predioId);
+      avisar('Se publicó una nueva versión. Actualizando el mapa…', false);
+    }
+    window.addEventListener('mapaEspacialPublicado', function (ev) { recibirPublicacion(ev.detail); });
+    document.addEventListener('sciaf:mapa-espacial-publicado', function (ev) { recibirPublicacion(ev.detail); });
+    window.addEventListener('storage', function (ev) {
+      if (ev.key !== 'mapaEspacialPublicado' || !ev.newValue) return;
+      try { recibirPublicacion(JSON.parse(ev.newValue)); } catch (ignorado) { /* evento ajeno */ }
+    });
+    function notificarPublicacion(predioId, numero) {
+      var dato = { predioId: predioId, numero: numero, fecha: Date.now() };
+      window.dispatchEvent(new CustomEvent('mapaEspacialPublicado', { detail: dato }));
+      try { window.localStorage.setItem('mapaEspacialPublicado', JSON.stringify(dato)); } catch (ignorado) { /* almacenamiento deshabilitado */ }
     }
     function abrirEdificio(id, pisoId, espacioId) {
       var edificioActual = s.escena.edificios.find(function (b) { return b.id === id; });
@@ -409,6 +529,7 @@
           '<p class="me-muted">' + edificioElegido.pisos.length + ' piso(s) · altura total ' + alturaTotal(edificioElegido) + ' unidades visuales.</p>' +
           '<p class="me-instruccion">Ajusta el tamaño con el cuadrado azul y gira con el círculo verde. Arrastra los puntos naranjas para cambiar la forma y pulsa los círculos blancos para crear entrantes. El zoom solo acerca la vista.</p>' +
           campo('Nombre del edificio', 'beNombre', edificioElegido.nombre) +
+          '<details class="me-config"><summary>Forma, color y medidas del edificio</summary>' +
           editorEstilo(edificioElegido, 'be', edificioElegido.tipo === 'EDIFICIO' ? '#c7e4ef' : '#e5dbc2') +
           '<div class="me-scale-editor"><strong>Escala proporcional</strong><p>Conserva la forma y adapta también las oficinas y detalles interiores. 50 % reduce a la mitad; 200 % duplica.</p>' +
           '<div class="me-row"><button type="button" class="me-mini" data-scale-building="0.75">−25 %</button>' +
@@ -425,7 +546,7 @@
           campo('Posición horizontal X', 'beX', edificioElegido.x, 'number', 0, 2000) +
           campo('Posición vertical Y', 'beY', edificioElegido.y, 'number', 0, 2000) +
           campo('Ancho del edificio', 'beAncho', edificioElegido.ancho, 'number', .1, 2000) +
-          campo('Fondo del edificio', 'beFondo', edificioElegido.fondo, 'number', .1, 2000) +
+          campo('Fondo del edificio', 'beFondo', edificioElegido.fondo, 'number', .1, 2000) + '</details>' +
           '<div class="me-row">' + boton('Abrir pisos y oficinas', 'openSelectedBuilding', 'me-action-primary') +
           boton('Quitar punto seleccionado', 'removeVertex') + boton('Deseleccionar', 'endVertices') + '</div></section>';
         if (edita) {
@@ -459,7 +580,7 @@
       } else if (!p) {
         h = '<h2>' + esc(e.nombre) + '</h2><span class="me-tag">' + (e.tipo === 'EDIFICIO' ? 'EDIFICIO' : 'OFICINA INDEPENDIENTE') + '</span>';
         h += '<p class="me-muted">Altura total del modelo: ' + alturaTotal(e) + ' unidades visuales · ' + e.pisos.length + ' piso(s). Ajusta la altura de cada piso por separado.</p>';
-        if (edita) h += '<p class="me-instruccion">La huella se trazó por puntos sobre el predio. En 3D, elige un piso para modificar su altura; en 2D entra para distribuir oficinas.</p>' + campo('Nombre del edificio o construcción', 'nombre', e.nombre) + '<label class="me-field">Presentación<select data-prop="tipo"><option value="EDIFICIO"' + (e.tipo === 'EDIFICIO' ? ' selected' : '') + '>Edificio</option><option value="OFICINA_INDEPENDIENTE"' + (e.tipo !== 'EDIFICIO' ? ' selected' : '') + '>Oficina independiente</option></select></label>' + editorEstilo(e, '', e.tipo === 'EDIFICIO' ? '#c7e4ef' : '#e5dbc2') + medidas(e, true) + campo('Giro de toda la construcción (grados)', 'giroEdificio', e.giro || 0, 'number', 0, 360) + '<div class="me-row">' + boton(s.modo === 'vertices' ? 'Terminar edición del contorno' : 'Editar contorno', 'editBuilding') + boton(s.modo === 'vertices' && s.vertice >= 0 ? 'Quitar punto seleccionado' : 'Quitar punto', 'removeVertex') + boton('+ Añadir otro piso', 'addFloor') + boton('Eliminar construcción', 'deleteBuilding', 'me-danger') + '</div>';
+        if (edita) h += '<p class="me-instruccion">Selecciona un piso para distribuir oficinas. Su altura se ajusta desde el modelo 3D o el panel del piso.</p>' + campo('Nombre del edificio o construcción', 'nombre', e.nombre) + '<div class="me-row">' + boton('+ Añadir otro piso', 'addFloor', 'me-action-primary') + boton(s.modo === 'vertices' ? 'Terminar contorno' : 'Editar contorno', 'editBuilding') + '</div>' + '<details class="me-config"><summary>Presentación y medidas del edificio</summary><label class="me-field">Presentación<select data-prop="tipo"><option value="EDIFICIO"' + (e.tipo === 'EDIFICIO' ? ' selected' : '') + '>Edificio</option><option value="OFICINA_INDEPENDIENTE"' + (e.tipo !== 'EDIFICIO' ? ' selected' : '') + '>Oficina independiente</option></select></label>' + editorEstilo(e, '', e.tipo === 'EDIFICIO' ? '#c7e4ef' : '#e5dbc2') + medidas(e, true) + campo('Giro de toda la construcción (grados)', 'giroEdificio', e.giro || 0, 'number', 0, 360) + '<div class="me-row">' + boton('Quitar punto', 'removeVertex') + boton('Eliminar construcción', 'deleteBuilding', 'me-danger') + '</div></details>';
         h += '<h3>Pisos de este edificio</h3><div class="me-list">' + e.pisos.map(function (n) { return '<button class="me-item" data-open-floor="' + esc(n.id) + '"><strong>' + (s.vista3d ? 'Ver en 3D: ' : 'Entrar a ') + esc(n.nombre) + ' →</strong><small>Altura ' + esc(n.altura) + ' · ' + contarOficinas(n.espacios) + ' oficinas · ' + n.espacios.length + ' espacios</small></button>'; }).join('') + '</div>';
       } else if (!a) {
         h = '<h2>' + esc(p.nombre) + '</h2><p>' + esc(e.nombre) + '</p>';
@@ -472,12 +593,12 @@
         if (edita && elegido) h += '<section class="me-selected-editor"><h3>' + esc(elegido.nombre) + '</h3><p class="me-muted">Arrastra la figura para moverla; arrastra sus puntos para recortar o estirar. Los círculos blancos añaden lados.</p>' +
           '<label class="me-field">Vincular oficina del predio<input class="sm-input me-buscar-oficina" data-office-target="' + esc(elegido.id) + '" placeholder="Buscar por código o nombre" aria-label="Buscar oficina de este predio"></label><div class="me-resultados-oficina me-list"></div>' +
           '<p class="me-muted">' + esc(nombreOficina(elegido.oficinaId)) + '. Al seleccionar una oficina se aplican su código y nombre.</p>' +
-          campo('Nombre visible (editable)', 'selNombre', elegido.nombre) + editorEstilo(elegido, 'sel', elegido.oficinaId ? '#cde9ee' : '#e6e9e8') +
+          campo('Nombre visible (editable)', 'selNombre', elegido.nombre) + '<details class="me-config"><summary>Forma y medidas de esta oficina</summary>' + editorEstilo(elegido, 'sel', elegido.oficinaId ? '#cde9ee' : '#e6e9e8') +
           campo('Posición horizontal X', 'selX', elegido.x, 'number', 0, e.ancho) +
           campo('Posición vertical Y', 'selY', elegido.y, 'number', 0, e.fondo) +
           campo('Ancho del espacio', 'selAncho', elegido.ancho, 'number', .1, e.ancho) +
           campo('Fondo del espacio', 'selFondo', elegido.fondo, 'number', .1, e.fondo) +
-          campo('Giro del espacio (grados)', 'selGiro', elegido.giro || 0, 'number', 0, 360) +
+          campo('Giro del espacio (grados)', 'selGiro', elegido.giro || 0, 'number', 0, 360) + '</details>' +
           '<div class="me-row">' + boton('Abrir oficina y activos', 'openSelectedSpace', 'me-action-primary') + boton('Quitar punto seleccionado', 'removeVertex') + boton('Deseleccionar', 'endVertices') + '</div></section>';
         h += '<div class="me-resumen"><span>' + contarOficinas(p.espacios) + ' oficinas vinculadas</span><span>' + p.espacios.length + ' espacios dibujados</span></div>';
         if (p.trazos && p.trazos.length) h += '<h3>Paredes y detalles</h3><div class="me-list">' + p.trazos.map(function (t) { return '<div class="me-detail-row"><span>' + esc(t.tipo) + '</span>' + (edita ? boton('Eliminar', 'deleteLine:' + esc(t.id), 'me-danger') : '') + '</div>'; }).join('') + '</div>';
@@ -527,6 +648,7 @@
       s.panelStageKey = stageKey;
       if (configAbierta && panel.querySelector('.me-config')) panel.querySelector('.me-config').open = true;
       if (medidasAbiertas && panel.querySelector('.me-details')) panel.querySelector('.me-details').open = true;
+      organizarPanel(e, p, a, stageKey);
       mostrarInventario();
     }
     function medidas(o, building) { return '<details class="me-details"><summary>Posición y tamaño (opcional)</summary><p>Unidades visuales referenciales, sin metros reales. También puedes arrastrar la figura para moverla.</p>' +
@@ -602,11 +724,13 @@
       clip.appendChild(puntos ? svg('polygon', { points: attrs.points }) : svg('rect', { x: obj.x + 2, y: obj.y + 1, width: Math.max(.1, obj.ancho - 4), height: Math.max(.1, obj.fondo - 2) }));
       defs.appendChild(clip); parent.appendChild(defs);
       var centro = puntoEtiqueta(obj, puntos);
-      var etiqueta = svg('text', { x: centro.x, y: centro.y, 'font-size': tam, 'text-anchor': 'middle',
+      var etiqueta = svg('text', { x: centro.x, y: centro.y, 'font-size': tam,
+        'data-base-font': Math.max(.005, escala * 13), 'data-max-font': Math.min(obj.ancho / 3, obj.fondo / 2.6), 'text-anchor': 'middle',
         'dominant-baseline': 'middle', style: 'fill:' + colorDeTexto(color), 'clip-path': 'url(#' + clipId + ')',
         transform: 'rotate(' + angulo + ' ' + centro.x + ' ' + centro.y + ')', 'pointer-events': 'none' });
       lineas.forEach(function (linea, i) {
-        etiqueta.appendChild(svg('tspan', { x: centro.x, dy: i === 0 ? (lineas.length === 1 ? 0 : -tam * .55) : tam * 1.1 }, linea));
+        var factorLinea = i === 0 ? (lineas.length === 1 ? 0 : -.55) : 1.1;
+        etiqueta.appendChild(svg('tspan', { x: centro.x, dy: tam * factorLinea, 'data-line-factor': factorLinea }, linea));
       });
       etiqueta.appendChild(svg('title', {}, title));
       parent.appendChild(etiqueta);
@@ -674,7 +798,8 @@
       if (!s.cuadricula || s.vista3d) return;
       var box = canvas.viewBox.baseVal, defs = svg('defs');
       var patron = svg('pattern', { id: 'me-grid', width: 25, height: 25, patternUnits: 'userSpaceOnUse' });
-      patron.appendChild(svg('path', { d: 'M 25 0 L 0 0 0 25', fill: 'none', stroke: '#c7d9e1', 'stroke-width': .6 }));
+      patron.appendChild(svg('path', { d: 'M 25 0 L 0 0 0 25', fill: 'none', stroke: '#c7d9e1', 'stroke-width': .6,
+        'vector-effect': 'non-scaling-stroke' }));
       defs.appendChild(patron); canvas.appendChild(defs);
       canvas.appendChild(svg('rect', { x: box.x, y: box.y, width: box.width, height: box.height, fill: 'url(#me-grid)', 'pointer-events': 'none' }));
     }
@@ -692,14 +817,16 @@
     function dibujarVertices(o) {
       if (!o || !o.puntos || (s.modo !== 'vertices' && !(contexto() === 'predio' && s.editarEdificio === o.id) && !(contexto() === 'piso' && s.editarEspacio === o.id) && !(contexto() === 'espacio' && s.cuartoSeleccionado === o.id))) return;
       var vb = canvas.viewBox.baseVal;
-      var r = Math.min(7, 6 * Math.max(vb.width / Math.max(1, canvas.clientWidth), vb.height / Math.max(1, canvas.clientHeight)) / s.zoom);
+      var radioBase = 6 * Math.max(vb.width / Math.max(1, canvas.clientWidth), vb.height / Math.max(1, canvas.clientHeight));
+      var r = Math.min(7, radioBase / s.zoom);
       o.puntos.forEach(function (pt, i) {
         var siguiente = o.puntos[(i + 1) % o.puntos.length];
         var lado = svg('circle', { cx: (pt.x + siguiente.x) / 2, cy: (pt.y + siguiente.y) / 2, r: r * .85,
+          'data-base-radius': radioBase * .85,
           class: 'me-add-vertex', 'data-add-index': i, 'aria-label': 'Clic para añadir punto; arrastrar para mover lado' });
         lado.appendChild(svg('title', {}, 'Clic: añadir punto · Arrastrar: mover este lado'));
         canvas.appendChild(lado);
-        canvas.appendChild(svg('circle', { cx: pt.x, cy: pt.y, r: r,
+        canvas.appendChild(svg('circle', { cx: pt.x, cy: pt.y, r: r, 'data-base-radius': radioBase,
           class: 'me-vertex' + (s.vertice === i ? ' me-vertex-selected' : ''), 'data-vertex-index': i }));
       });
       if (contexto() === 'predio' && s.editarEdificio === o.id) {
@@ -737,7 +864,8 @@
       var radio = 5 * Math.max(box.width / Math.max(1, canvas.clientWidth), box.height / Math.max(1, canvas.clientHeight)) / s.zoom;
       canvas.appendChild(svg('polyline', { points: puntosTexto(s.dibujo), fill: 'none', stroke: '#dc712b',
         'stroke-width': 2.5, 'stroke-dasharray': linea ? '4 3' : '', 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none' }));
-      s.dibujo.forEach(function (pt) { canvas.appendChild(svg('circle', { cx: pt.x, cy: pt.y, r: radio, fill: '#dc712b', 'pointer-events': 'none' })); });
+      s.dibujo.forEach(function (pt) { canvas.appendChild(svg('circle', { cx: pt.x, cy: pt.y, r: radio,
+        'data-base-radius': radio * s.zoom, 'data-max-radius': 100000, fill: '#dc712b', 'pointer-events': 'none' })); });
       if (linea) {
         var ultimo = s.dibujo[s.dibujo.length - 1];
         canvas.appendChild(svg('line', { x1: ultimo.x, y1: ultimo.y, x2: ultimo.x, y2: ultimo.y,
@@ -748,13 +876,56 @@
           'stroke-dasharray': '3 5', 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none' }));
       }
     }
-    function aplicarZoom() {
-      var box = canvas.viewBox.baseVal;
+    function actualizarEtiquetasZoom() {
+      Array.prototype.forEach.call(canvas.querySelectorAll('[data-base-font]'), function (n) {
+        var tamano = Math.min(Number(n.dataset.baseFont) / s.zoom, Number(n.dataset.maxFont));
+        n.setAttribute('font-size', tamano);
+        Array.prototype.forEach.call(n.querySelectorAll('[data-line-factor]'), function (linea) {
+          linea.setAttribute('dy', tamano * Number(linea.dataset.lineFactor));
+        });
+      });
+    }
+    var etiquetasZoomPendientes = null;
+    function programarEtiquetasZoom() {
+      if (etiquetasZoomPendientes) clearTimeout(etiquetasZoomPendientes);
+      etiquetasZoomPendientes = setTimeout(function () {
+        etiquetasZoomPendientes = null;
+        if (!root.isConnected || s.vista3d) return;
+        if (vistaFueraDeRegion()) pintar();
+        else actualizarEtiquetasZoom();
+      }, 180);
+    }
+    function regionConMargen(box) {
+      var ancho = box.width / s.zoom, alto = box.height / s.zoom;
+      var centroX = box.x + box.width / 2 + s.panX, centroY = box.y + box.height / 2 + s.panY;
+      return { x1: centroX - ancho * 2.5, y1: centroY - alto * 2.5,
+        x2: centroX + ancho * 2.5, y2: centroY + alto * 2.5 };
+    }
+    function vistaFueraDeRegion() {
+      if (!s.regionDibujo) return false;
+      if (s.zoom <= 3) return true;
+      var box = canvas.viewBox.baseVal, region = s.regionDibujo;
+      return box.x < region.x1 + box.width * .5 || box.y < region.y1 + box.height * .5 ||
+        box.x + box.width > region.x2 - box.width * .5 || box.y + box.height > region.y2 - box.height * .5;
+    }
+    function cruzaRegion(o, region) {
+      return o.x + o.ancho >= region.x1 && o.x <= region.x2 && o.y + o.fondo >= region.y1 && o.y <= region.y2;
+    }
+    function aplicarZoom(actualizarControles, actualizarEtiquetas) {
+      var box = s.baseVista;
+      if (!box) return;
+      s.vistaVersion = (s.vistaVersion || 0) + 1;
       var w = box.width / s.zoom, h = box.height / s.zoom;
       canvas.setAttribute('viewBox', (box.x + (box.width - w) / 2 + s.panX) + ' ' +
         (box.y + (box.height - h) / 2 + s.panY) + ' ' + w + ' ' + h);
+      if (actualizarControles === false) return;
+      Array.prototype.forEach.call(canvas.querySelectorAll('[data-base-radius]'), function (n) {
+        var limiteRadio = n.dataset.maxRadius ? Number(n.dataset.maxRadius) : n.classList.contains('me-add-vertex') ? 5.95 : 7;
+        n.setAttribute('r', Math.min(limiteRadio, Number(n.dataset.baseRadius) / s.zoom));
+      });
+      if (actualizarEtiquetas !== false) actualizarEtiquetasZoom();
     }
-    function acercar(factor, ev) {
+    function acercar(factor, ev, diferirEtiquetas) {
       var anterior = s.zoom, siguiente = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, anterior * factor));
       if (siguiente === anterior) return;
       if (ev) {
@@ -762,7 +933,18 @@
         s.panX += (punto.x - box.x - box.width / 2) * (1 - anterior / siguiente);
         s.panY += (punto.y - box.y - box.height / 2) * (1 - anterior / siguiente);
       }
-      s.zoom = siguiente; pintar();
+      s.zoom = siguiente;
+      if (s.vista3d) repintarMovimiento();
+      else {
+        if (etiquetasZoomPendientes && !diferirEtiquetas) { clearTimeout(etiquetasZoomPendientes); etiquetasZoomPendientes = null; }
+        aplicarZoom(true, !diferirEtiquetas);
+        if (diferirEtiquetas) {
+          if (s.regionDibujo && s.zoom <= 3) { pintar(); return; }
+          programarEtiquetasZoom();
+        }
+        else if (vistaFueraDeRegion()) { pintar(); return; }
+        actualizarZoomIndicador();
+      }
     }
     function dibujar3d() {
       if (window.MapaEspacial3D) window.MapaEspacial3D.dibujar(canvas, s, {
@@ -783,6 +965,8 @@
       return window.MapaEspacial3DCarga;
     }
     function pintar() {
+      if (etiquetasZoomPendientes) { clearTimeout(etiquetasZoomPendientes); etiquetasZoomPendientes = null; }
+      s.regionDibujo = null;
       var e = edificio(), p = piso(), a = espacio();
       root.classList.toggle('me-office-view', !!a && !s.vista3d);
       var viewport = a ? 's:' + a.id : p ? 'p:' + p.id : e ? 'e:' + e.id : 'predio';
@@ -813,15 +997,18 @@
         dibujarVertices(e);
       } else if (!a) {
         canvas.setAttribute('viewBox', '-5 -5 ' + (e.ancho + 10) + ' ' + (e.fondo + 10));
-        var local = (e.puntos || puntosRect(e)).map(function (pt) { return { x: redondear(pt.x - e.x), y: redondear(pt.y - e.y) }; });
+        if (p.espacios.length > 24 && s.zoom > 3) s.regionDibujo = regionConMargen(canvas.viewBox.baseVal);
+        var local = (e.puntos || puntosRect(e)).map(function (pt) { return { x: redondearFino(pt.x - e.x), y: redondearFino(pt.y - e.y) }; });
         canvas.appendChild(svg('polygon', { points: puntosTexto(local), fill: '#f7fafb', stroke: e.color || '#678298', 'stroke-width': 1.8, 'vector-effect': 'non-scaling-stroke' }));
         cuadricula();
-        if (s.capas.espacios) p.espacios.forEach(function (r) { dibujarRect(canvas, r, 'space', r.oficinaId ? '#cde9ee' : '#e6e9e8', r.nombre); });
+        if (s.capas.espacios) p.espacios.forEach(function (r) {
+          if (!s.regionDibujo || cruzaRegion(r, s.regionDibujo)) dibujarRect(canvas, r, 'space', r.oficinaId ? '#cde9ee' : '#e6e9e8', r.nombre);
+        });
         dibujarTrazos();
         dibujarVertices(objetoEnVertices());
       } else {
         canvas.setAttribute('viewBox', '-2 -2 ' + (a.ancho + 4) + ' ' + (a.fondo + 4));
-        var puntosLocal = (a.puntos || puntosRect(a)).map(function (pt) { return { x: redondear(pt.x - a.x), y: redondear(pt.y - a.y) }; });
+        var puntosLocal = (a.puntos || puntosRect(a)).map(function (pt) { return { x: redondearFino(pt.x - a.x), y: redondearFino(pt.y - a.y) }; });
         canvas.appendChild(svg('polygon', { points: puntosTexto(puntosLocal), fill: '#fbfaf6', stroke: a.color || '#678298', 'stroke-width': 1.8, 'vector-effect': 'non-scaling-stroke' }));
         cuadricula();
         (a.cuartos || []).forEach(function (c) { dibujarRect(canvas, c, 'room', '#edf5df', c.nombre); });
@@ -831,17 +1018,42 @@
           info.oficinaId != null && Number(info.oficinaId) !== Number(a.oficinaId)); });
         dibujarVertices(cuarto());
       }
-      dibujarBorrador(); aplicarZoom(); actualizarHerramientas();
+      dibujarBorrador();
+      var vista = canvas.viewBox.baseVal;
+      s.baseVista = { x: vista.x, y: vista.y, width: vista.width, height: vista.height };
+      aplicarZoom(); actualizarHerramientas();
       renderPanel();
       if (a && a.oficinaId && (!s.inventario || s.inventario.oficinaId !== a.oficinaId)) cargarInventario(a.oficinaId, '', 0);
     }
     function limpiarHerramienta() { s.modo = ''; s.dibujo = []; s.tipoDibujo = 'EDIFICIO'; s.editarEdificio = null; s.editarEspacio = null; s.vertice = -1; }
     function volver() { limpiarHerramienta(); if (s.espacio) { s.espacio = null; s.activoSeleccionado = s.cuartoSeleccionado = s.muebleSeleccionado = null; } else if (s.piso) { s.piso = null; if (!edita) s.vista3d = true; } else { s.edificio = null; if (!edita) s.vista3d = true; } if (!s.edificio) { s.enfoqueInicial = edita; s.destacadoEdificio = s.busquedaSeleccionada && s.busquedaSeleccionada.edificioId; } pintar(); }
     root.querySelector('.me-volver').addEventListener('click', volver);
-    root.querySelector('.me-ampliar').addEventListener('click', function () {
+    var botonEstudio = root.querySelector('.me-ampliar');
+    if (edita && window.matchMedia && window.matchMedia('(min-width: 900px)').matches) {
+      root.classList.add('me-ampliado'); botonEstudio.textContent = '✕ Salir del estudio';
+    }
+    botonEstudio.addEventListener('click', function () {
       root.classList.toggle('me-ampliado');
-      this.textContent = root.classList.contains('me-ampliado') ? '✕ Salir de vista ampliada' : '⛶ Ampliar vista';
+      this.textContent = root.classList.contains('me-ampliado') ? (edita ? '✕ Salir del estudio' : '✕ Salir de vista ampliada') : (edita ? '⛶ Abrir estudio' : '⛶ Ampliar vista');
       pintar();
+    });
+    var accionesRapidas = root.querySelector('.me-canvas-actions');
+    if (accionesRapidas) accionesRapidas.addEventListener('click', function (ev) {
+      var boton = ev.target.closest('[data-quick-tool],[data-quick-action],[data-quick-tab]');
+      if (!boton || boton.disabled) return;
+      if (boton.dataset.quickTab) { activarPanel(boton.dataset.quickTab); return; }
+      if (boton.dataset.quickTool) { var herramienta = root.querySelector('.me-herramientas [data-tool="' + boton.dataset.quickTool + '"]'); if (herramienta) herramienta.click(); return; }
+      if (boton.dataset.quickAction === 'addOffice') { agregarEspacio('OFICINA'); return; }
+      if (boton.dataset.quickAction === 'addHall') { agregarEspacio('PASILLO'); return; }
+      var accion = root.querySelector('.me-herramientas [data-action="' + boton.dataset.quickAction + '"]'); if (accion) accion.click();
+    });
+    var tabsPanel = root.querySelector('.me-panel-tabs');
+    if (tabsPanel) tabsPanel.addEventListener('click', function (ev) {
+      var boton = ev.target.closest('[data-panel-tab]'); if (boton) activarPanel(boton.dataset.panelTab);
+    });
+    panel.addEventListener('input', function (ev) {
+      if (!ev.target.classList.contains('me-list-filter')) return;
+      s.filtroConstrucciones = ev.target.value; aplicarFiltroConstrucciones();
     });
     Array.prototype.forEach.call(root.querySelectorAll('.me-nuevo-edificio'), function (b) {
       b.addEventListener('click', function () { agregarEdificio(b.dataset.tipo); });
@@ -888,26 +1100,30 @@
     root.querySelector('.me-publicar') && root.querySelector('.me-publicar').addEventListener('click', function () {
       var boton = this, predio = s.predioId;
       if (!predio || boton.disabled) return;
-      if (!confirm('¿Publicar el mapa de este predio para todos los usuarios con acceso al explorador?')) return;
+      confirmarModal('Publicar este predio', 'La versión guardada quedará visible de inmediato para quienes exploran el mapa. Si hay cambios pendientes, primero se guardarán en el borrador.', 'Publicar versión').then(function (aceptado) {
+      if (!aceptado) return;
       boton.disabled = true;
       (s.dirty || s.version < 0 ? guardarBorrador() : Promise.resolve()).then(function () {
         if (s.predioId !== predio) throw new Error('El predio cambió durante la publicación.');
         if (s.dirty) throw new Error('Hubo cambios mientras se guardaba. Guarda de nuevo antes de publicar.');
         return request(BASE + '/predios/' + predio + '/publicaciones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: s.version }) });
       }).then(function (d) {
-        s.version = d.version; s.numeroPublicacion = d.numero; actualizarPublicacion(); cargarPublicaciones(); avisar('Versión ' + d.numero + ' publicada', false);
+        s.version = d.version; s.numeroPublicacion = d.numero; actualizarPublicacion(); cargarPublicaciones(); notificarPublicacion(predio, d.numero); avisar('Versión ' + d.numero + ' publicada y visible en el explorador', false);
       }).catch(function (e) { avisar(e.message, true); }).then(function () { boton.disabled = false; });
+      });
     });
     var listaPublicaciones = root.querySelector('.me-publicaciones-lista');
     if (listaPublicaciones) listaPublicaciones.addEventListener('click', function (ev) {
       var boton = ev.target.closest('[data-restaurar]'); if (!boton || !s.predioId) return;
-      if (!confirm('¿Recuperar la versión ' + boton.dataset.restaurar + ' en el borrador? El mapa publicado seguirá igual.')) return;
+      confirmarModal('Recuperar versión ' + boton.dataset.restaurar, 'Esta versión sustituirá el borrador actual. El explorador conservará la publicación vigente hasta que publiques de nuevo.', 'Recuperar en borrador').then(function (aceptado) {
+      if (!aceptado) return;
       var predio = s.predioId;
       boton.disabled = true;
       request(BASE + '/predios/' + predio + '/publicaciones/' + boton.dataset.restaurar + '/restaurar',
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: s.version }) })
         .then(function () { if (s.predioId === predio) { s.dirty = false; cambiarPredio(predio); avisar('Versión recuperada en el borrador', false); } })
         .catch(function (e) { avisar(e.message, true); boton.disabled = false; });
+      });
     });
     root.querySelector('.me-predio').addEventListener('change', function () { cambiarPredio(this.value); });
     var consultaMapa = 0, tiempoMapa;
@@ -951,7 +1167,36 @@
       });
     }
     var drag = null, ignorarClick = false, repintadoPendiente = false;
+    var vista2dPendiente = false, ruedaPendiente = false, ruedaAcumulada = 0, ruedaEvento = null, ruedaVista = null;
+    function programarVista2d() {
+      if (vista2dPendiente) return;
+      vista2dPendiente = true;
+      (window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); })(function () {
+        if (!vista2dPendiente) return;
+        vista2dPendiente = false;
+        if (root.isConnected && !s.vista3d) {
+          aplicarZoom(false);
+          if (vistaFueraDeRegion()) pintar();
+        }
+      });
+    }
     function puntoSvg(ev) { var punto = canvas.createSVGPoint(); punto.x = ev.clientX; punto.y = ev.clientY; return punto.matrixTransform(canvas.getScreenCTM().inverse()); }
+    function puntoConMatriz(ev, matriz) {
+      return { x: matriz.a * ev.clientX + matriz.c * ev.clientY + matriz.e,
+        y: matriz.b * ev.clientX + matriz.d * ev.clientY + matriz.f };
+    }
+    function puntoVerticeArrastrado(movimiento, ev) {
+      var actual = movimiento.vistaVersion === s.vistaVersion ? puntoConMatriz(ev, movimiento.matrizInversa) : puntoSvg(ev);
+      var original = movimiento.original;
+      var x = ajustarNumero(original.x + actual.x - movimiento.inicio.x);
+      var y = ajustarNumero(original.y + actual.y - movimiento.inicio.y);
+      if (ev.shiftKey) {
+        if (Math.abs(x - original.x) >= Math.abs(y - original.y)) y = original.y;
+        else x = original.x;
+      }
+      return { x: Math.max(0, Math.min(movimiento.maxX, x)),
+        y: Math.max(0, Math.min(movimiento.maxY, y)) };
+    }
     function umbralEnPlano(pixeles) { var b = canvas.viewBox.baseVal; return pixeles * Math.max(b.width / Math.max(1, canvas.clientWidth), b.height / Math.max(1, canvas.clientHeight)); }
     function repintarMovimiento() {
       if (repintadoPendiente) return;
@@ -974,9 +1219,10 @@
         s.inclinacion = Math.max(edita ? 12 : 8, Math.min(edita ? 78 : 85, drag.inclinacion + (ev.clientY - drag.y) * .1));
         repintarMovimiento();
       } else if (drag.kind === 'pan') {
-        s.panX = drag.panX - (ev.clientX - drag.x) * drag.width / Math.max(1, canvas.clientWidth);
-        s.panY = drag.panY - (ev.clientY - drag.y) * drag.height / Math.max(1, canvas.clientHeight);
-        repintarMovimiento();
+        if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > 2) drag.movio = true;
+        s.panX = drag.panX - (ev.clientX - drag.x) * drag.unidadesPorPixel;
+        s.panY = drag.panY - (ev.clientY - drag.y) * drag.unidadesPorPixel;
+        if (s.vista3d) repintarMovimiento(); else programarVista2d();
       }
     }
     function anguloArrastrado(movimiento, ev) {
@@ -1044,6 +1290,7 @@
       dirty(); pintar();
     }
     function modificarVertice(o, indice, pt) {
+      if (o.puntos[indice].x === pt.x && o.puntos[indice].y === pt.y) return;
       var anterior = JSON.stringify(s.escena), maxX = o.pisos ? 2000 : o.tipo === 'CUARTO_INTERIOR' ? espacio().ancho : edificio().ancho, maxY = o.pisos ? 2000 : o.tipo === 'CUARTO_INTERIOR' ? espacio().fondo : edificio().fondo;
       if (pt.x < 0 || pt.y < 0 || pt.x > maxX || pt.y > maxY) return;
       o.puntos[indice] = pt;
@@ -1144,7 +1391,7 @@
       if (edita && (s.modo === 'vertices' || s.editarEdificio || s.editarEspacio || s.cuartoSeleccionado) && medio) {
         var o = objetoEnVertices(), i = Number(medio.dataset.addIndex), a = o.puntos[i], b = o.puntos[(i + 1) % o.puntos.length];
         if (o.puntos.length >= 128) { avisar('Máximo 128 puntos por contorno.', true); return; }
-        var medioPunto = { x: redondear((a.x + b.x) / 2), y: redondear((a.y + b.y) / 2) };
+        var medioPunto = { x: redondearFino((a.x + b.x) / 2), y: redondearFino((a.y + b.y) / 2) };
         if ((medioPunto.x === a.x && medioPunto.y === a.y) || (medioPunto.x === b.x && medioPunto.y === b.y)) { avisar('Amplía el plano para añadir un punto en este lado.', true); return; }
         o.puntos.splice(i + 1, 0, medioPunto);
         s.vertice = i + 1; dirty(); pintar(); return;
@@ -1191,7 +1438,10 @@
       canvas.focus({ preventScroll: true });
       if (ev.button === 1 || ev.button === 2 || s.espacioPulsado || s.modo === 'pan' || (!edita && s.vista3d && ev.shiftKey)) {
         ev.preventDefault();
-        drag = { kind: 'pan', x: ev.clientX, y: ev.clientY, panX: s.panX, panY: s.panY, width: canvas.viewBox.baseVal.width, height: canvas.viewBox.baseVal.height };
+        var matrizVista = canvas.getScreenCTM();
+        drag = { kind: 'pan', x: ev.clientX, y: ev.clientY, panX: s.panX, panY: s.panY,
+          unidadesPorPixel: 1 / Math.hypot(matrizVista.a, matrizVista.b) };
+        canvas.classList.add('me-panning');
         canvas.style.cursor = 'grabbing'; return;
       }
       if (s.vista3d) {
@@ -1239,7 +1489,24 @@
         return;
       }
       if ((s.modo === 'vertices' || s.editarEdificio || s.editarEspacio || s.cuartoSeleccionado) && vertice) {
-        drag = { kind: 'vertex', o: objetoEnVertices(), index: Number(vertice.dataset.vertexIndex), x: ev.clientX, y: ev.clientY };
+        var objetoVertice = objetoEnVertices(), indiceVertice = Number(vertice.dataset.vertexIndex);
+        var matrizVertice = canvas.getScreenCTM().inverse();
+        var anteriorVertice = puntosTexto(objetoVertice.puntos.slice(0, indiceVertice));
+        var posteriorVertice = puntosTexto(objetoVertice.puntos.slice(indiceVertice + 1));
+        drag = { kind: 'vertex', o: objetoVertice, index: indiceVertice, x: ev.clientX, y: ev.clientY,
+          inicio: puntoConMatriz(ev, matrizVertice), matrizInversa: matrizVertice, vistaVersion: s.vistaVersion,
+          maxX: objetoVertice.pisos ? 2000 : objetoVertice.tipo === 'CUARTO_INTERIOR' ? espacio().ancho : edificio().ancho,
+          maxY: objetoVertice.pisos ? 2000 : objetoVertice.tipo === 'CUARTO_INTERIOR' ? espacio().fondo : edificio().fondo,
+          original: { x: objetoVertice.puntos[indiceVertice].x, y: objetoVertice.puntos[indiceVertice].y },
+          previewAntes: anteriorVertice ? anteriorVertice + ' ' : '', previewDespues: posteriorVertice ? ' ' + posteriorVertice : '', ultimaGuia: 0 };
+        drag.preview = svg('polygon', { points: puntosTexto(objetoVertice.puntos), class: 'me-vertex-preview',
+          'pointer-events': 'none' });
+        drag.previewNode = svg('circle', { cx: drag.original.x, cy: drag.original.y,
+          r: Number(vertice.getAttribute('r')), class: 'me-vertex-preview-node', 'pointer-events': 'none' });
+        canvas.appendChild(drag.preview); canvas.appendChild(drag.previewNode);
+        drag.guia = root.querySelector('.me-canvas-hint');
+        if (drag.guia) drag.guiaAnterior = drag.guia.textContent;
+        canvas.classList.add('me-dragging-vertex');
         return;
       }
       if (s.modo === 'vertices') return;
@@ -1254,7 +1521,7 @@
       drag = { o: o, x: pos.x, y: pos.y, ox: o.x, oy: o.y, kind: kind };
     });
     canvas.addEventListener('mousemove', function (ev) {
-      if (!s.dibujo.length || (s.modo !== 'polygonBuilding' && s.modo !== 'polygonOffice' && s.modo !== 'polygonRoom')) return;
+      if (drag && drag.kind === 'pan' || !s.dibujo.length || (s.modo !== 'polygonBuilding' && s.modo !== 'polygonOffice' && s.modo !== 'polygonRoom')) return;
       var guia = canvas.querySelector('.me-draft-cursor'), cierre = canvas.querySelector('.me-draft-close');
       if (!guia) return;
       var punto = coordenadaPlano(ev);
@@ -1267,6 +1534,33 @@
       if (drag.kind === 'rotateBuilding') {
         var grados = anguloArrastrado(drag, ev);
         drag.preview.setAttribute('transform', 'rotate(' + grados + ' ' + drag.centro.x + ' ' + drag.centro.y + ')');
+      } else if (drag.kind === 'vertex') {
+        var movimientoVertice = drag;
+        movimientoVertice.ultimoEvento = { clientX: ev.clientX, clientY: ev.clientY, shiftKey: ev.shiftKey };
+        if (movimientoVertice.pendiente) return;
+        movimientoVertice.pendiente = true;
+        (window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); })(function () {
+          movimientoVertice.pendiente = false;
+          if (drag !== movimientoVertice || !root.isConnected) return;
+          var puntoArrastre = puntoVerticeArrastrado(movimientoVertice, movimientoVertice.ultimoEvento);
+          movimientoVertice.preview.setAttribute('points', movimientoVertice.previewAntes + puntoArrastre.x + ',' + puntoArrastre.y + movimientoVertice.previewDespues);
+          movimientoVertice.previewNode.setAttribute('cx', puntoArrastre.x);
+          movimientoVertice.previewNode.setAttribute('cy', puntoArrastre.y);
+          if (movimientoVertice.validacionPendiente) clearTimeout(movimientoVertice.validacionPendiente);
+          movimientoVertice.preview.classList.remove('me-invalid-preview');
+          movimientoVertice.validacionPendiente = setTimeout(function () {
+            movimientoVertice.validacionPendiente = null;
+            if (drag !== movimientoVertice || !root.isConnected) return;
+            var puntosValidacion = movimientoVertice.o.puntos.slice();
+            puntosValidacion[movimientoVertice.index] = puntoArrastre;
+            movimientoVertice.preview.classList.toggle('me-invalid-preview', !poligonoSimple(puntosValidacion));
+          }, 120);
+          var ahora = Date.now();
+          if (movimientoVertice.guia && ahora - movimientoVertice.ultimaGuia >= 80) {
+            movimientoVertice.guia.textContent = 'Punto ' + (movimientoVertice.index + 1) + ' · X: ' + puntoArrastre.x.toFixed(4) + ' · Y: ' + puntoArrastre.y.toFixed(4) + ' · Mayús: mover en un solo eje';
+            movimientoVertice.ultimaGuia = ahora;
+          }
+        });
       }
     });
     function finalizarArrastre(ev) {
@@ -1327,22 +1621,20 @@
       }
       if (drag.kind === 'pan') {
         var px = ev.clientX - drag.x, py = ev.clientY - drag.y;
-        if (Math.abs(px) + Math.abs(py) > 2) {
+        if (drag.movio || Math.abs(px) + Math.abs(py) > 2) {
           actualizarNavegacion(ev);
-          ignorarClick = true; setTimeout(function () { ignorarClick = false; }, 0); pintar();
+          ignorarClick = true; setTimeout(function () { ignorarClick = false; }, 0);
+          if (s.vista3d) pintar();
         }
-        drag = null; canvas.style.cursor = s.vista3d || s.modo === 'pan' ? 'grab' : ''; return;
+        drag = null; canvas.classList.remove('me-panning'); canvas.style.cursor = s.vista3d || s.modo === 'pan' ? 'grab' : ''; return;
       }
       if (drag.kind === 'vertex') {
-        if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > 2) {
-          var v = puntoSvg(ev), o = drag.o;
-          var nuevoVertice = { x: ajustarNumero(v.x), y: ajustarNumero(v.y) };
-          if (ev.shiftKey) {
-            var original = o.puntos[drag.index];
-            if (Math.abs(nuevoVertice.x - original.x) >= Math.abs(nuevoVertice.y - original.y)) nuevoVertice.y = original.y;
-            else nuevoVertice.x = original.x;
-          }
-          modificarVertice(o, drag.index, nuevoVertice);
+        if (drag.validacionPendiente) clearTimeout(drag.validacionPendiente);
+        drag.preview.remove(); drag.previewNode.remove();
+        canvas.classList.remove('me-dragging-vertex');
+        if (drag.guia) drag.guia.textContent = drag.guiaAnterior || '';
+        if (Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) >= 1) {
+          modificarVertice(drag.o, drag.index, puntoVerticeArrastrado(drag, ev));
           ignorarClick = true; setTimeout(function () { ignorarClick = false; }, 0);
         }
         drag = null; return;
@@ -1361,11 +1653,11 @@
       if (Math.abs(dx) + Math.abs(dy) > 2) {
         var maxX = drag.kind === 'building' ? 2000 : drag.kind === 'space' ? edificio().ancho : espacio().ancho;
         var maxY = drag.kind === 'building' ? 2000 : drag.kind === 'space' ? edificio().fondo : espacio().fondo;
-        var x = redondear(Math.max(0, Math.min(maxX - drag.o.ancho, drag.ox + dx)));
-        var y = redondear(Math.max(0, Math.min(maxY - drag.o.fondo, drag.oy + dy)));
+        var x = redondearFino(Math.max(0, Math.min(maxX - drag.o.ancho, drag.ox + dx)));
+        var y = redondearFino(Math.max(0, Math.min(maxY - drag.o.fondo, drag.oy + dy)));
         if (x !== drag.o.x || y !== drag.o.y) {
           var tx = x - drag.o.x, ty = y - drag.o.y;
-          if (drag.o.puntos) drag.o.puntos.forEach(function (pt) { pt.x = redondear(pt.x + tx); pt.y = redondear(pt.y + ty); });
+          if (drag.o.puntos) drag.o.puntos.forEach(function (pt) { pt.x = redondearFino(pt.x + tx); pt.y = redondearFino(pt.y + ty); });
           drag.o.x = x; drag.o.y = y; dirty(); pintar();
         }
         ignorarClick = true; setTimeout(function () { ignorarClick = false; }, 0);
@@ -1384,7 +1676,26 @@
     });
     canvas.addEventListener('wheel', function (ev) {
       ev.preventDefault();
-      acercar(Math.exp(-Math.max(-180, Math.min(180, ev.deltaY)) * .0015), ev);
+      var unidad = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? canvas.clientHeight : 1;
+      ruedaAcumulada += Math.max(-180, Math.min(180, ev.deltaY * unidad));
+      ruedaEvento = { clientX: ev.clientX, clientY: ev.clientY };
+      ruedaVista = s.viewport;
+      if (ruedaPendiente) return;
+      ruedaPendiente = true;
+      (window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); })(function () {
+        ruedaPendiente = false;
+        var delta = ruedaAcumulada, posicion = ruedaEvento, vista = ruedaVista;
+        ruedaAcumulada = 0; ruedaEvento = ruedaVista = null;
+        if (!root.isConnected || !delta || vista !== s.viewport) return;
+        if (vista2dPendiente) { vista2dPendiente = false; aplicarZoom(false); }
+        acercar(Math.exp(-Math.max(-720, Math.min(720, delta)) * .0015), posicion, true);
+        if (drag && drag.kind === 'pan') {
+          var matriz = canvas.getScreenCTM();
+          drag.x = posicion.clientX; drag.y = posicion.clientY;
+          drag.panX = s.panX; drag.panY = s.panY;
+          drag.unidadesPorPixel = 1 / Math.hypot(matriz.a, matriz.b);
+        }
+      });
     }, { passive: false });
     canvas.addEventListener('auxclick', function (ev) { if (ev.button === 1) ev.preventDefault(); });
     canvas.addEventListener('contextmenu', function (ev) { if (s.vista3d || s.espacioPulsado) ev.preventDefault(); });
@@ -1419,12 +1730,27 @@
       if (edita && tecla === 'v') { s.modo = ''; s.dibujo = []; pintar(); return; }
       if (tecla === 'm') { s.modo = s.modo === 'pan' ? '' : 'pan'; s.dibujo = []; pintar(); }
     });
-    root.addEventListener('keyup', function (ev) { if (ev.code === 'Space') { s.espacioPulsado = false; canvas.style.cursor = s.vista3d || s.modo === 'pan' ? 'grab' : ''; } });
-    window.addEventListener('blur', function () { s.espacioPulsado = false; });
+    root.addEventListener('keyup', function (ev) { if (ev.code === 'Space') { s.espacioPulsado = false; canvas.style.cursor = drag && drag.kind === 'pan' ? 'grabbing' : s.vista3d || s.modo === 'pan' ? 'grab' : ''; } });
+    window.addEventListener('blur', function () {
+      s.espacioPulsado = false;
+      if (drag && drag.kind === 'pan') { drag = null; canvas.classList.remove('me-panning'); canvas.style.cursor = s.vista3d || s.modo === 'pan' ? 'grab' : ''; }
+      else if (drag && drag.kind === 'vertex') {
+        if (drag.validacionPendiente) clearTimeout(drag.validacionPendiente);
+        drag.preview.remove(); drag.previewNode.remove();
+        if (drag.guia) drag.guia.textContent = drag.guiaAnterior || '';
+        canvas.classList.remove('me-dragging-vertex'); drag = null;
+      }
+    });
     var barra = root.querySelector('.me-herramientas');
     if (barra) {
       barra.addEventListener('input', function (ev) {
-        if (ev.target.classList.contains('me-zoom-range')) { s.zoom = zoomDelControl(ev.target.value); pintar(); }
+        if (ev.target.classList.contains('me-zoom-range')) {
+          s.zoom = zoomDelControl(ev.target.value);
+          if (s.vista3d) repintarMovimiento();
+          else { aplicarZoom(true, false); programarEtiquetasZoom(); }
+          var etiquetaZoom = barra.querySelector('.me-zoom-label');
+          if (etiquetaZoom) etiquetaZoom.textContent = Math.round(s.zoom * 100) + '%';
+        }
       });
       barra.addEventListener('click', function (ev) {
         var n = ev.target.closest('[data-tool],[data-action]'); if (!n || n.disabled) return;
@@ -1454,7 +1780,7 @@
         }
       });
       barra.addEventListener('change', function (ev) {
-        if (ev.target.classList.contains('me-zoom-range')) s.zoom = zoomDelControl(ev.target.value);
+        if (ev.target.classList.contains('me-zoom-range')) return;
         else if (ev.target.classList.contains('me-cuadricula')) s.cuadricula = ev.target.checked;
         else if (ev.target.classList.contains('me-ajuste')) s.snap = ev.target.checked;
         else if (ev.target.classList.contains('me-techo3d')) s.techo3d = ev.target.checked;

@@ -37,6 +37,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.CacheControl;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,6 +55,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialPublicacionDao;
@@ -74,6 +77,7 @@ import lombok.RequiredArgsConstructor;
 public class MapaEspacialController {
     private final IMapaEspacialDao mapas;
     private final IMapaEspacialPublicacionDao publicaciones;
+    private final SseEmitterRegistry eventos;
     private final IPredioDao predios;
     private final IOficinaDao oficinas;
     private final IActivoDao activos;
@@ -521,6 +525,12 @@ public class MapaEspacialController {
         mapa.setNumeroPublicacion(numero); mapa.setFondoPublicado(fondo);
         mapa.setFechaPublicacion(fecha); mapa.setPublicadoPor(actor);
         mapas.saveAndFlush(mapa);
+        Map<String, Object> aviso = Map.of("predioId", predioId, "numero", numero);
+        if (TransactionSynchronizationManager.isSynchronizationActive())
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCommit() { eventos.broadcast("mapa-espacial-publicado", aviso); }
+            });
+        else eventos.broadcast("mapa-espacial-publicado", aviso);
         return Map.of("numero", numero, "version", mapa.getVersion());
     }
 

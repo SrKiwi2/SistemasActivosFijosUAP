@@ -43,7 +43,7 @@
         // 'perfil': cambiaron sus datos personales (módulo Persona); ver más abajo.
         // 'comunicado': alguien confirmó la lectura de un comunicado que este usuario envió
         // (la pantalla Comunicados se actualiza sola).
-        ['actividad', 'autorizacion', 'permisos', 'menu', 'perfil', 'comunicado'].forEach(nombre => {
+        ['actividad', 'autorizacion', 'permisos', 'menu', 'perfil', 'comunicado', 'mapa-espacial-publicado'].forEach(nombre => {
             sse.addEventListener(nombre, e => {
                 try {
                     document.dispatchEvent(new CustomEvent('sciaf:' + nombre, { detail: JSON.parse(e.data) }));

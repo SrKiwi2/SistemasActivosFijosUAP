@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
@@ -22,10 +23,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronizationUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.usic.SistemasActivosFijosUAP.controller.rest.MapaEspacialController;
+import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IMapaEspacialPublicacionDao;
@@ -41,11 +45,12 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 class MapaEspacialControllerTest {
     private final IMapaEspacialDao mapas = mock(IMapaEspacialDao.class);
     private final IMapaEspacialPublicacionDao publicaciones = mock(IMapaEspacialPublicacionDao.class);
+    private final SseEmitterRegistry eventos = mock(SseEmitterRegistry.class);
     private final IPredioDao predios = mock(IPredioDao.class);
     private final IOficinaDao oficinas = mock(IOficinaDao.class);
     private final IActivoDao activos = mock(IActivoDao.class);
     private final ObjectMapper json = new ObjectMapper();
-    private final MapaEspacialController controller = new MapaEspacialController(mapas, publicaciones, predios, oficinas, activos, json);
+    private final MapaEspacialController controller = new MapaEspacialController(mapas, publicaciones, eventos, predios, oficinas, activos, json);
 
     private MockHttpServletRequest editor() {
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -104,11 +109,33 @@ class MapaEspacialControllerTest {
         assertEquals(true, mapa.getPublicada());
         assertEquals("{\"edificios\":[]}", mapa.getEscenaPublicada());
         verify(publicaciones).save(any(MapaEspacialPublicacion.class));
+        verify(eventos).broadcast(eq("mapa-espacial-publicado"), any());
         mapa.setEscena("{\"edificios\":[{\"id\":\"nuevo\",\"nombre\":\"SOLO BORRADOR\"}]}");
         assertEquals(0, ((com.fasterxml.jackson.databind.JsonNode) controller.resumen(predioId, editor()).get("escena"))
                 .path("edificios").size());
         assertEquals(409, assertThrows(ResponseStatusException.class,
                 () -> controller.publicar(predioId, cuerpo, publicador())).getStatusCode().value());
+    }
+
+    @Test
+    void avisaAlExploradorDespuesDeConfirmarLaPublicacion() throws Exception {
+        long predioId = Long.MAX_VALUE - 205;
+        Predio predio = new Predio(); predio.setIdPredio(predioId);
+        MapaEspacial mapa = new MapaEspacial(); mapa.setPredio(predio); mapa.setVersion(0L);
+        mapa.setPublicada(false); mapa.setNumeroPublicacion(0L); mapa.setEscena("{\"edificios\":[]}");
+        when(mapas.findByPredioIdPredio(predioId)).thenReturn(Optional.of(mapa));
+        when(mapas.saveAndFlush(any(MapaEspacial.class))).thenAnswer(inv -> {
+            MapaEspacial m = inv.getArgument(0); m.setVersion(1L); return m;
+        });
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            controller.publicar(predioId, json.readTree("{\"version\":0}"), publicador());
+            verify(eventos, never()).broadcast(eq("mapa-espacial-publicado"), any());
+            TransactionSynchronizationUtils.triggerAfterCommit();
+            verify(eventos).broadcast(eq("mapa-espacial-publicado"), any());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
