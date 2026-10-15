@@ -214,6 +214,27 @@ public class AdicionalController {
         }
     }
 
+    /** Etiquetas con QR de los activos marcados (PDF, se abre en otra pestaña). */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/etiquetas")
+    public ResponseEntity<?> etiquetas(@RequestParam(name = "ids") List<Long> ids, HttpServletRequest request) {
+        if (!puede(request)) return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .contentType(org.springframework.http.MediaType.TEXT_PLAIN).body("Sin permiso para Activos adicionales.");
+        try {
+            byte[] pdf = adicionalService.etiquetas(ids, RolesSciaf.usuarioDe(request), opciones(request));
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                    .header("Content-Disposition", "inline; filename=etiquetas-adicionales.pdf")
+                    .body(pdf);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().contentType(org.springframework.http.MediaType.TEXT_PLAIN).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("No se generaron las etiquetas", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                    .body("No se pudo generar el PDF de etiquetas. Intente de nuevo.");
+        }
+    }
+
     // ── catálogos para la vista (llegan con ella: un solo pedido) ──
 
     private List<Map<String, Object>> grupos() {

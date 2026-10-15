@@ -73,6 +73,21 @@
     .ad-pantalla .sm-input:focus, .ad-pantalla .sm-select:focus { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); outline: 0; }
     .ad-sin-mayus { text-transform: none !important; }
 
+    /* Altas rápidas de oficina / responsable */
+    .ad-con-boton { display: flex; gap: .35rem; }
+    .ad-con-boton > :first-child { flex: 1; min-width: 0; }
+    .ad-icono-btn { width: 44px; height: 44px; flex: none; border-radius: 10px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie);
+        color: var(--sm-texto-2); display: inline-flex; align-items: center; justify-content: center; }
+    .ad-icono-btn:hover:not(:disabled) { color: var(--ad); border-color: var(--ad); }
+    .ad-icono-btn:disabled { opacity: .45; }
+    .ad-sub-alta { border-color: rgba(var(--ad-rgb), .45); background: var(--ad-suave); }
+    .ad-sub-alta .sm-subformulario-cab > i { color: var(--ad); }
+    .ad-sub-pie { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; margin-top: .8rem; }
+
+    /* Selección para etiquetas */
+    .ad-pantalla .js-tabla .ad-marca { width: 18px; height: 18px; cursor: pointer; accent-color: var(--ad); vertical-align: middle; }
+    .ad-pantalla .js-tabla tr.ad-elegida > td { background: var(--ad-suave); }
+
     .ad-fotos { display: flex; flex-wrap: wrap; gap: .5rem; }
     .ad-foto { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); }
     .ad-foto img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; display: block; }
@@ -122,6 +137,10 @@
             <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
         </div>
         <div class="sm-toolbar-espacio"></div>
+        <button type="button" class="sm-btn sm-btn-suave js-etiquetas-sel" disabled
+                title="Marque en la tabla los activos con código (los recién registrados se marcan solos)">
+            <i class="ti ti-qrcode"></i> Etiquetas <span class="js-n-sel">(0)</span></button>
+        <button type="button" class="sm-btn sm-btn-neutro js-limpiar-sel d-none" title="Desmarcar todos"><i class="ti ti-square-off"></i></button>
         <label class="sm-filas">
             <i class="ti ti-list-numbers"></i> Filas
             <select class="sm-select js-largo" aria-label="Filas por página">
@@ -136,6 +155,7 @@
     <table class="table sm-tabla align-middle js-tabla">
         <thead>
             <tr>
+                <th class="text-center" style="width:44px;" title="Marcar para imprimir etiquetas"><i class="ti ti-qrcode"></i></th>
                 <th style="width:170px;">Código</th>
                 <th style="width:140px;">Código antiguo</th>
                 <th>Descripción</th>
@@ -204,8 +224,65 @@
             <div class="ad-seccion">
                 <div class="ad-seccion-cab"><i class="ti ti-map-pin"></i> Ubicación</div>
                 <div class="ad-seccion-cuerpo row g-2">
-                    <div class="col-md-6"><label class="sm-label">Oficina</label><select class="js-oficina" disabled><option value=""></option></select></div>
-                    <div class="col-md-6"><label class="sm-label">Responsable</label><select class="js-responsable" disabled><option value=""></option></select></div>
+                    <div class="col-md-6"><label class="sm-label">Oficina</label>
+                        <div class="ad-con-boton">
+                            <div><select class="js-oficina" disabled><option value=""></option></select></div>
+                            <button type="button" class="ad-icono-btn js-alta-oficina" disabled title="Crear una oficina nueva en este predio"><i class="ti ti-plus"></i></button>
+                        </div></div>
+                    <div class="col-md-6"><label class="sm-label">Responsable</label>
+                        <div class="ad-con-boton">
+                            <div><select class="js-responsable" disabled><option value=""></option></select></div>
+                            <button type="button" class="ad-icono-btn js-alta-resp" disabled title="Registrar un responsable nuevo en esta oficina"><i class="ti ti-user-plus"></i></button>
+                        </div></div>
+                    <div class="col-12">
+                        <!-- Alta rápida de oficina -->
+                        <div class="sm-subformulario ad-sub-alta js-sub-oficina d-none">
+                            <div class="sm-subformulario-cab"><i class="ti ti-door"></i>
+                                <div><b>Nueva oficina</b> en <span class="js-sub-ofi-predio">—</span>
+                                    <div class="ad-ayuda mt-0">El código lo propone el sistema (el siguiente libre del predio).</div></div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-3"><label class="sm-label">Código <span class="sm-req">*</span></label>
+                                    <input type="number" class="sm-input js-ofi-cod" min="1" max="999" /></div>
+                                <div class="col-md-9"><label class="sm-label">Nombre <span class="sm-req">*</span> <small class="text-muted js-ofi-cuenta">0 / 65</small></label>
+                                    <input type="text" class="sm-input js-ofi-nombre" maxlength="65" placeholder="Ej: LABORATORIO DE QUÍMICA" /></div>
+                            </div>
+                            <div class="ad-sub-pie">
+                                <button type="button" class="sm-btn sm-btn-neutro js-sub-cerrar"><i class="ti ti-x"></i> Cancelar</button>
+                                <button type="button" class="sm-btn sm-btn-suave js-ofi-crear" data-subir="false"
+                                        title="Se registra solo en el SCIAF y se avisa a los administradores para que la suban"><i class="ti ti-clock-pause"></i> Crear y dejar pendiente</button>
+                                <button type="button" class="sm-btn js-ofi-crear" data-subir="true"><i class="ti ti-cloud-upload"></i> Crear y subir al VSIAF</button>
+                            </div>
+                        </div>
+                        <!-- Alta rápida de responsable -->
+                        <div class="sm-subformulario ad-sub-alta js-sub-resp d-none">
+                            <div class="sm-subformulario-cab"><i class="ti ti-user-plus"></i>
+                                <div><b>Nuevo responsable</b> en <span class="js-sub-resp-ofi">—</span>
+                                    <div class="ad-ayuda mt-0">Escriba el C.I.: si la persona ya existe, se completan sus nombres.</div></div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-3"><label class="sm-label">C.I. <span class="sm-req">*</span></label>
+                                    <input type="text" class="sm-input js-resp-ci" maxlength="20" /></div>
+                                <div class="col-md-3"><label class="sm-label">Nombre(s) <span class="sm-req">*</span></label>
+                                    <input type="text" class="sm-input js-resp-nombre js-resp-nom" maxlength="35" /></div>
+                                <div class="col-md-3"><label class="sm-label">Ap. paterno <span class="sm-req">*</span></label>
+                                    <input type="text" class="sm-input js-resp-paterno js-resp-nom" maxlength="35" /></div>
+                                <div class="col-md-3"><label class="sm-label">Ap. materno</label>
+                                    <input type="text" class="sm-input js-resp-materno js-resp-nom" maxlength="35" /></div>
+                                <div class="col-md-7"><label class="sm-label">Cargo <span class="sm-req">*</span> <small class="text-muted">(elija o escriba uno nuevo)</small></label>
+                                    <select class="js-resp-cargo"><option value=""></option></select></div>
+                                <div class="col-md-3"><label class="sm-label">Cód. funcionario <span class="sm-req">*</span></label>
+                                    <input type="number" class="sm-input js-resp-cod" min="1" /></div>
+                                <div class="col-md-2 d-flex align-items-end"><small class="text-muted js-resp-cuenta">0 / 35</small></div>
+                            </div>
+                            <div class="ad-sub-pie">
+                                <button type="button" class="sm-btn sm-btn-neutro js-sub-cerrar"><i class="ti ti-x"></i> Cancelar</button>
+                                <button type="button" class="sm-btn sm-btn-suave js-resp-crear" data-subir="false"
+                                        title="Se registra solo en el SCIAF y se avisa a los administradores para que lo suban"><i class="ti ti-clock-pause"></i> Crear y dejar pendiente</button>
+                                <button type="button" class="sm-btn js-resp-crear" data-subir="true"><i class="ti ti-cloud-upload"></i> Crear y subir al VSIAF</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="col-12 d-none js-nota-ubicacion"><div class="sm-aviso sm-aviso-aviso mb-0 py-2"><i class="ti ti-lock"></i>
                         <div class="small">Este activo ya tiene movimientos: su oficina y responsable se cambian con Transferencias o Asignaciones.</div></div></div>
                 </div>
@@ -311,6 +388,21 @@
     //  Tabla (paginada en el servidor)
     // ════════════════════════════════════════════════════════════
 
+    // Marcados para etiquetas (sobreviven al cambio de página y a la búsqueda): idActivo → código.
+    const MAX_ETIQUETAS = 240;
+    const elegidos = new Map();
+    function pintarSeleccion() {
+        $raiz.find('.js-n-sel').text('(' + elegidos.size + ')');
+        $raiz.find('.js-etiquetas-sel').prop('disabled', elegidos.size === 0);
+        $raiz.find('.js-limpiar-sel').toggleClass('d-none', elegidos.size === 0);
+    }
+    function marcar(id, codigo, si) {
+        if (si && !elegidos.has(id) && elegidos.size >= MAX_ETIQUETAS) { aviso('Hasta ' + MAX_ETIQUETAS + ' etiquetas por impresión (10 hojas).'); return false; }
+        if (si) elegidos.set(id, codigo); else elegidos.delete(id);
+        pintarSeleccion();
+        return true;
+    }
+
     let tabla = null;
     function iniciarTabla() {
         tabla = SciafModulo.tabla({
@@ -319,8 +411,13 @@
                 serverSide: true, ordering: false, deferRender: true,
                 ajax: { url: URL + '/api/datatables', type: 'POST' },
                 language: { emptyTable: 'Todavía no hay activos adicionales registrados.', zeroRecords: 'Ningún activo adicional coincide con la búsqueda.' },
-                createdRow: function (tr, a) { tr.dataset.id = a.idActivo; tr.tabIndex = 0; },
+                createdRow: function (tr, a) { tr.dataset.id = a.idActivo; tr.tabIndex = 0; $(tr).toggleClass('ad-elegida', elegidos.has(a.idActivo)); },
                 columns: [
+                    // Solo los que tienen código llevan etiqueta (el QR lleva el código).
+                    { data: null, className: 'text-center ad-celda-marca', render: function (d, t, a) {
+                        return a.codigo && a.estado === 'ACTIVO'
+                            ? '<input type="checkbox" class="ad-marca" aria-label="Marcar para etiqueta"' + (elegidos.has(a.idActivo) ? ' checked' : '') + '>' : '';
+                    } },
                     { data: 'codigo', render: function (v) { return codigoHtml(v); } },
                     { data: 'codigoAntiguo', render: function (v) { return v ? '<span class="ad-antiguo">' + esc(v) + '</span>' : '<span class="text-muted">—</span>'; } },
                     { data: 'descripcion', render: function (v) { return '<span class="sm-mayus">' + esc(v) + '</span>'; } },
@@ -337,8 +434,34 @@
         $tabla.on('xhr.dt', function (e, s, json) { if (json) pintarTotales(json.totales); });
     }
     function recargar() { if (tabla) tabla.ajax.reload(null, false); }
-    $tabla.on('click', 'tbody tr[data-id]', function () { abrirDetalle(Number(this.dataset.id)); });
-    $tabla.on('keydown', 'tbody tr[data-id]', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDetalle(Number(this.dataset.id)); } });
+    $tabla.on('click', 'tbody tr[data-id]', function (e) {
+        if ($(e.target).closest('td.ad-celda-marca').find('.ad-marca').length) return;   // la casilla no abre el detalle
+        abrirDetalle(Number(this.dataset.id));
+    });
+    $tabla.on('keydown', 'tbody tr[data-id]', function (e) {
+        if ($(e.target).is('input')) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDetalle(Number(this.dataset.id)); }
+    });
+    // Toda la celda marca (blanco más grande que la casilla).
+    $tabla.on('click', 'tbody td.ad-celda-marca', function (e) {
+        const $c = $(this).find('.ad-marca');
+        if (!$c.length) return;
+        if (!$(e.target).is('.ad-marca')) $c.prop('checked', !$c.prop('checked'));
+        const tr = this.parentNode, a = tabla.row(tr).data();
+        if (!a) return;
+        if (!marcar(a.idActivo, a.codigo, $c.prop('checked'))) $c.prop('checked', false);
+        $(tr).toggleClass('ad-elegida', elegidos.has(a.idActivo));
+    });
+    $raiz.on('click', '.js-limpiar-sel', function () {
+        elegidos.clear();
+        pintarSeleccion();
+        $tabla.find('.ad-marca').prop('checked', false);
+        $tabla.find('tr.ad-elegida').removeClass('ad-elegida');
+    });
+    function imprimirEtiquetas(ids) {
+        window.open(URL + '/api/etiquetas?ids=' + ids.map(encodeURIComponent).join(','), '_blank', 'noopener');
+    }
+    $raiz.on('click', '.js-etiquetas-sel', function () { if (elegidos.size) imprimirEtiquetas(Array.from(elegidos.keys())); });
 
     function mostrar(cual) {
         $listado.toggleClass('d-none', cual !== 'listado');
@@ -408,13 +531,170 @@
     }
     function bloqueoUbicacion() { return !!(st.edicion && st.edicion.conVida); }
 
-    $predio.on('change', function () { cargarOficinas(this.value); cargarAuxiliares(); actualizarCodigo(); });
+    $predio.on('change', function () { cerrarAltas(); cargarOficinas(this.value).then(estadoAltas); cargarAuxiliares(); actualizarCodigo(); estadoAltas(); });
     $grupo.on('change', function () {
         const g = grupoPorId[this.value];
         if (g && g.vidaUtil != null && !$form.find('.js-vida').val()) $form.find('.js-vida').val(g.vidaUtil);
         cargarAuxiliares(); actualizarCodigo();
     });
-    $oficina.on('change', function () { $resp.val(null).empty().prop('disabled', !this.value || bloqueoUbicacion()).trigger('change.select2'); });
+    $oficina.on('change', function () {
+        $resp.val(null).empty().prop('disabled', !this.value || bloqueoUbicacion()).trigger('change.select2');
+        $subResp.addClass('d-none');
+        estadoAltas();
+    });
+
+    // ── Altas rápidas: oficina y responsable (subir al VSIAF o dejar pendiente) ──
+    // Mismo flujo que Donaciones: si queda pendiente, se avisa a los administradores.
+
+    const DESDE = 'Registro de adicionales';
+    const $subOfi = $form.find('.js-sub-oficina');
+    const $subResp = $form.find('.js-sub-resp');
+    const $cargo = $form.find('.js-resp-cargo');
+    $cargo.select2(Object.assign({
+        placeholder: 'Buscar cargo…', tags: true, allowClear: true,
+        createTag: function (p) { const t = mayus(p.term); return t ? { id: t, text: t + '  (nuevo)', newTag: true } : null; },
+        ajax: {
+            url: '/api/cargos/search', dataType: 'json', delay: 250,
+            data: function (p) { return { q: p.term || '' }; },
+            processResults: function (d) { return { results: (d || []).map(function (c) { return { id: c.nombre, text: c.nombre }; }) }; }
+        }
+    }, s2));
+
+    function estadoAltas() {
+        const bloq = bloqueoUbicacion();
+        $form.find('.js-alta-oficina').prop('disabled', bloq || !$predio.val());
+        $form.find('.js-alta-resp').prop('disabled', bloq || !$oficina.val());
+    }
+    function cerrarAltas() { $subOfi.addClass('d-none'); $subResp.addClass('d-none'); }
+    function textoSel($s) { const d = $s.select2('data'); return d && d[0] && d[0].id ? d[0].text : '—'; }
+    $raiz.on('click', '.js-sub-cerrar', cerrarAltas);
+
+    $raiz.on('click', '.js-alta-oficina', async function () {
+        const p = predioPorId[$predio.val()];
+        if (!p) return;
+        $subResp.addClass('d-none');
+        $subOfi.find('.js-sub-ofi-predio').text(p.nombre);
+        $subOfi.find('.js-ofi-nombre, .js-ofi-cod').val('');
+        $subOfi.find('.js-ofi-cuenta').text('0 / 65');
+        $subOfi.removeClass('d-none');
+        $subOfi.find('.js-ofi-nombre').trigger('focus');
+        try {
+            const r = await SciafModulo.pedir('/administracion/oficina/siguiente-codigo/' + p.id, { metodo: 'GET' });
+            if (r.ok) $subOfi.find('.js-ofi-cod').val(await r.json());
+        } catch (e) { /* lo escribe a mano */ }
+    });
+    $raiz.on('input', '.js-ofi-nombre', function () { $subOfi.find('.js-ofi-cuenta').text(this.value.length + ' / 65'); });
+
+    $raiz.on('click', '.js-ofi-crear', async function () {
+        const subir = String($(this).data('subir')) === 'true';
+        const p = predioPorId[$predio.val()];
+        const cod = Number($subOfi.find('.js-ofi-cod').val());
+        const nombre = mayus($subOfi.find('.js-ofi-nombre').val());
+        if (!p || !(cod >= 1) || !nombre) { aviso('Escriba el código y el nombre de la oficina.'); return; }
+        const ok = await sciafConfirmar({
+            titulo: subir ? '¿Crear la oficina y subirla al VSIAF?' : '¿Crear la oficina y dejarla pendiente?',
+            texto: '<b>' + esc(String(cod).padStart(3, '0') + ' - ' + nombre) + '</b> en ' + esc(p.nombre) + '.<br><small>'
+                + (subir ? 'Se envía ahora al VSIAF.' : 'Queda solo en el SCIAF y se avisa a los administradores para que la suban.') + '</small>',
+            aceptar: subir ? 'Crear y subir' : 'Crear pendiente'
+        });
+        if (!ok) return;
+        const $b = $subOfi.find('.js-ofi-crear').prop('disabled', true);
+        try {
+            const res = await SciafModulo.pedirJson('/administracion/oficina/registrar-oficina', { datos: {
+                'predio.idPredio': p.id, codOfi: cod, nombre: nombre, modoRapido: true, subirVsiaf: subir, desde: DESDE } });
+            if (!res.ok) throw new Error(res.msg || (res.errors || []).map(function (x) { return x.message; }).join(' ') || 'No se pudo crear.');
+            const texto = String(cod).padStart(3, '0') + ' - ' + nombre;
+            $oficina.prop('disabled', false).append(new Option(texto + (res.pendiente ? '  · pendiente VSIAF' : ''), res.id, true, true))
+                .trigger('change.select2').trigger('change');
+            cerrarAltas();
+            Swal.fire(res.vsiafOk === false ? { icon: 'warning', title: 'Oficina creada, con aviso', text: res.msg }
+                : { toast: true, position: 'top-end', icon: 'success', title: esc(res.msg || 'Oficina creada.'), showConfirmButton: false, timer: 3500 });
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se creó la oficina', esc(e.message), 'error');
+        } finally { $b.prop('disabled', false); }
+    });
+
+    $raiz.on('click', '.js-alta-resp', async function () {
+        if (!$oficina.val()) return;
+        $subOfi.addClass('d-none');
+        $subResp.find('.js-sub-resp-ofi').text(textoSel($oficina));
+        $subResp.find('input').val('');
+        $cargo.val(null).trigger('change');
+        $subResp.find('.js-resp-cuenta').text('0 / 35').removeClass('text-danger fw-bold');
+        $subResp.removeClass('d-none');
+        $subResp.find('.js-resp-ci').trigger('focus');
+        try {
+            const r = await SciafModulo.pedir('/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=' + encodeURIComponent($oficina.val()), { metodo: 'GET' });
+            if (r.ok) $subResp.find('.js-resp-cod').val(await r.json());
+        } catch (e) { /* lo escribe a mano */ }
+    });
+    function nombreResp() {
+        return [mayus($subResp.find('.js-resp-nombre').val()), mayus($subResp.find('.js-resp-paterno').val()), mayus($subResp.find('.js-resp-materno').val())]
+            .filter(Boolean).join(' ');
+    }
+    $raiz.on('input', '.js-resp-nom', function () {
+        const n = nombreResp().length;
+        $subResp.find('.js-resp-cuenta').text(n + ' / 35').toggleClass('text-danger fw-bold', n > 35);
+    });
+    $raiz.on('change', '.js-resp-ci', async function () {
+        const ci = this.value.trim();
+        if (!ci) return;
+        try {
+            const r = await SciafModulo.pedir('/administracion/responsable/api/personas/buscar-por-ci?ci=' + encodeURIComponent(ci), { metodo: 'GET' });
+            if (!r.ok) return;
+            const p = await r.json();
+            if (p.nombre) $subResp.find('.js-resp-nombre').val(p.nombre);
+            if (p.paterno) $subResp.find('.js-resp-paterno').val(p.paterno);
+            if (p.materno) $subResp.find('.js-resp-materno').val(p.materno);
+            $subResp.find('.js-resp-nombre').trigger('input');
+        } catch (e) { /* persona nueva */ }
+    });
+
+    $raiz.on('click', '.js-resp-crear', async function () {
+        const subir = String($(this).data('subir')) === 'true';
+        const d = {
+            ci: ($subResp.find('.js-resp-ci').val() || '').trim(),
+            nombre: mayus($subResp.find('.js-resp-nombre').val()),
+            paterno: mayus($subResp.find('.js-resp-paterno').val()),
+            materno: mayus($subResp.find('.js-resp-materno').val()),
+            codigoFuncionario: ($subResp.find('.js-resp-cod').val() || '').trim(),
+            cargoNombre: mayus($cargo.val()),
+            idOficina: $oficina.val(), modoRapido: true, subirVsiaf: subir, desde: DESDE
+        };
+        if (!d.ci || !d.nombre || !d.paterno || !d.codigoFuncionario || !d.cargoNombre) {
+            aviso('Complete C.I., nombre, apellido paterno, cargo y código de funcionario.'); return;
+        }
+        if (nombreResp().length > 35) { aviso('El nombre completo pasa de 35 caracteres (tope del VSIAF): abrévielo.'); return; }
+        if (d.cargoNombre.length > 40) { aviso('El cargo admite hasta 40 caracteres.'); return; }
+        const ok = await sciafConfirmar({
+            titulo: subir ? '¿Registrar al responsable y subirlo al VSIAF?' : '¿Registrar al responsable y dejarlo pendiente?',
+            texto: '<b>' + esc(nombreResp()) + '</b> (C.I. ' + esc(d.ci) + '), ' + esc(d.cargoNombre) + '.<br><small>'
+                + (subir ? 'Se envía ahora al VSIAF (y su oficina, si estaba pendiente).' : 'Queda solo en el SCIAF y se avisa a los administradores para que lo suban.') + '</small>',
+            aceptar: subir ? 'Registrar y subir' : 'Registrar pendiente'
+        });
+        if (!ok) return;
+        const $b = $subResp.find('.js-resp-crear').prop('disabled', true);
+        try {
+            let res = await SciafModulo.pedirJson('/administracion/responsable/registrar-responsable', { datos: d });
+            if (!res.ok && res.personasCoincidentes) {
+                // 409: hay personas con nombre parecido. Se pregunta antes de crear otra.
+                const seguir = await sciafConfirmar({
+                    titulo: 'Hay una persona parecida', texto: esc(res.msg || '') + '<br><br>¿Es otra persona y quiere registrarla igual?',
+                    aceptar: 'Sí, es otra persona', peligrosa: true
+                });
+                if (!seguir) return;
+                res = await SciafModulo.pedirJson('/administracion/responsable/registrar-responsable-forzado', { datos: d });
+            }
+            if (!res.ok) throw new Error(res.msg || 'No se pudo registrar.');
+            const texto = d.codigoFuncionario + ' - ' + nombreResp() + (res.pendiente ? '  · pendiente VSIAF' : '');
+            $resp.prop('disabled', false).append(new Option(texto, res.id, true, true)).trigger('change.select2').trigger('change');
+            cerrarAltas();
+            Swal.fire(res.vsiafOk === false ? { icon: 'warning', title: 'Responsable registrado, con aviso', text: res.msg }
+                : { toast: true, position: 'top-end', icon: 'success', title: esc(res.msg || 'Responsable registrado.'), showConfirmButton: false, timer: 3500 });
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se registró el responsable', esc(e.message), 'error');
+        } finally { $b.prop('disabled', false); }
+    });
 
     // Vista previa del código nuevo (orientativa: no reserva nada)
     const actualizarCodigo = debounce(async function () {
@@ -517,6 +797,7 @@
         if (guardado && guardado.predio) {
             cargarOficinas(guardado.predio, guardado.oficina).then(function () {
                 if (guardado.resp && guardado.resp.id) $resp.prop('disabled', false).append(new Option(guardado.resp.text, guardado.resp.id, true, true)).trigger('change.select2');
+                estadoAltas();
             });
             cargarAuxiliares(guardado.aux);
         } else {
@@ -524,6 +805,8 @@
             $resp.val(null).empty().prop('disabled', true).trigger('change.select2');
             $aux.empty().append(new Option('', '')).prop('disabled', true).trigger('change.select2');
         }
+        cerrarAltas();
+        estadoAltas();
         refrescar();
         actualizarCodigo();
     }
@@ -569,6 +852,10 @@
                     if (!ef.sesionPerdida) msg += ' Las fotos NO se guardaron (' + (ef.message || 'error') + '): agréguelas desde el detalle.';
                 }
             }
+            // Los recién registrados con código quedan marcados para imprimir sus etiquetas de una vez.
+            let marcados = 0;
+            if (!ed) (r.activos || []).forEach(function (a) { if (a.codigo && marcar(a.idActivo, a.codigo, true)) marcados++; });
+            if (marcados) msg += ' Marcado(s) para etiquetas: ' + elegidos.size + '.';
             recargar();
             const codigos = (r.activos || []).map(function (a) { return a.codigo || (a.codigoAntiguo ? 'ant. ' + a.codigoAntiguo : 'sin código'); });
             Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: esc(msg),
@@ -667,6 +954,7 @@
             + '<h5 class="sm-modal-titulo">' + codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="ad-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : '') + '</h5>'
             + '<small>Registrado por ' + esc(d.registradoPor || '—') + '</small></div>'
             + '<div class="d-flex gap-2 flex-wrap justify-content-end">'
+            + (vigente && d.codigo ? '<button type="button" class="sm-btn sm-btn-suave js-etiqueta-una"><i class="ti ti-qrcode"></i> Etiqueta</button>' : '')
             + (vigente ? '<button type="button" class="sm-btn js-editar"><i class="ti ti-edit"></i> Corregir</button>' : '')
             + (INICIAL.esAdmin && d.eliminable ? '<button type="button" class="sm-btn sm-btn-peligro js-eliminar"><i class="ti ti-trash"></i> Eliminar</button>' : '')
             + '</div><button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>'
@@ -718,6 +1006,8 @@
         } catch (e) { if (!e.sesionPerdida) Swal.fire('No se quitó la foto', esc(e.message || ''), 'error'); }
     });
 
+    $raiz.on('click', '.js-etiqueta-una', function () { const d = $detalle.data('activo'); if (d) imprimirEtiquetas([d.idActivo]); });
+
     // Corregir: el mismo formulario, con el activo cargado
     $raiz.on('click', '.js-editar', async function () {
         const d = $detalle.data('activo');
@@ -752,6 +1042,7 @@
             $oficina.prop('disabled', true); $resp.prop('disabled', true);
             $form.find('.js-nota-ubicacion').removeClass('d-none');
         }
+        estadoAltas();
         mostrar('form');
         refrescar();
         actualizarCodigo();
@@ -766,6 +1057,7 @@
             const res = await SciafModulo.pedirJson(URL + '/api/activo/' + d.idActivo + '/eliminar', {});
             if (!res.ok) throw new Error(res.msg);
             bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            marcar(d.idActivo, null, false);
             recargar();
             aviso(res.msg, 'success');
         } catch (e) { if (!e.sesionPerdida) Swal.fire('No se eliminó', esc(e.message || ''), 'error'); }

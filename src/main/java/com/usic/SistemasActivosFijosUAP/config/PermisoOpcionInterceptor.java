@@ -112,6 +112,15 @@ public class PermisoOpcionInterceptor implements HandlerInterceptor {
                     "/administracion/responsable/registrar-responsable",
                     "/administracion/responsable/registrar-responsable-forzado")),
 
+            // Registro de Adicionales: las mismas altas rápidas que Donaciones.
+            Map.entry("opcion_adicional", Set.of(
+                    "/administracion/oficina/registrar-oficina",
+                    "/administracion/oficina/siguiente-codigo/*",
+                    "/administracion/responsable/obtener-siguiente-codigo-funcionario",
+                    "/administracion/responsable/api/personas/buscar-por-ci",
+                    "/administracion/responsable/registrar-responsable",
+                    "/administracion/responsable/registrar-responsable-forzado")),
+
             // Registro de Activos Pendientes: casi toda su API vive bajo /activo/api.
             Map.entry("opcion_activop", Set.of(
                     "/administracion/activo/api/agregar-activo-pendiente",

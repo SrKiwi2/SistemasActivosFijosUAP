@@ -77,10 +77,25 @@ el panel oculto (mide 0 → tope = alto de la ventana) y solo se corregía al re
 `ajustarAlto`. Lo mismo en Donaciones (`ajustarPanel`). **Regla para módulos nuevos:** recalcular
 el alto cada vez que se muestra un panel que estaba oculto.
 
+## Segundo lote (15-oct, respuestas del usuario)
+
+- **Documentos impresos sin la A** (como la D): `Activo.codigoDocumento` quita la letra de las dos
+  series. Las etiquetas, las pantallas y los Excel la conservan. Consecuencia aceptada: en un acta
+  un adicional `…-00001A` y el bien VSIAF `…-00001` se imprimen igual.
+- **Etiquetas con QR**: hoja común `model/service/PdfEtiquetasQrService` (Donaciones ahora también
+  la usa, sin cambio visible). En Adicionales, casillas en la tabla (solo vigentes con código; los
+  recién registrados se marcan solos; la selección sobrevive a páginas y búsquedas, tope 240) →
+  «Etiquetas (n)»; y botón «Etiqueta» en el detalle. `GET /administracion/adicional/api/etiquetas?ids=…`.
+  Si algún marcado se salta (eliminado o sin código), la hoja lo avisa arriba.
+- **Altas rápidas de oficina/responsable** en el formulario, iguales a Donaciones (subir al VSIAF o
+  dejar pendiente con aviso a los administradores; `desde = Registro de adicionales`). Permisos en
+  `PermisoOpcionInterceptor` (`opcion_adicional`).
+- **Consulta de activos busca por código antiguo** (buscador general y filtro «Código»), lo muestra
+  bajo el código, muestra «SIN CÓDIGO» y lo exporta a Excel (`ActivoDTO.codigoAntiguo`).
+- `revisor`: sin hallazgos graves; aplicados el aviso de etiquetas saltadas y el error claro si el
+  PDF falla (también en Donaciones).
+
 ## Pendiente / ofrecer
 
-1. Etiquetas con QR para los adicionales con código (las de Donaciones son por acta).
-2. Altas rápidas de oficina/responsable desde el formulario (como en Donaciones).
-3. ¿Los documentos impresos muestran el código sin la A, como las donaciones sin la D? Hoy
-   `Activo.codigoDocumento` solo quita la D. Preguntar al usuario.
-4. Buscar por código antiguo desde Consulta de activos (hoy solo en este módulo).
+1. En Consulta, un adicional sin código no lleva la pastilla «ADICIONAL» (se reconoce por el
+   código; haría falta mandar la procedencia en `ActivoDTO`).

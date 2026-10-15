@@ -305,6 +305,10 @@ public class DonacionController {
                     .body(pdf);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().contentType(org.springframework.http.MediaType.TEXT_PLAIN).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("No se generaron las etiquetas", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                    .body("No se pudo generar el PDF de etiquetas. Intente de nuevo.");
         }
     }
 

@@ -49,6 +49,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ArchivoStorageService;
+import com.usic.SistemasActivosFijosUAP.model.service.PdfEtiquetasQrService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,6 +76,8 @@ public class AdicionalService {
 
     public static final String PERMISO = "opcion_adicional";
     public static final int MAX_FOTOS = 3;
+    /** Etiquetas por impresión: 10 hojas de 24. */
+    public static final int MAX_ETIQUETAS = 240;
 
     private static final long TURNO_ADICIONALES = 0x5C1AFAD01L;
     private static final int TOPE_UNIDADES = 200;
@@ -96,6 +99,7 @@ public class AdicionalService {
     private final IOrganismoFinancieroService financiadorService;
     private final IEstadoActivoService estadoActivoService;
     private final ArchivoStorageService archivos;
+    private final PdfEtiquetasQrService hojaEtiquetas;
     private final PlatformTransactionManager txManager;
 
     /** ¿Puede usar el módulo? ADMINISTRADOR / SUPER USUARIO o la opción de menú. */
@@ -697,6 +701,45 @@ public class AdicionalService {
     // ════════════════════════════════════════════════════════════════════════
     //  Apoyo
     // ════════════════════════════════════════════════════════════════════════
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  Etiquetas con QR
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * PDF de etiquetas de los adicionales pedidos, ordenados por código. Solo llevan etiqueta los
+     * vigentes con código (el QR lleva el código, con su A); los demás se saltan.
+     */
+    @Transactional(readOnly = true)
+    public byte[] etiquetas(List<Long> ids, Usuario usuario, Object opciones) {
+        exigirPermiso(usuario, opciones);
+        Set<Long> pedidos = ids == null ? Set.of() : new java.util.LinkedHashSet<>(ids);
+        if (pedidos.isEmpty()) throw new IllegalArgumentException("Marque al menos un activo adicional con código.");
+        if (pedidos.size() > MAX_ETIQUETAS) {
+            throw new IllegalArgumentException("Hasta " + MAX_ETIQUETAS + " etiquetas por impresión; marcó " + pedidos.size() + ".");
+        }
+        List<ActivoAdicional> vigentes = adicionalDao.buscarVarios(pedidos).stream()
+                .filter(x -> Activo.ESTADO_ACTIVO.equals(x.getActivo().getEstado()) && x.getActivo().getCodigo() != null)
+                .toList();
+        List<PdfEtiquetasQrService.Etiqueta> etiquetas = vigentes.stream()
+                .sorted(java.util.Comparator.comparing(x -> x.getActivo().getCodigo()))
+                .map(x -> {
+                    Activo a = x.getActivo();
+                    Predio predio = a.getOficina() != null && a.getOficina().getPredio() != null ? a.getOficina().getPredio() : x.getPredio();
+                    String pie = a.getCodigoAntiguo() != null ? "ANT. " + PdfEtiquetasQrService.limpio(a.getCodigoAntiguo()) : null;
+                    return PdfEtiquetasQrService.deActivo(a, predio, "ADICIONAL", pie);
+                })
+                .toList();
+        if (etiquetas.isEmpty()) {
+            throw new IllegalArgumentException("Ninguno de los marcados está vigente y con código: no hay etiquetas que imprimir.");
+        }
+        // Si algún marcado se quedó fuera (otro usuario lo eliminó o le quitó el código), la hoja lo dice:
+        // quien pega etiquetas no debe creer que salieron todas.
+        int saltados = pedidos.size() - etiquetas.size();
+        String aviso = saltados > 0 ? "Atención: " + saltados + " de los " + pedidos.size()
+                + " marcados no salen (ya no están vigentes o no tienen código)." : null;
+        return hojaEtiquetas.generar("Etiquetas de activos adicionales", etiquetas, new com.itextpdf.text.BaseColor(15, 118, 110), aviso);
+    }
 
     /** Predios para la vista, con el prefijo (o null si falta configurarlo). */
     @Transactional(readOnly = true)

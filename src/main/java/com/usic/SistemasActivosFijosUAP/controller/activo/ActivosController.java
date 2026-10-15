@@ -191,6 +191,7 @@ public class ActivosController {
             ActivoDTO dto = new ActivoDTO();
             dto.setIndex("");
             dto.setCodigo(activo.getCodigo());
+            dto.setCodigoAntiguo(activo.getCodigoAntiguo());
             dto.setNombre(activo.getNombre());
             dto.setDescripcion(activo.getDescripcion());
             // Un activo sin responsable, sin persona o sin fecha (p. ej. traído del VSIAF con

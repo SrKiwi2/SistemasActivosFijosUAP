@@ -10,6 +10,7 @@ import lombok.Setter;
 public class ActivoDTO {
     private String index;
     private String codigo;
+    private String codigoAntiguo;   // codificación vieja de Activos Fijos (adicionales)
     private String nombre;
     private String descripcion;
     private String responsable;

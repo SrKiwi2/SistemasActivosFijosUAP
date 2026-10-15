@@ -89,6 +89,18 @@ public interface IActivoAdicionalDao extends JpaRepository<ActivoAdicional, Long
             """)
     Optional<ActivoAdicional> buscarCompleto(@Param("id") Long idActivo);
 
+    /** Varios a la vez, para las etiquetas (con lo que lleva el QR: grupo y predio). */
+    @Query("""
+            select x from ActivoAdicional x
+              join fetch x.activo a
+              left join fetch a.grupoContable
+              left join fetch a.oficina o
+              left join fetch o.predio
+              left join fetch x.predio
+            where a.idActivo in :ids
+            """)
+    List<ActivoAdicional> buscarVarios(@Param("ids") java.util.Collection<Long> ids);
+
     /** Bloquea la fila del activo mientras se edita o elimina. */
     @Query(value = "select id_activo from activo where id_activo = :id for update", nativeQuery = true)
     List<Number> bloquearActivo(@Param("id") Long idActivo);

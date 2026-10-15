@@ -168,7 +168,7 @@
                 <div class="row g-3">
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Código</label>
-                        <input type="text" id="f-codigo" class="form-control form-control-sm" placeholder="Ej: 09-01-..." />
+                        <input type="text" id="f-codigo" class="form-control form-control-sm" placeholder="Código o código antiguo" />
                     </div>
                     <div class="col-md-3 col-sm-6">
                         <label class="form-label">Predio</label>
@@ -681,7 +681,7 @@
                 pageLength: 25,
                 language: {
                     processing: 'Cargando…',
-                    search: 'Buscar (nombre/código):',
+                    search: 'Buscar (nombre/código/cód. antiguo):',
                     lengthMenu: 'Mostrar _MENU_',
                     info: 'Mostrando _START_ a _END_ de _TOTAL_ activos',
                     infoEmpty: 'Sin activos',
@@ -716,8 +716,13 @@
                 columns: [
                     { data: null, orderable: false, className: 'text-muted',
                       render: function (dt, type, row, meta) { return meta.row + 1 + meta.settings._iDisplayStart; } },
-                    { data: 'codigo', render: function (d) { return '<span class="cact-cod">' + SciafModulo.escapar(d || '') + '</span>'
-                        + (window.SciafCatalogos && SciafCatalogos.marcaDonacion ? SciafCatalogos.marcaDonacion(d) : ''); } },
+                    { data: 'codigo', render: function (d, type, row) {
+                        // Un adicional puede no tener código todavía: se reconoce por su código antiguo.
+                        var esc = SciafModulo.escapar;
+                        var cod = d ? '<span class="cact-cod">' + esc(d) + '</span>' : '<span class="text-muted small">SIN CÓDIGO</span>';
+                        return cod + (window.SciafCatalogos && SciafCatalogos.marcaDonacion ? SciafCatalogos.marcaDonacion(d) : '')
+                            + (row.codigoAntiguo ? '<br><small class="text-muted">Cód. antiguo ' + esc(row.codigoAntiguo) + '</small>' : '');
+                    } },
                     { data: 'descripcion', className: 'cact-desc', render: txt },
                     { data: 'responsable', render: txt },
                     { data: 'oficina', render: txt },
@@ -793,7 +798,7 @@
                     success: function (res) {
                         var rows = (res.data || []).map(function (a) {
                             return {
-                                'Código': a.codigo, 'Descripción': a.descripcion, 'Responsable': a.responsable,
+                                'Código': a.codigo, 'Código antiguo': a.codigoAntiguo || '', 'Descripción': a.descripcion, 'Responsable': a.responsable,
                                 'Oficina': a.oficina, 'Estado': a.estado, 'Costo': a.costo,
                                 'Vida útil': a.vidaUtil, 'F. Adquisición': a.fechaAdquisicion
                             };

@@ -91,11 +91,15 @@ public class ActivoServiceImpl implements IActivoService{
             if (searchValue != null && !searchValue.isBlank()) {
                 Predicate p1 = cb.like(cb.lower(root.get("nombre")), "%" + searchValue.toLowerCase() + "%");
                 Predicate p2 = cb.like(cb.lower(root.get("codigo")), "%" + searchValue.toLowerCase() + "%");
-                predicates.add(cb.or(p1, p2));
+                // También el código antiguo de los activos adicionales (codificación vieja de Activos Fijos).
+                Predicate p3 = cb.like(cb.lower(root.get("codigoAntiguo")), "%" + searchValue.toLowerCase() + "%");
+                predicates.add(cb.or(p1, p2, p3));
             }
 
             if (codigo != null && !codigo.isBlank()) {
-                predicates.add(cb.like(cb.lower(root.get("codigo")), "%" + codigo.toLowerCase() + "%"));
+                String c = "%" + codigo.trim().toLowerCase() + "%";
+                predicates.add(cb.or(cb.like(cb.lower(root.get("codigo")), c),
+                        cb.like(cb.lower(root.get("codigoAntiguo")), c)));
             }
 
             if (responsableId != null && !responsableId.isBlank()) {

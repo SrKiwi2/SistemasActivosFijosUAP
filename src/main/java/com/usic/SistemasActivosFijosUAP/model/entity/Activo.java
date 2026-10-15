@@ -273,16 +273,17 @@ public class Activo extends AuditoriaConfig{
     }
 
     /**
-     * Código tal como va en actas y documentos impresos (PDF, Word): sin la D de las
-     * donaciones ({@code 01-02-04-00001D} → {@code 01-02-04-00001}). La D sigue en la base, las
-     * etiquetas, las pantallas y los <b>Excel</b> (son datos que pueden volver a cargarse, y sin
-     * la D el número es el de otro activo). Cualquier otro código vuelve igual.
+     * Código tal como va en actas y documentos impresos (PDF, Word): sin la D de las donaciones
+     * ni la A de los adicionales ({@code 01-02-04-00001D} / {@code 01-02-04-00001A} →
+     * {@code 01-02-04-00001}). La letra sigue en la base, las etiquetas, las pantallas y los
+     * <b>Excel</b> (son datos que pueden volver a cargarse, y sin la letra el número es el de
+     * otro activo). Cualquier otro código vuelve igual.
      */
     public static String codigoDocumento(String codigo) {
-        if (codigo == null || !esCodigoDonacion(codigo)) return codigo;
+        if (codigo == null || !esCodigoSoloSciaf(codigo)) return codigo;
         String c = codigo.trim();
         int i = c.lastIndexOf('-');
-        String correlativo = c.substring(i + 1).replace("D", "").replace("d", "");
+        String correlativo = c.substring(i + 1).replaceAll("[^0-9]", "");
         return c.substring(0, i + 1) + correlativo;
     }
 
