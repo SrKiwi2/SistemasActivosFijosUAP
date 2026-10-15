@@ -1,0 +1,782 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Activos adicionales — plantilla de pantallas (docs/PLANTILLA_MODULOS.md)
+     Bienes que no estaban en el sistema. Nada es obligatorio (solo algo con qué reconocerlo:
+     la descripción o el código antiguo). Con predio y grupo contable reciben un código propio
+     con A al final (MUN-PRED-GRP-00001A); existen SOLO en el SCIAF (no van al VSIAF).
+     Tabla paginada en el servidor; clic en una fila = detalle en ventana.
+     Todo vive dentro de #modAdicional y el script no deja globales (pestañas).
+     Ojo Thymeleaf: nada de dos corchetes juntos en el script (ni en comentarios).
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina ad-pantalla" id="modAdicional">
+
+<style>
+    /* Identidad del módulo: verde azulado sólido (Donaciones es morado). Se redefinen los tokens
+       de la plantilla dentro del módulo: botones, foco, paginación y cabeceras. Sin degradados. */
+    .ad-pantalla {
+        --ad: #0f766e; --ad-claro: #14917f; --ad-borde: #0b5a54; --ad-rgb: 15, 118, 110;
+        --ad-suave: rgba(var(--ad-rgb), 0.08);
+    }
+    html.dark-style .ad-pantalla, html[data-theme="dark"] .ad-pantalla {
+        --ad: #14b8a6; --ad-claro: #2dd4bf; --ad-borde: #0f766e; --ad-rgb: 20, 184, 166;
+        --ad-suave: rgba(var(--ad-rgb), 0.14);
+    }
+    .ad-pantalla {
+        --sm-primario: var(--ad); --sm-primario-claro: var(--ad-claro);
+        --sm-primario-borde: var(--ad-borde); --sm-primario-rgb: var(--ad-rgb);
+        --bs-primary: var(--ad); --bs-primary-rgb: var(--ad-rgb);
+    }
+    .ad-pantalla .sm-cabecera-icono { background: var(--ad) !important; box-shadow: none !important; }
+    .ad-pantalla .sm-detalle-head { background: var(--ad-suave); }
+    .ad-pantalla .page-item.active .page-link { background: var(--ad) !important; border-color: var(--ad) !important; color: #fff !important; box-shadow: none; }
+    .ad-pantalla .page-link { color: var(--ad); }
+    .ad-pantalla .sm-dato strong { color: var(--ad); }
+    .ad-sello { display: inline-flex; align-items: center; gap: .3rem; padding: .12rem .55rem; margin-left: .4rem; border-radius: 999px;
+        font-size: .72rem; font-weight: 700; letter-spacing: .03em; vertical-align: middle; color: #fff; background: var(--ad); }
+    .ad-codigo { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; }
+    .ad-a { display: inline-block; padding: 0 .28em; margin-left: .05em; border-radius: 5px; color: #fff; background: var(--ad); }
+    .ad-sin { display: inline-block; font-size: .7rem; font-weight: 700; padding: .05rem .4rem; border-radius: 6px; color: #b45309; background: rgba(245, 158, 11, .15); }
+    .ad-antiguo { display: inline-block; font-size: .78rem; padding: .05rem .4rem; border-radius: 6px; border: 1px dashed var(--sm-borde-fuerte); color: var(--sm-texto); }
+    .ad-pantalla .js-tabla tbody tr { cursor: pointer; }
+
+    .ad-panel { padding: 0; overflow: hidden; }
+    .ad-panel-cuerpo { overflow-y: auto; padding: 1rem 1.1rem; }
+    .ad-vista { animation: ad-aparecer .25s ease both; }
+    .ad-seccion { border: 1px solid var(--sm-borde); border-radius: 12px; margin-bottom: .9rem; background: var(--sm-superficie); }
+    .ad-seccion-cab { display: flex; align-items: center; gap: .5rem; padding: .6rem .9rem; border-bottom: 1px solid var(--sm-borde);
+        background: var(--sm-superficie-2); font-weight: 700; color: var(--sm-texto); border-radius: 12px 12px 0 0; }
+    .ad-seccion-cab i { color: var(--ad); font-size: 1.1rem; }
+    .ad-seccion-cab small { font-weight: 400; color: var(--sm-texto-2); margin-left: auto; }
+    .ad-seccion-cuerpo { padding: .85rem .9rem; }
+    .ad-ayuda { font-size: .78rem; color: var(--sm-texto-2); margin-top: .2rem; }
+    .ad-ayuda.mal { color: var(--sm-peligro); }
+    .ad-info { display: flex; gap: .7rem; align-items: center; border-radius: 10px; padding: .6rem .8rem; margin-top: .8rem;
+        background: var(--ad-suave); border: 1px solid rgba(var(--ad-rgb), .25); }
+    .ad-info > i { font-size: 1.4rem; color: var(--ad); }
+    .ad-pie { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: .75rem 1.1rem;
+        border-top: 1px solid var(--sm-borde); background: linear-gradient(var(--sm-superficie-2), var(--sm-superficie-2)), var(--sm-superficie);
+        position: sticky; bottom: 0; z-index: 3; }
+    .ad-pie .ad-nota { margin-right: auto; font-size: .78rem; color: var(--sm-texto-2); }
+    .ad-cantidad { display: flex; align-items: stretch; }
+    .ad-cantidad .sm-input { text-align: center; border-radius: 0; font-weight: 700; }
+    .ad-cantidad button { width: 40px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); color: var(--sm-texto); font-weight: 800; }
+    .ad-cantidad button:first-child { border-radius: 10px 0 0 10px; border-right: 0; }
+    .ad-cantidad button:last-child { border-radius: 0 10px 10px 0; border-left: 0; }
+
+    .ad-pantalla .select2-container--default .select2-selection--single { height: 44px; display: flex; align-items: center; border: 1px solid var(--sm-borde-fuerte);
+        border-radius: 10px; background: var(--sm-superficie); box-shadow: var(--sm-sombra-campo); }
+    .ad-pantalla .select2-container .select2-selection__rendered { font-size: .95rem; color: var(--sm-texto); padding-left: .9rem; text-transform: uppercase; }
+    .ad-pantalla .select2-container .select2-selection__arrow { height: 42px; }
+    .ad-pantalla .select2-container--focus .select2-selection--single,
+    .ad-pantalla .select2-container--open .select2-selection--single { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); }
+    .ad-pantalla .select2-dropdown { border-color: var(--sm-borde-fuerte); background: var(--sm-superficie); color: var(--sm-texto); }
+    .ad-pantalla .select2-results__option--highlighted { background: var(--ad) !important; }
+    .ad-pantalla .sm-input:focus, .ad-pantalla .sm-select:focus { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); outline: 0; }
+    .ad-sin-mayus { text-transform: none !important; }
+
+    .ad-fotos { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .ad-foto { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); }
+    .ad-foto img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; display: block; }
+    .ad-foto-quitar { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center;
+        background: rgba(15, 23, 42, .65); color: #fff; font-size: .8rem; }
+    .ad-foto-quitar:hover { background: var(--sm-peligro); }
+    .ad-foto-add { width: 92px; height: 92px; border-radius: 10px; border: 2px dashed rgba(var(--ad-rgb), .45); background: var(--ad-suave); color: var(--ad);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; font-size: .78rem; font-weight: 700; cursor: pointer; margin: 0; }
+    .ad-foto-add i { font-size: 1.4rem; }
+    .ad-foto-add.oculto { display: none; }
+
+    .ad-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+    .ad-tarjeta { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .75rem .9rem; background: var(--sm-superficie-2); }
+    .ad-tarjeta-cab { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ad); margin-bottom: .4rem; }
+    .ad-campo { margin-bottom: .35rem; }
+    .ad-campo small { display: block; font-size: .72rem; color: var(--sm-texto-2); }
+    .ad-campo span { font-weight: 600; color: var(--sm-texto); word-break: break-word; }
+    @keyframes ad-aparecer { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .ad-pantalla * { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-box-multiple"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Activos adicionales
+        </nav>
+        <h1 class="sm-titulo">Activos adicionales <span class="ad-sello"><i class="ti ti-shield-check"></i> SOLO SCIAF</span></h1>
+        <p class="sm-subtitulo">Bienes que no estaban registrados. Nada es obligatorio: registre lo que sepa y su <b>código antiguo</b>.
+            Con predio y grupo contable reciben código propio <span class="ad-codigo">01-04-06-00001<span class="ad-a">A</span></span>; no van al VSIAF.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-t-total">—</strong> registrados</span>
+        <span class="sm-dato"><strong class="js-t-con">—</strong> con código</span>
+        <span class="sm-dato"><strong class="js-t-sin">—</strong> sin código</span>
+        <button type="button" class="sm-btn js-nuevo"><i class="ti ti-plus"></i> Nuevo adicional</button>
+    </div>
+</header>
+
+<!-- Listado -->
+<section class="sm-card js-listado">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por código, código antiguo, descripción, marca, modelo o serie…"
+                   autocomplete="off" aria-label="Buscar activo adicional" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </label>
+    </div>
+    <table class="table sm-tabla align-middle js-tabla">
+        <thead>
+            <tr>
+                <th style="width:170px;">Código</th>
+                <th style="width:140px;">Código antiguo</th>
+                <th>Descripción</th>
+                <th>Grupo contable</th>
+                <th>Ubicación</th>
+                <th class="text-center" style="width:70px;">Fotos</th>
+                <th class="text-end" style="width:120px;">Valor</th>
+            </tr>
+        </thead>
+    </table>
+</section>
+
+<!-- Formulario: alta o corrección -->
+<section class="sm-card ad-panel js-panel-form d-none">
+    <form class="js-form" autocomplete="off" novalidate>
+        <div class="sm-detalle-head">
+            <div class="sm-cabecera-icono"><i class="ti ti-box-multiple"></i></div>
+            <div class="flex-grow-1"><span class="sm-detalle-kicker js-form-kicker">Nuevo activo adicional</span>
+                <h5 class="sm-modal-titulo js-form-titulo">Registre lo que sepa del bien</h5>
+                <small>Ningún dato es obligatorio. Solo escriba el nombre o el código antiguo para poder reconocerlo.</small></div>
+        </div>
+        <div class="ad-panel-cuerpo js-panel-cuerpo">
+
+            <div class="ad-seccion">
+                <div class="ad-seccion-cab"><i class="ti ti-tag"></i> Identificación</div>
+                <div class="ad-seccion-cuerpo row g-2">
+                    <div class="col-lg-9">
+                        <label class="sm-label">Nombre o descripción</label>
+                        <textarea class="sm-input js-desc" rows="2" maxlength="600" style="min-height:60px" placeholder="Ej: SILLA DE ESCRITORIO GIRATORIA"></textarea>
+                    </div>
+                    <div class="col-lg-3 js-bloque-cantidad">
+                        <label class="sm-label">Cantidad</label>
+                        <div class="ad-cantidad">
+                            <button type="button" class="js-menos" aria-label="Uno menos">−</button>
+                            <input type="number" class="sm-input js-cantidad" min="1" max="200" value="1" />
+                            <button type="button" class="js-mas" aria-label="Uno más">+</button>
+                        </div>
+                        <div class="ad-ayuda">Varios iguales: un activo por unidad.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="sm-label">Código antiguo <small class="text-muted js-ayuda-antiguo">(el que usaba Activos Fijos)</small></label>
+                        <textarea class="sm-input js-antiguos" rows="1" style="min-height:44px" placeholder="Ej: AF-2015-0231"></textarea>
+                        <div class="ad-ayuda js-info-antiguos"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="sm-label">Serie(s)</label>
+                        <textarea class="sm-input js-series" rows="1" style="min-height:44px"></textarea>
+                        <div class="ad-ayuda js-info-series"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ad-seccion">
+                <div class="ad-seccion-cab"><i class="ti ti-layers-subtract"></i> Clasificación <small>con predio y grupo contable recibe código nuevo</small></div>
+                <div class="ad-seccion-cuerpo row g-2">
+                    <div class="col-lg-3 col-md-6"><label class="sm-label">Predio</label><select class="js-predio"><option value=""></option></select></div>
+                    <div class="col-lg-3 col-md-6"><label class="sm-label">Grupo contable</label><select class="js-grupo"><option value=""></option></select></div>
+                    <div class="col-lg-3 col-md-6"><label class="sm-label">Auxiliar</label><select class="js-auxiliar" disabled><option value=""></option></select></div>
+                    <div class="col-lg-3 col-md-6"><label class="sm-label">Estado de conservación</label><select class="sm-select js-estado"></select></div>
+                    <div class="col-12">
+                        <div class="ad-info"><i class="ti ti-barcode"></i><div class="js-codigo-previo">—</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ad-seccion">
+                <div class="ad-seccion-cab"><i class="ti ti-map-pin"></i> Ubicación</div>
+                <div class="ad-seccion-cuerpo row g-2">
+                    <div class="col-md-6"><label class="sm-label">Oficina</label><select class="js-oficina" disabled><option value=""></option></select></div>
+                    <div class="col-md-6"><label class="sm-label">Responsable</label><select class="js-responsable" disabled><option value=""></option></select></div>
+                    <div class="col-12 d-none js-nota-ubicacion"><div class="sm-aviso sm-aviso-aviso mb-0 py-2"><i class="ti ti-lock"></i>
+                        <div class="small">Este activo ya tiene movimientos: su oficina y responsable se cambian con Transferencias o Asignaciones.</div></div></div>
+                </div>
+            </div>
+
+            <div class="ad-seccion">
+                <div class="ad-seccion-cab"><i class="ti ti-list-details"></i> Datos</div>
+                <div class="ad-seccion-cuerpo row g-2">
+                    <div class="col-lg-3 col-md-6"><label class="sm-label">Fecha de adquisición</label><input type="date" class="sm-input js-fecha" /></div>
+                    <div class="col-lg-3 col-md-6"><label class="sm-label">Valor unitario (Bs)</label><input type="number" class="sm-input js-valor text-end" min="0" step="0.01" placeholder="0.00" /></div>
+                    <div class="col-lg-2 col-md-6"><label class="sm-label">Vida útil (años)</label><input type="number" class="sm-input js-vida text-center" min="0" max="100" /></div>
+                    <div class="col-lg-4 col-md-6"><label class="sm-label">Financiador</label><select class="js-financiador"><option value=""></option></select></div>
+                    <div class="col-lg-4 col-md-6"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" /></div>
+                    <div class="col-lg-4 col-md-6"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" /></div>
+                    <div class="col-lg-4 col-md-6"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" /></div>
+                    <div class="col-md-6"><label class="sm-label">Material</label><input type="text" class="sm-input js-material" maxlength="80" /></div>
+                    <div class="col-md-6"><label class="sm-label">Medidas</label><input type="text" class="sm-input js-medidas" maxlength="80" /></div>
+                    <div class="col-md-6"><label class="sm-label">Características</label>
+                        <textarea class="sm-input js-caract" rows="2" style="min-height:60px" maxlength="4000"></textarea></div>
+                    <div class="col-md-6"><label class="sm-label">Observación</label>
+                        <textarea class="sm-input ad-sin-mayus js-obs" data-sm-mayus="no" rows="2" style="min-height:60px" maxlength="4000"
+                                  placeholder="Dónde se encontró, estado, quién lo informó…"></textarea></div>
+                    <div class="col-12"><div class="ad-ayuda">Así quedará la descripción: <b class="js-previa">—</b> <span class="js-largo"></span></div></div>
+                </div>
+            </div>
+
+            <div class="ad-seccion js-seccion-fotos">
+                <div class="ad-seccion-cab"><i class="ti ti-photo"></i> Fotos <small>hasta 3; se ponen a cada unidad</small></div>
+                <div class="ad-seccion-cuerpo">
+                    <div class="ad-fotos js-fotos">
+                        <label class="ad-foto-add js-foto-add" title="Agregar fotos (JPG, PNG o WEBP)">
+                            <input type="file" class="d-none js-foto-input" accept="image/jpeg,image/png,image/webp" multiple />
+                            <i class="ti ti-camera-plus"></i><span>Agregar</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="ad-pie">
+            <span class="ad-nota js-pie-nota">Nada es obligatorio.</span>
+            <button type="button" class="sm-btn sm-btn-neutro js-cancelar"><i class="ti ti-x"></i> Cancelar</button>
+            <button type="button" class="sm-btn sm-btn-suave js-guardar-otro" title="Guarda y deja la clasificación y la ubicación para cargar el siguiente"><i class="ti ti-repeat"></i> Guardar y registrar otro</button>
+            <button type="button" class="sm-btn sm-btn-exito js-guardar"><i class="ti ti-device-floppy"></i> Guardar</button>
+        </div>
+    </form>
+</section>
+
+<!-- Detalle -->
+<div class="modal fade js-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered sm-detalle-dialog">
+        <div class="modal-content sm-modal sm-detalle-content js-detalle"></div>
+    </div>
+</div>
+
+</div>
+
+<script th:inline="javascript">
+(function () {
+    const URL = '/administracion/adicional';
+    const INICIAL = /*[[${inicial}]]*/ {};
+    const $raiz = $('#modAdicional');
+    const esc = SciafModulo.escapar;
+    const $listado = $raiz.find('.js-listado');
+    const $tabla = $raiz.find('.js-tabla');
+    const $panel = $raiz.find('.js-panel-form');
+    const $form = $raiz.find('.js-form');
+    const $modal = $raiz.find('.js-modal');
+    const $detalle = $raiz.find('.js-detalle');
+    const MAX_FOTOS = INICIAL.maxFotos || 3;
+    const PREDIOS = INICIAL.predios || [], GRUPOS = INICIAL.grupos || [];
+    const predioPorId = {}, grupoPorId = {};
+    PREDIOS.forEach(function (p) { predioPorId[p.id] = p; });
+    GRUPOS.forEach(function (g) { grupoPorId[g.id] = g; });
+    const st = { edicion: null, enviando: false, token: null, fotos: [] };
+    const URL_OBJ = window.URL || window.webkitURL;
+
+    // ── utilidades ──
+    function mayus(t) { return (t || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
+    function bs(n) { return 'Bs ' + (Number(n) || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fechaBonita(iso) { if (!iso) return '—'; const p = String(iso).substring(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso; }
+    function lineas(texto) { const l = (texto || '').split(/\r?\n/).map(mayus); while (l.length && !l[l.length - 1]) l.pop(); return l; }
+    function codigoHtml(c) {
+        if (!c) return '<span class="ad-sin">SIN CÓDIGO</span>';
+        const m = /^(.*-\d{5})A$/i.exec(c);
+        return m ? '<span class="ad-codigo">' + esc(m[1]) + '<span class="ad-a">A</span></span>' : '<span class="ad-codigo">' + esc(c) + '</span>';
+    }
+    // El title de Swal se interpreta como HTML: todo texto va escapado (un código antiguo podría traer etiquetas).
+    function aviso(texto, icono) { Swal.fire({ toast: true, position: 'top-end', icon: icono || 'warning', title: esc(texto), showConfirmButton: false, timer: 3500, timerProgressBar: true }); }
+    function nuevoToken() {
+        try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) { /* http */ }
+        return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2, 8);
+    }
+    function debounce(fn, ms) { let t = null; return function () { const a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, ms); }; }
+
+    function pintarTotales(t) {
+        if (!t) return;
+        $raiz.find('.js-t-total').text((t.total || 0).toLocaleString('es-BO'));
+        $raiz.find('.js-t-con').text((t.conCodigo || 0).toLocaleString('es-BO'));
+        $raiz.find('.js-t-sin').text((t.sinCodigo || 0).toLocaleString('es-BO'));
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  Tabla (paginada en el servidor)
+    // ════════════════════════════════════════════════════════════
+
+    let tabla = null;
+    function iniciarTabla() {
+        tabla = SciafModulo.tabla({
+            tabla: $tabla, buscador: $raiz.find('.js-buscar'), largo: $raiz.find('.js-largo'),
+            dt: {
+                serverSide: true, ordering: false, deferRender: true,
+                ajax: { url: URL + '/api/datatables', type: 'POST' },
+                language: { emptyTable: 'Todavía no hay activos adicionales registrados.', zeroRecords: 'Ningún activo adicional coincide con la búsqueda.' },
+                createdRow: function (tr, a) { tr.dataset.id = a.idActivo; tr.tabIndex = 0; },
+                columns: [
+                    { data: 'codigo', render: function (v) { return codigoHtml(v); } },
+                    { data: 'codigoAntiguo', render: function (v) { return v ? '<span class="ad-antiguo">' + esc(v) + '</span>' : '<span class="text-muted">—</span>'; } },
+                    { data: 'descripcion', render: function (v) { return '<span class="sm-mayus">' + esc(v) + '</span>'; } },
+                    { data: 'grupo', render: function (v) { return v ? esc(v) : '<span class="text-muted">—</span>'; } },
+                    { data: null, render: function (d, t, a) {
+                        if (!a.oficina && !a.predio) return '<span class="text-muted">—</span>';
+                        return esc(a.oficina || a.predio) + (a.responsable ? '<br><small class="text-muted">' + esc(a.responsable) + '</small>' : (a.oficina && a.predio ? '<br><small class="text-muted">' + esc(a.predio) + '</small>' : ''));
+                    } },
+                    { data: 'fotos', className: 'text-center', render: function (v) { return v ? '<i class="ti ti-photo"></i> ' + esc(v) : '<span class="text-muted">—</span>'; } },
+                    { data: 'valor', className: 'text-end', render: function (v) { return v ? esc(bs(v)) : '<span class="text-muted">—</span>'; } }
+                ]
+            }
+        });
+        $tabla.on('xhr.dt', function (e, s, json) { if (json) pintarTotales(json.totales); });
+    }
+    function recargar() { if (tabla) tabla.ajax.reload(null, false); }
+    $tabla.on('click', 'tbody tr[data-id]', function () { abrirDetalle(Number(this.dataset.id)); });
+    $tabla.on('keydown', 'tbody tr[data-id]', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDetalle(Number(this.dataset.id)); } });
+
+    function mostrar(cual) {
+        $listado.toggleClass('d-none', cual !== 'listado');
+        $panel.toggleClass('d-none', cual !== 'form');
+        const $v = cual === 'form' ? $panel : $listado;
+        $v.removeClass('ad-vista'); void $v[0].offsetWidth; $v.addClass('ad-vista');
+        if (cual === 'listado' && tabla) tabla.columns.adjust();
+        // El alto del formulario se mide recién ahora que se ve: medido oculto (al abrir el
+        // módulo) tomaba toda la ventana y los botones quedaban fuera de la vista hasta que
+        // la ventana cambiaba de tamaño (p. ej. al pulsar Alt).
+        if (cual === 'form') ajustarCuerpo();
+    }
+    let ajustarCuerpo = function () {};
+
+    // ════════════════════════════════════════════════════════════
+    //  Formulario
+    // ════════════════════════════════════════════════════════════
+
+    const s2 = { dropdownParent: $raiz, width: '100%' };
+    const $predio = $form.find('.js-predio'), $grupo = $form.find('.js-grupo'), $aux = $form.find('.js-auxiliar');
+    const $oficina = $form.find('.js-oficina'), $resp = $form.find('.js-responsable'), $fin = $form.find('.js-financiador');
+    PREDIOS.forEach(function (p) { $predio.append(new Option(p.nombre + (p.prefijo ? '  ·  ' + p.prefijo : '  (sin configurar)'), p.id)); });
+    GRUPOS.forEach(function (g) { $grupo.append(new Option(g.cod + ' - ' + g.nombre, g.id)); });
+    (INICIAL.financiadores || []).forEach(function (f) { $fin.append(new Option(f.texto, f.id)); });
+    const $estado = $form.find('.js-estado');
+    $estado.append(new Option('(Sin indicar)', ''));
+    (INICIAL.estados || []).forEach(function (e) { $estado.append(new Option(e.nombre, e.id)); });
+    $predio.select2(Object.assign({ placeholder: 'Sin predio', allowClear: true }, s2));
+    $grupo.select2(Object.assign({ placeholder: 'Sin grupo', allowClear: true }, s2));
+    $aux.select2(Object.assign({ placeholder: 'Sin auxiliar', allowClear: true }, s2));
+    $oficina.select2(Object.assign({ placeholder: 'Sin oficina (elija el predio)', allowClear: true }, s2));
+    $fin.select2(Object.assign({ placeholder: 'Sin financiador', allowClear: true }, s2));
+    $resp.select2(Object.assign({
+        placeholder: 'Sin responsable (elija la oficina)', allowClear: true,
+        ajax: { url: '/api/responsables/buscar', dataType: 'json', delay: 250,
+                data: function (p) { return { q: p.term || '', page: p.page || 1, oficinaId: $oficina.val() || -1 }; },
+                processResults: function (d) { return d; } }
+    }, s2));
+
+    async function cargarOficinas(idPredio, elegir) {
+        $oficina.prop('disabled', true).empty().append(new Option('', '')).trigger('change.select2');
+        $resp.prop('disabled', true).val(null).empty().trigger('change.select2');
+        if (!idPredio) return;
+        try {
+            const r = await SciafModulo.pedir('/api/buscar_oficinas?predioId=' + encodeURIComponent(idPredio), { metodo: 'GET' });
+            (await r.json()).forEach(function (o) {
+                $oficina.append(new Option((o.codigo != null ? String(o.codigo).padStart(3, '0') + ' - ' : '') + o.nombre, o.id));
+            });
+            $oficina.prop('disabled', bloqueoUbicacion());
+            if (elegir) $oficina.val(String(elegir));
+            $oficina.trigger('change.select2');
+        } catch (e) { SciafModulo.avisarError(e, 'No se pudieron traer las oficinas'); }
+    }
+    const auxCache = {};
+    async function cargarAuxiliares(elegir) {
+        $aux.prop('disabled', true).empty().append(new Option('', '')).trigger('change.select2');
+        const p = $predio.val(), g = $grupo.val();
+        if (!p || !g) return;
+        const clave = p + '-' + g;
+        try {
+            if (!auxCache[clave]) auxCache[clave] = await (await SciafModulo.pedir('/api/buscar_auxiliar_lista?predioId=' + p + '&grupoId=' + g, { metodo: 'GET' })).json();
+            auxCache[clave].forEach(function (a) { $aux.append(new Option(a.text, a.id)); });
+            $aux.prop('disabled', false);
+            if (elegir) $aux.val(String(elegir));
+            $aux.trigger('change.select2');
+        } catch (e) { SciafModulo.avisarError(e, 'No se pudieron traer los auxiliares'); }
+    }
+    function bloqueoUbicacion() { return !!(st.edicion && st.edicion.conVida); }
+
+    $predio.on('change', function () { cargarOficinas(this.value); cargarAuxiliares(); actualizarCodigo(); });
+    $grupo.on('change', function () {
+        const g = grupoPorId[this.value];
+        if (g && g.vidaUtil != null && !$form.find('.js-vida').val()) $form.find('.js-vida').val(g.vidaUtil);
+        cargarAuxiliares(); actualizarCodigo();
+    });
+    $oficina.on('change', function () { $resp.val(null).empty().prop('disabled', !this.value || bloqueoUbicacion()).trigger('change.select2'); });
+
+    // Vista previa del código nuevo (orientativa: no reserva nada)
+    const actualizarCodigo = debounce(async function () {
+        const $c = $form.find('.js-codigo-previo');
+        if (st.edicion && st.edicion.codigo && String($grupo.val()) === String(st.edicion.idGrupo) && String($predio.val()) === String(st.edicion.idPredio)) {
+            $c.html('Conserva su código ' + codigoHtml(st.edicion.codigo) + '.'); return;
+        }
+        if (!$predio.val() || !$grupo.val()) {
+            $c.html('Sin predio y grupo contable <b>no recibe código nuevo</b>: queda con su código antiguo y se le asigna cuando se complete.');
+            return;
+        }
+        const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/previsualizar?idPredio=' + $predio.val() + '&idGrupo=' + $grupo.val() + '&cantidad=' + cant, { metodo: 'GET' });
+            const d = await r.json();
+            if (!d.conCodigo) { $c.html('El predio no tiene configurado su código: <b>no recibe código nuevo</b> (Ámbito geográfico → Predio).'); return; }
+            $c.html((st.edicion && st.edicion.codigo ? 'Cambia a código nuevo: ' : 'Recibirá ') + codigoHtml(d.desde)
+                + (cant > 1 ? ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(d.hasta) : '') + ' <small class="text-muted">(se confirma al guardar)</small>');
+        } catch (e) { $c.text('—'); }
+    }, 300);
+
+    function refrescar() {
+        const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
+        const ant = lineas($form.find('.js-antiguos').val()), ser = lineas($form.find('.js-series').val());
+        // Con varias unidades, una línea por unidad: las cajas crecen hasta 6 líneas.
+        $form.find('.js-antiguos, .js-series').attr('rows', Math.min(6, cant)).css('min-height', cant > 1 ? '' : '44px');
+        const repetidas = function (l) { const v = l.filter(Boolean); return v.filter(function (s, k) { return v.indexOf(s) !== k; }); };
+        $form.find('.js-info-antiguos').toggleClass('mal', ant.length > cant)
+            .text(ant.length > cant ? ant.length + ' líneas para ' + cant + ' unidad(es)' : (cant > 1 ? 'Uno por línea, en el orden de las unidades (línea vacía = sin código antiguo).' : ''));
+        const rs = repetidas(ser);
+        $form.find('.js-info-series').toggleClass('mal', ser.length > cant || rs.length > 0)
+            .text(rs.length ? 'Serie repetida: ' + rs[0] : ser.length > cant ? ser.length + ' líneas para ' + cant + ' unidad(es)' : (cant > 1 ? 'Una por línea, en el orden de las unidades.' : ''));
+        const d = leer();
+        let base = d.descripcion || (ant[0] ? 'BIEN ADICIONAL' : 'SIN DESCRIPCIÓN');
+        if (d.material) base += ' MATERIAL ' + d.material;
+        if (d.dimensiones) base += ' MEDIDAS ' + d.dimensiones;
+        if (d.color) base += ' COLOR ' + d.color;
+        const t = [];
+        if (d.marca) t.push('M:' + d.marca);
+        if (d.modelo) t.push('MOD:' + d.modelo);
+        if (ser[0]) t.push('N/S:' + ser[0]);
+        if (t.length) base += ' ' + t.join(', ');
+        $form.find('.js-previa').text(base);
+        $form.find('.js-largo').text('(' + base.length + ' / 1024)').toggleClass('text-danger', base.length > 1024);
+    }
+    $raiz.on('input change', '.js-form input, .js-form textarea, .js-form .js-estado', function () { refrescar(); if ($(this).hasClass('js-cantidad')) actualizarCodigo(); });
+    $raiz.on('input', '.js-form input.sm-input[type=text]:not([data-sm-mayus=no]), .js-form textarea:not([data-sm-mayus=no])', function () {
+        const p = this.selectionStart, q = this.selectionEnd, v = this.value.toUpperCase();
+        if (v !== this.value) { this.value = v; try { this.setSelectionRange(p, q); } catch (e) { /* number/date */ } }
+    });
+    $raiz.on('click', '.js-menos, .js-mas', function () {
+        const $c = $form.find('.js-cantidad');
+        $c.val(Math.max(1, Math.min(200, (Number($c.val()) || 1) + ($(this).hasClass('js-mas') ? 1 : -1)))).trigger('input');
+    });
+
+    function leer() {
+        const n = function ($s) { const v = $s.val(); return v === '' || v == null ? null : Number(v); };
+        return {
+            token: st.token,
+            descripcion: mayus($form.find('.js-desc').val()) || null,
+            codigosAntiguos: lineas($form.find('.js-antiguos').val()),
+            cantidad: st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1),
+            idPredio: n($predio), idOficina: n($oficina), idResponsable: n($resp),
+            idGrupoContable: n($grupo), idAuxiliar: n($aux), idEstadoActivo: n($estado), idOrganismoFinanciero: n($fin),
+            fechaAdquisicion: $form.find('.js-fecha').val() || null,
+            valorUnitario: n($form.find('.js-valor')), vidaUtil: n($form.find('.js-vida')),
+            marca: mayus($form.find('.js-marca').val()) || null, modelo: mayus($form.find('.js-modelo').val()) || null,
+            color: mayus($form.find('.js-color').val()) || null, material: mayus($form.find('.js-material').val()) || null,
+            dimensiones: mayus($form.find('.js-medidas').val()) || null,
+            series: lineas($form.find('.js-series').val()),
+            caracteristicas: ($form.find('.js-caract').val() || '').trim().toUpperCase() || null,
+            observacion: ($form.find('.js-obs').val() || '').trim() || null
+        };
+    }
+
+    function limpiarFotos() {
+        st.fotos.forEach(function (f) { try { URL_OBJ.revokeObjectURL(f.url); } catch (e) { /* ya liberada */ } });
+        st.fotos = [];
+        pintarFotos();
+    }
+
+    /** @param conservar deja clasificación, ubicación y datos generales (para «registrar otro»). */
+    function reiniciar(conservar) {
+        st.token = nuevoToken();
+        const guardado = conservar ? { predio: $predio.val(), oficina: $oficina.val(), resp: $resp.select2('data')[0], grupo: $grupo.val(),
+            aux: $aux.val(), estado: $estado.val(), fin: $fin.val(), fecha: $form.find('.js-fecha').val() } : null;
+        st.edicion = null;
+        $form[0].reset();
+        limpiarFotos();
+        $form.find('.js-form-kicker').text('Nuevo activo adicional');
+        $form.find('.js-form-titulo').text('Registre lo que sepa del bien');
+        $form.find('.js-bloque-cantidad, .js-seccion-fotos, .js-guardar-otro').removeClass('d-none');
+        $form.find('.js-nota-ubicacion').addClass('d-none');
+        $form.find('.js-ayuda-antiguo').text('(el que usaba Activos Fijos)');
+        $predio.prop('disabled', false).val(guardado ? guardado.predio : null).trigger('change.select2');
+        $grupo.val(guardado ? guardado.grupo : null).trigger('change.select2');
+        $fin.val(guardado ? guardado.fin : null).trigger('change.select2');
+        $estado.val(guardado ? guardado.estado : '');
+        $form.find('.js-fecha').val(guardado ? guardado.fecha : '');
+        if (guardado && guardado.predio) {
+            cargarOficinas(guardado.predio, guardado.oficina).then(function () {
+                if (guardado.resp && guardado.resp.id) $resp.prop('disabled', false).append(new Option(guardado.resp.text, guardado.resp.id, true, true)).trigger('change.select2');
+            });
+            cargarAuxiliares(guardado.aux);
+        } else {
+            $oficina.empty().append(new Option('', '')).prop('disabled', true).trigger('change.select2');
+            $resp.val(null).empty().prop('disabled', true).trigger('change.select2');
+            $aux.empty().append(new Option('', '')).prop('disabled', true).trigger('change.select2');
+        }
+        refrescar();
+        actualizarCodigo();
+    }
+
+    $raiz.on('click', '.js-nuevo', function () {
+        if (!$panel.hasClass('d-none') && !st.edicion) return;
+        reiniciar(false);
+        mostrar('form');
+        setTimeout(function () { $form.find('.js-desc').trigger('focus'); }, 80);
+    });
+    $raiz.on('click', '.js-cancelar', function () { reiniciar(false); mostrar('listado'); });
+
+    async function guardar(otro) {
+        if (st.enviando) return;
+        const d = leer();
+        if (!d.descripcion && !d.codigosAntiguos.some(Boolean)) { aviso('Escriba al menos el nombre o descripción, o el código antiguo.'); $form.find('.js-desc').trigger('focus'); return; }
+        if (!d.descripcion && d.codigosAntiguos.filter(Boolean).length < d.cantidad) { aviso('Sin descripción, cada unidad necesita su código antiguo.'); return; }
+        if (d.codigosAntiguos.length > d.cantidad || d.series.length > d.cantidad) { aviso('Hay más líneas de código antiguo o serie que unidades.'); return; }
+        const ed = st.edicion;
+        const ok = await sciafConfirmar(ed ? {
+            titulo: '¿Guardar los cambios?', texto: 'Se corrige el activo ' + (ed.codigo ? '<b>' + esc(ed.codigo) + '</b>' : '<b>sin código</b>') + '.', aceptar: 'Sí, guardar'
+        } : {
+            titulo: d.cantidad > 1 ? '¿Registrar ' + d.cantidad + ' activos adicionales?' : '¿Registrar el activo adicional?',
+            texto: 'Quedan solo en el SCIAF (no van al VSIAF).' + ($predio.val() && $grupo.val() ? '' : '<br><small>Sin predio y grupo contable no reciben código nuevo todavía.</small>'),
+            aceptar: 'Sí, registrar'
+        });
+        if (!ok) return;
+        const fotos = st.fotos.slice();
+        st.enviando = true;
+        $form.find('.js-guardar, .js-guardar-otro').prop('disabled', true);
+        try {
+            const r = await SciafModulo.pedirJson(ed ? URL + '/api/activo/' + ed.id + '/editar' : URL + '/api/registrar', { json: d });
+            if (!r.ok) throw new Error(r.msg || 'No se pudo guardar.');
+            let msg = r.msg;
+            if (!ed && fotos.length && (r.activos || []).length) {
+                try {
+                    const fd = new FormData();
+                    r.activos.forEach(function (a) { fd.append('idsActivo', a.idActivo); });
+                    fotos.forEach(function (f) { fd.append('fotos', f.blob, f.nombre); });
+                    const rf = await SciafModulo.pedirJson(URL + '/api/fotos', { datos: fd });
+                    if (!rf.ok) throw new Error(rf.msg);
+                } catch (ef) {
+                    if (!ef.sesionPerdida) msg += ' Las fotos NO se guardaron (' + (ef.message || 'error') + '): agréguelas desde el detalle.';
+                }
+            }
+            recargar();
+            const codigos = (r.activos || []).map(function (a) { return a.codigo || (a.codigoAntiguo ? 'ant. ' + a.codigoAntiguo : 'sin código'); });
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: esc(msg),
+                text: codigos.length ? codigos.slice(0, 6).join(' · ') + (codigos.length > 6 ? ' …' : '') : '', showConfirmButton: false, timer: 5000 });
+            if (ed) { reiniciar(false); mostrar('listado'); abrirDetalle(ed.id); }
+            else if (otro) { reiniciar(true); setTimeout(function () { $form.find('.js-desc').trigger('focus'); }, 80); }
+            else { reiniciar(false); mostrar('listado'); }
+        } catch (e) {
+            if (!e.sesionPerdida) Swal.fire('No se guardó', esc(e.message || 'Intente de nuevo.')
+                + (ed ? '' : '<br><small>Puede volver a pulsar «Guardar»: si ya se había guardado, no se duplica.</small>'), 'error');
+        } finally {
+            st.enviando = false;
+            $form.find('.js-guardar, .js-guardar-otro').prop('disabled', false);
+        }
+    }
+    $raiz.on('click', '.js-guardar', function () { guardar(false); });
+    $raiz.on('click', '.js-guardar-otro', function () { guardar(true); });
+
+    // ── fotos en memoria (alta): se suben después de registrar, a cada unidad ──
+    async function reducirImagen(file) {
+        try {
+            if (!window.createImageBitmap || !/^image\//.test(file.type)) throw new Error('sin soporte');
+            const img = await createImageBitmap(file);
+            const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+            const c = document.createElement('canvas');
+            c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            const blob = await new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.85); });
+            if (!blob) throw new Error('sin blob');
+            return { blob: blob, nombre: (file.name || 'foto').replace(/\.[^.]+$/, '') + '.jpg' };
+        } catch (e) { return { blob: file, nombre: file.name || 'foto.jpg' }; }
+    }
+    function esImagenValida(f) { return /^image\/(jpeg|png|webp)$/.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name || ''); }
+    function pintarFotos() {
+        const $c = $form.find('.js-fotos');
+        $c.find('.ad-foto').remove();
+        st.fotos.forEach(function (f, i) {
+            $('<div class="ad-foto">').append($('<img alt="Foto">').attr('src', f.url).addClass('js-foto-ver').attr('data-url', f.url))
+                .append('<button type="button" class="ad-foto-quitar js-foto-mem-quitar" data-i="' + i + '" title="Quitar"><i class="ti ti-x"></i></button>')
+                .insertBefore($c.find('.js-foto-add'));
+        });
+        $c.find('.js-foto-add').toggleClass('oculto', st.fotos.length >= MAX_FOTOS);
+    }
+    $raiz.on('change', '.js-foto-input', async function () {
+        const archivos = Array.from(this.files || []); this.value = '';
+        if (archivos.some(function (f) { return !esImagenValida(f); })) aviso('Solo se aceptan fotos JPG, PNG o WEBP.');
+        for (const f of archivos.filter(esImagenValida)) {
+            if (st.fotos.length >= MAX_FOTOS) { aviso('Hasta ' + MAX_FOTOS + ' fotos.'); break; }
+            const r = await reducirImagen(f);
+            st.fotos.push({ blob: r.blob, nombre: r.nombre, url: URL_OBJ.createObjectURL(r.blob) });
+        }
+        pintarFotos();
+    });
+    $raiz.on('click', '.js-foto-mem-quitar', function () {
+        const f = st.fotos.splice(Number($(this).data('i')), 1)[0];
+        if (f) { try { URL_OBJ.revokeObjectURL(f.url); } catch (e) { /* ya liberada */ } }
+        pintarFotos();
+    });
+    $raiz.on('click', '.js-foto-ver', function () {
+        Swal.fire({ imageUrl: $(this).attr('data-url'), imageAlt: 'Foto del activo', showConfirmButton: false, showCloseButton: true, width: 'min(92vw, 1000px)', padding: '0.5rem' });
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Detalle
+    // ════════════════════════════════════════════════════════════
+
+    async function abrirDetalle(id) {
+        $detalle.html('<div class="js-cargando" style="min-height:320px"></div>');
+        bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+        const carga = SciafPrecarga.montar($detalle.find('.js-cargando'), { compacta: true, texto: 'Abriendo el activo…', alReintentar: function () { abrirDetalle(id); } });
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/activo/' + encodeURIComponent(id), { metodo: 'GET' });
+            const d = await r.json();
+            if (!r.ok || d.ok === false) throw new Error(d.msg || 'No se pudo abrir.');
+            carga.cerrar();
+            pintarDetalle(d);
+        } catch (e) { if (!e.sesionPerdida) carga.error('No se pudo abrir el activo', e.message || ''); }
+    }
+
+    function pintarDetalle(d) {
+        const campo = function (et, v) { return '<div class="ad-campo"><small>' + et + '</small><span>' + (v != null && v !== '' ? esc(v) : '—') + '</span></div>'; };
+        const vigente = d.estado === 'ACTIVO';
+        let fotos = '';
+        (d.fotos || []).forEach(function (f) {
+            fotos += '<div class="ad-foto"><img src="' + esc(f.url) + '" alt="Foto" class="js-foto-ver" data-url="' + esc(f.url) + '" loading="lazy">'
+                + '<button type="button" class="ad-foto-quitar js-foto-quitar" data-id="' + esc(f.id) + '" title="Quitar foto"><i class="ti ti-x"></i></button></div>';
+        });
+        if (vigente && (d.fotos || []).length < MAX_FOTOS) {
+            fotos += '<label class="ad-foto-add" title="Agregar fotos"><input type="file" class="d-none js-foto-detalle" accept="image/jpeg,image/png,image/webp" multiple data-ya="'
+                + (d.fotos || []).length + '"><i class="ti ti-camera-plus"></i><span>Agregar</span></label>';
+        }
+        $detalle.html(
+            '<div class="sm-detalle-head">'
+            + '<div class="sm-cabecera-icono"><i class="ti ti-box-multiple"></i></div>'
+            + '<div class="flex-grow-1"><span class="sm-detalle-kicker">Activo adicional · solo SCIAF' + (vigente ? '' : ' · <span class="text-danger">' + esc(d.estado) + '</span>') + '</span>'
+            + '<h5 class="sm-modal-titulo">' + codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="ad-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : '') + '</h5>'
+            + '<small>Registrado por ' + esc(d.registradoPor || '—') + '</small></div>'
+            + '<div class="d-flex gap-2 flex-wrap justify-content-end">'
+            + (vigente ? '<button type="button" class="sm-btn js-editar"><i class="ti ti-edit"></i> Corregir</button>' : '')
+            + (INICIAL.esAdmin && d.eliminable ? '<button type="button" class="sm-btn sm-btn-peligro js-eliminar"><i class="ti ti-trash"></i> Eliminar</button>' : '')
+            + '</div><button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>'
+            + '<div class="sm-detalle-scroll">'
+            + '<div class="ad-tarjetas">'
+            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-tag"></i> Identificación</div>'
+            + campo('Descripción', d.descripcion) + campo('Código antiguo', d.codigoAntiguo)
+            + campo('Marca / modelo', [d.marca, d.modelo].filter(Boolean).join(' · ')) + campo('Serie', d.serie) + '</div>'
+            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-layers-subtract"></i> Clasificación</div>'
+            + campo('Grupo contable', d.grupo) + campo('Auxiliar', d.auxiliar) + campo('Conservación', d.conservacion) + campo('Financiador', d.financiador) + '</div>'
+            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-map-pin"></i> Ubicación</div>'
+            + campo('Predio', d.predio) + campo('Oficina', d.oficina) + campo('Responsable', d.responsable) + '</div>'
+            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-list-details"></i> Datos</div>'
+            + campo('Fecha de adquisición', d.fechaAdquisicion ? fechaBonita(d.fechaAdquisicion) : null) + campo('Valor', d.valor ? bs(d.valor) : null)
+            + campo('Vida útil', d.vidaUtil ? d.vidaUtil + ' año(s)' : null)
+            + campo('Color / material / medidas', [d.color, d.material, d.dimensiones].filter(Boolean).join(' · ')) + '</div>'
+            + '</div>'
+            + (d.caracteristicas ? '<div class="ad-tarjeta mb-3"><div class="ad-tarjeta-cab">Características</div><div style="white-space:pre-line">' + esc(d.caracteristicas) + '</div></div>' : '')
+            + (d.observacion ? '<div class="ad-tarjeta mb-3"><div class="ad-tarjeta-cab">Observación</div><div style="white-space:pre-line">' + esc(d.observacion) + '</div></div>' : '')
+            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-photo"></i> Fotos <small class="text-muted text-lowercase fw-normal">(hasta ' + MAX_FOTOS + ')</small></div>'
+            + '<div class="ad-fotos">' + (fotos || '<span class="text-muted small">Sin fotos.</span>') + '</div></div>'
+            + '</div>');
+        $detalle.data('activo', d);
+    }
+
+    $raiz.on('change', '.js-foto-detalle', async function () {
+        const d = $detalle.data('activo');
+        const archivos = Array.from(this.files || []).filter(esImagenValida); this.value = '';
+        if (!d || !archivos.length) { aviso('Solo se aceptan fotos JPG, PNG o WEBP.'); return; }
+        const ya = Number($(this).data('ya')) || 0;
+        if (ya + archivos.length > MAX_FOTOS) { aviso('Cada activo admite hasta ' + MAX_FOTOS + ' fotos (ya tiene ' + ya + ').'); return; }
+        $(this).closest('.ad-foto-add').css('opacity', .5);
+        try {
+            const fd = new FormData();
+            fd.append('idsActivo', d.idActivo);
+            for (const f of archivos) { const r = await reducirImagen(f); fd.append('fotos', r.blob, r.nombre); }
+            const res = await SciafModulo.pedirJson(URL + '/api/fotos', { datos: fd });
+            if (!res.ok) throw new Error(res.msg);
+            recargar(); abrirDetalle(d.idActivo);
+        } catch (e) { if (!e.sesionPerdida) Swal.fire('No se guardaron las fotos', esc(e.message || ''), 'error'); abrirDetalle(d.idActivo); }
+    });
+    $raiz.on('click', '.js-foto-quitar', async function () {
+        const d = $detalle.data('activo');
+        if (!d || !await sciafConfirmar({ titulo: '¿Quitar esta foto?', texto: 'Deja de mostrarse en el activo.', aceptar: 'Quitar', peligrosa: true })) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/foto/' + encodeURIComponent($(this).data('id')) + '/quitar', {});
+            if (!res.ok) throw new Error(res.msg);
+            recargar(); abrirDetalle(d.idActivo);
+        } catch (e) { if (!e.sesionPerdida) Swal.fire('No se quitó la foto', esc(e.message || ''), 'error'); }
+    });
+
+    // Corregir: el mismo formulario, con el activo cargado
+    $raiz.on('click', '.js-editar', async function () {
+        const d = $detalle.data('activo');
+        if (!d) return;
+        bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+        reiniciar(false);
+        st.edicion = { id: d.idActivo, codigo: d.codigo, idPredio: d.idPredio, idGrupo: d.idGrupoContable, conVida: !!d.conVida };
+        $form.find('.js-form-kicker').text('Corregir activo adicional');
+        $form.find('.js-form-titulo').html(codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="ad-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : ''));
+        $form.find('.js-bloque-cantidad, .js-seccion-fotos, .js-guardar-otro').addClass('d-none');
+        $form.find('.js-ayuda-antiguo').text('');
+        $form.find('.js-desc').val(d.descripcionBase || '');
+        $form.find('.js-antiguos').val(d.codigoAntiguo || '');
+        $form.find('.js-series').val(d.serie || '');
+        $form.find('.js-fecha').val(d.fechaAdquisicion || '');
+        $form.find('.js-valor').val(d.valor || '');
+        $form.find('.js-vida').val(d.vidaUtil || '');
+        $form.find('.js-marca').val(d.marca || ''); $form.find('.js-modelo').val(d.modelo || ''); $form.find('.js-color').val(d.color || '');
+        $form.find('.js-material').val(d.material || ''); $form.find('.js-medidas').val(d.dimensiones || '');
+        $form.find('.js-caract').val(d.caracteristicas || ''); $form.find('.js-obs').val(d.observacion || '');
+        $estado.val(d.idEstadoActivo ? String(d.idEstadoActivo) : '');
+        $fin.val(d.idOrganismoFinanciero ? String(d.idOrganismoFinanciero) : null).trigger('change.select2');
+        $grupo.val(d.idGrupoContable ? String(d.idGrupoContable) : null).trigger('change.select2');
+        $predio.val(d.idPredio ? String(d.idPredio) : null).trigger('change.select2');
+        if (d.idPredio) {
+            await cargarOficinas(d.idPredio, d.idOficina);
+            if (d.idResponsable) $resp.prop('disabled', st.edicion.conVida).append(new Option(d.responsable || '', d.idResponsable, true, true)).trigger('change.select2');
+            await cargarAuxiliares(d.idAuxiliar);
+        }
+        if (st.edicion.conVida) {
+            $predio.prop('disabled', !!d.idOficina);
+            $oficina.prop('disabled', true); $resp.prop('disabled', true);
+            $form.find('.js-nota-ubicacion').removeClass('d-none');
+        }
+        mostrar('form');
+        refrescar();
+        actualizarCodigo();
+    });
+
+    $raiz.on('click', '.js-eliminar', async function () {
+        const d = $detalle.data('activo');
+        if (!d) return;
+        const ref = d.codigo || (d.codigoAntiguo ? 'cód. antiguo ' + d.codigoAntiguo : 'sin código');
+        if (!await sciafConfirmarEliminar('el activo adicional ' + esc(ref), 'Se borra con su detalle; su código nuevo queda libre. No se puede deshacer.')) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/activo/' + d.idActivo + '/eliminar', {});
+            if (!res.ok) throw new Error(res.msg);
+            bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            recargar();
+            aviso(res.msg, 'success');
+        } catch (e) { if (!e.sesionPerdida) Swal.fire('No se eliminó', esc(e.message || ''), 'error'); }
+    });
+
+    // ── arranque ──
+    pintarTotales(INICIAL.totales);
+    reiniciar(false);
+    iniciarTabla();
+    mostrar('listado');
+    // Solo los campos se desplazan; el pie con los botones queda siempre a la vista.
+    ajustarCuerpo = SciafModulo.ajustarAlto($form.find('.js-panel-cuerpo'), 12);
+})();
+</script>

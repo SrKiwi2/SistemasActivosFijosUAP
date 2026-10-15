@@ -100,7 +100,7 @@ public class HistorialActivo {
  
         HistorialActivo h = new HistorialActivo();
         h.activo          = activo;
-        h.codigoActivo    = activo.getCodigo();
+        h.codigoActivo    = Activo.codigoReferencia(activo);   // NOT NULL: un adicional puede no tener código
         h.tipoEvento      = tipoEvento;
         h.transferencia   = transferencia;
         h.fechaEvento     = LocalDateTime.now();

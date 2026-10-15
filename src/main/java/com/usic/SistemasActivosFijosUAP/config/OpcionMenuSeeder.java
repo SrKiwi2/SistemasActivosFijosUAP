@@ -103,6 +103,8 @@ public class OpcionMenuSeeder {
         { "opcion_activop",        "grp_adminactivos", "Registro Activos Pendientes",  "ti ti-clock-exclamation","amber",  "/administracion/activo/vistap",                      "/administracion/activo/vistap",         "PEND." },
         // Bienes donados: correlativo propio con D (…-D00001), solo en el SCIAF (no van al VSIAF).
         { "opcion_donacion",       "grp_adminactivos", "Registro de Donaciones",       "ti ti-gift",             "purple", "/administracion/donacion/vista",                     "/administracion/donacion",              "DON." },
+        // Activos que no estaban en el sistema: datos opcionales, código antiguo y serie propia con A; solo SCIAF.
+        { "opcion_adicional",      "grp_adminactivos", "Registro de Adicionales",      "ti ti-box-multiple",     "teal",   "/administracion/adicional/vista",                    "/administracion/adicional",             "ADI." },
 
         { "opcion_transferencia",  "grp_transfer",     "Transferencia de Activos",     "ti ti-arrows-exchange",  "green",  "/administracion/trasnferencia/transferencia",        "/administracion/trasnferencia/transferencia", "" },
         // Interna y externa se unificaron en la opción de arriba; estos dos se retiran al

@@ -14,10 +14,11 @@
 /**
  * Código de activo con prefijo de entidad opcional: `148-01-04-02-03609`.
  * Los bienes donados llevan una D al final del correlativo (`01-04-06-00001D`; los
- * primeros, `D00001`): la D es parte del código. Sin ella, `00001D` se leía como `00001`,
+ * primeros, `D00001`) y los activos adicionales una A (`01-04-06-00001A`): la letra es
+ * parte del código. Sin ella, `00001D` se leía como `00001`,
  * que es OTRO activo (el normal número 1 del mismo prefijo).
  */
-const CODIGO = /(?:(\d{2,4})-)?(\d{2})-(\d{2})-(\d{2})-(D?\d{3,6}D?)(?![0-9A-Za-z])/i;
+const CODIGO = /(?:(\d{2,4})-)?(\d{2})-(\d{2})-(\d{2})-(D?\d{3,6}[DA]?)(?![0-9A-Za-z])/i;
 const CODIGO_COMPLETO = new RegExp(`^\\s*${CODIGO.source}\\s*$`);
 
 export interface LecturaQr {
@@ -98,8 +99,8 @@ export function leerEtiqueta(crudo: string): LecturaQr {
 export function formatearCodigoManual(texto: string): string {
   const digitos = texto.replace(/\D/g, '');
   if (!digitos) return '';
-  // Bien donado: la D va al final del correlativo (01-04-06-00001D).
-  const donacion = /d\s*$/i.test(texto) && digitos.length >= 7;
+  // Bien donado (D) o activo adicional (A): la letra va al final del correlativo.
+  const letra = digitos.length >= 7 ? ((texto.match(/([da])\s*$/i) || [])[1] || '').toUpperCase() : '';
 
   // Con 12 o más dígitos hay prefijo de entidad; los 11 últimos son el código.
   const conPrefijo = digitos.length > 11;
@@ -113,7 +114,7 @@ export function formatearCodigoManual(texto: string): string {
   if (cuerpo.length > 4) partes.push(cuerpo.slice(4, 6));
   if (cuerpo.length > 6) partes.push(cuerpo.slice(6, 11));
 
-  return partes.join('-') + (donacion ? 'D' : '');
+  return partes.join('-') + letra;
 }
 
 /** Separa el código para pintarlo: prefijo atenuado + correlativo destacado. */

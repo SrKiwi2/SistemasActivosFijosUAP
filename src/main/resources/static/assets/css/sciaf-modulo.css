@@ -1154,6 +1154,7 @@ html[data-theme="dark"] .sm-pastilla-aviso { color: #fbbf24; }
     vertical-align: middle;
 }
 .sciaf-don i { font-size: 0.75rem; }
+.sciaf-don.sciaf-adi { background: #0f766e; }
 
 /* Sub-formulario desplegable dentro de un formulario (alta rápida de una persona…) */
 .sm-subformulario {

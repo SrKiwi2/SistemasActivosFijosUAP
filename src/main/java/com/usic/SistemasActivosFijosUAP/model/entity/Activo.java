@@ -206,17 +206,32 @@ public class Activo extends AuditoriaConfig{
     public static final String SINC_EN_COLA = "EN_COLA";
     public static final String SINC_CONFIRMADO = "CONFIRMADO";
     public static final String SINC_ERROR = "ERROR";
-    /** El bien no va al VSIAF (donación): nunca se envía nada y este valor no cambia. */
+    /** El bien no va al VSIAF (donación, adicional): nunca se envía nada y este valor no cambia. */
     public static final String SINC_NO_APLICA = "NO_APLICA";
 
     /*
      * ── Procedencia ─────────────────────────────────────────────────────────────────
      *   null       registro normal (compra, VSIAF): el comportamiento de siempre
      *   DONACION   bien donado, registrado en Administración de activos → Donaciones.
-     *              Su correlativo empieza con D (MUN-PRED-GRP-D00001) y existe SOLO en
-     *              el SCIAF: ActualDbfWriterService descarta toda orden sobre él.
+     *              Correlativo propio con D al final (MUN-PRED-GRP-00001D).
+     *   ADICIONAL  activo adicional (Administración de activos → Adicionales): bienes que no
+     *              estaban en el sistema; datos opcionales, su código antiguo aparte y,
+     *              cuando tiene predio y grupo, correlativo propio con A (MUN-PRED-GRP-00001A).
+     * Los dos existen SOLO en el SCIAF: ActualDbfWriterService descarta toda orden sobre ellos.
      */
     public static final String PROCEDENCIA_DONACION = "DONACION";
+    public static final String PROCEDENCIA_ADICIONAL = "ADICIONAL";
+
+    /** Correlativo de activo adicional: 5 dígitos con la A al final ({@code 01-02-04-00001A}). */
+    private static final java.util.regex.Pattern CODIGO_ADICIONAL =
+            java.util.regex.Pattern.compile("^.+-\\d{5}A$");
+
+    /**
+     * Código antiguo: la codificación que Activos Fijos usaba antes, para los adicionales que
+     * la tienen (no es el CODIGOSEC del VSIAF). Texto libre; puede repetirse.
+     */
+    @Column(name = "codigo_antiguo", length = 60)
+    private String codigoAntiguo;
 
     /**
      * Correlativo de donación: 5 dígitos con la D al final ({@code 01-02-04-00001D}). También
@@ -231,6 +246,30 @@ public class Activo extends AuditoriaConfig{
     /** ¿El código tiene la forma de un correlativo de donación (…-00001D)? */
     public static boolean esCodigoDonacion(String codigo) {
         return codigo != null && CODIGO_DONACION.matcher(codigo.trim().toUpperCase()).matches();
+    }
+
+    /** ¿El código tiene la forma de un correlativo de activo adicional (…-00001A)? */
+    public static boolean esCodigoAdicional(String codigo) {
+        return codigo != null && CODIGO_ADICIONAL.matcher(codigo.trim().toUpperCase()).matches();
+    }
+
+    /**
+     * Código para guardar como copia en el historial o en un detalle de transferencia, que lo
+     * exigen (NOT NULL, 50): el código; si no tiene (activo adicional sin predio o grupo), su
+     * código antiguo («ANT …») o su id («ID …»). Así un bien sin código no traba el traslado a
+     * custodia ni una devolución.
+     */
+    public static String codigoReferencia(Activo a) {
+        if (a == null) return "SIN CÓDIGO";
+        String ref = a.getCodigo() != null ? a.getCodigo()
+                : a.getCodigoAntiguo() != null ? "ANT " + a.getCodigoAntiguo().trim()
+                : "ID " + a.getIdActivo();
+        return ref.length() > 50 ? ref.substring(0, 50) : ref;
+    }
+
+    /** ¿Código de una serie propia del SCIAF (donación o adicional), que no existe en el VSIAF? */
+    public static boolean esCodigoSoloSciaf(String codigo) {
+        return esCodigoDonacion(codigo) || esCodigoAdicional(codigo);
     }
 
     /**
@@ -253,7 +292,8 @@ public class Activo extends AuditoriaConfig{
      * procedencia, la D del correlativo lo sigue delatando.
      */
     public boolean esSoloSciaf() {
-        return PROCEDENCIA_DONACION.equals(procedencia) || esCodigoDonacion(getCodigo());
+        return PROCEDENCIA_DONACION.equals(procedencia) || PROCEDENCIA_ADICIONAL.equals(procedencia)
+                || esCodigoSoloSciaf(getCodigo());
     }
 
     /**

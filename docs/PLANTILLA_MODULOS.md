@@ -190,6 +190,7 @@ correo, extensión, nacionalidad, género y la auditoría de registro).
 | Activos › Registro de activos | — | solo el formulario (la tabla se quitó a pedido del usuario: para buscar está Consulta de activos; cargarTabla() queda vacía a propósito, ver vista.html). Antes: SOLO cáscara (cabecera, tabla, filtros, importación, preloaders): el formulario (activo/formulario.html) conserva su diseño y lógica. Bugs: tabla-registros traía TODOS los activos sin usarlos; filtro de responsables traía todos con N+1 (ahora /api/responsables/buscar); el fragmento recargaba Select2 desde un CDN; filas con nulos tumbaban la página; «Eliminar» sin permiso ni escape (ahora «Quitar», solo administradores, JSON); /importe/** abierto sin sesión (ahora solo administradores) |
 | Activos › Pendientes | grupos | SOLO cabecera y preloader. Bugs: abría su propio EventSource (ahora escucha sciaf:pendientes-cambio que reemite head.html) y, en segundo plano, cargarTabla escribía en el #tablaRegistro de OTRA pestaña |
 | Activos › Registro de donaciones | servidor + modal de consulta | NUEVO (13-oct): `donacion/vista.html`, identidad propia violeta/rosa acotada a `.dn-pantalla` (tokens `--dn-*` con modo oscuro), sin animaciones en íconos. Tabla de actas paginada en el servidor; clic en la fila = detalle en modal `sm-detalle-*` (acciones arriba, datos y fotos debajo); asistente de 4 pasos en tarjeta aparte. Llega con catálogos y 1ª página (`${inicial}`). Código con la D destacada (`.dn-d`). Ver `docs/HANDOFF_DONACIONES.md` |
+| Activos › Activos adicionales | servidor + modal de consulta | NUEVO (15-oct): `adicional/vista.html`, verde azulado sólido acotado a `.ad-pantalla` (redefine `--sm-primario*`). Tabla paginada en el servidor, formulario de una página por secciones (nada obligatorio), detalle en modal `sm-detalle-*` con fotos. Ver `docs/HANDOFF_ADICIONALES.md` |
 | Transferencias › Transferencia de activos | propia (tf-) | conserva su diseño y lógica; cabecera de la plantilla, colores tf- atados a los tokens --sm-* (modo oscuro), alto ajustado a la ventana. Bugs: predio podía mostrar "null", quitar fila armaba el código en un onclick, aviso de personas parecidas sin escapar, mayúsculas en el alta de responsable |
 | Movimientos › Asignación de activos | propia (aa-) | conserva diseño y lógica; cabecera de la plantilla, alto ajustado. Bugs: tokens en :root y ~15 reglas de Select2 GLOBALES (cambiaban todo el sistema con la pantalla abierta) → acotados a .aa-pantalla con dropdownParent; registrar un responsable nuevo vaciaba los activos cargados; predio con "null"; aviso sin escapar; mayúsculas |
 | Movimientos › Asignaciones | servidor + modal de consulta | `seguimiento/asignacion/`: detalle de acta con `sm-detalle-*`, campos en rejilla, pestañas y pie fijos, tabla de bienes y auditoría; separación y traslado de bienes vigentes mediante selección y formulario guiado; valores de bienes e historial escapados al dibujarse |
@@ -216,6 +217,12 @@ le da scroll a `.modal-body`; la plantilla lo hace también con `.sm-modal-cuerp
 quedan siempre a la vista, y el cuerpo se desplaza. No ponerle `overflow: visible` al cuerpo.
 Una tabla larga dentro del modal lleva su propio `max-height` (unos 40vh) para no empujar lo que
 viene después.
+
+Paneles que se muestran/ocultan (formulario en la misma página): `SciafModulo.ajustarAlto` mide
+la posición del elemento; si se llama con el panel oculto mide 0 y el tope queda en el alto de la
+ventana (los botones del pie se salen de la pantalla hasta que se redimensiona). Guardar la función
+que devuelve y llamarla **cada vez que el panel se muestra** (ver `adicional/vista.html`,
+`donacion/vista.html`).
 
 ## Modales de consulta de movimientos
 

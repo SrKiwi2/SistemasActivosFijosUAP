@@ -42,6 +42,9 @@ public interface IDonacionBienDao extends JpaRepository<DonacionBien, Long> {
             union select id_activo from transferencia_detalle where id_activo in (:ids)
             union select id_activo from baja_activo where id_activo in (:ids)
             union select id_activo from asignacion_movimiento_detalle where id_activo in (:ids)
+            union select id_activo from mantenimiento where id_activo in (:ids)
+            union select id_activo from alerta_mantenimiento where id_activo in (:ids)
+            union select id_activo from revaluacion where id_activo in (:ids)
             """, nativeQuery = true)
     List<Number> idsConVida(@Param("ids") List<Long> idsActivo);
 

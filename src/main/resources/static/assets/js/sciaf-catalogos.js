@@ -29,7 +29,15 @@
      * Pastilla «DONACIÓN» para poner junto a un código de activo (vacío si no lo es).
      * Estilo global .sciaf-don en sciaf-modulo.css.
      */
+    /** ¿Código de un activo adicional (serie A, solo SCIAF): 01-04-06-00001A? */
+    function esCodigoAdicional(cod) {
+        return /-\d{5}A$/i.test(String(cod == null ? '' : cod).trim());
+    }
+
     function marcaDonacion(cod) {
+        if (esCodigoAdicional(cod)) {
+            return ' <span class="sciaf-don sciaf-adi" title="Activo adicional: existe solo en el SCIAF, no se registra en el VSIAF"><i class="ti ti-box-multiple"></i> ADICIONAL</span>';
+        }
         return esCodigoDonacion(cod)
             ? ' <span class="sciaf-don" title="Bien donado: existe solo en el SCIAF, no se registra en el VSIAF"><i class="ti ti-gift"></i> DONACIÓN</span>'
             : '';
@@ -222,7 +230,7 @@
         MARCA_ACCESORIOS, tieneAccesorios, quitarAccesorios, ponerAccesorios,
         estadoAccesoriosLote, aArreglo,
         crearAuxiliarRapido, ponerAuxiliarEnSelect,
-        esCodigoDonacion, marcaDonacion
+        esCodigoDonacion, esCodigoAdicional, marcaDonacion
     };
 
     // Alias globales: las plantillas ya llamaban a estos nombres directamente.

@@ -798,6 +798,16 @@ public class ActivosController {
                         "msg", "No se encontró el activo con ID: " + activoForm.getIdActivo()));
             }
 
+            // Donaciones y adicionales guardan su detalle (marca, serie, código antiguo…) en su
+            // módulo y su código sigue una serie propia: corregidos aquí quedaban desfasados y el
+            // código podía salir de su serie.
+            if (activoOriginal.esSoloSciaf()) {
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
+                        Activo.PROCEDENCIA_ADICIONAL.equals(activoOriginal.getProcedencia())
+                            ? "Es un activo adicional: corríjalo en Administración de activos → Registro de Adicionales."
+                            : "Es un bien donado: corríjalo en Administración de activos → Registro de Donaciones (Editar en el acta)."));
+            }
+
             String codigoOriginal = activoOriginal.getCodigo();
             boolean estabaActivo = "ACTIVO".equalsIgnoreCase(activoOriginal.getEstado());
 
@@ -890,12 +900,6 @@ public class ActivosController {
             actividadService.registrar(usuario, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.MOD_ACTIVO, com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService.ACC_MODIFICACION,
                     activoOriginal.getCodigo(), "Modificó el activo " + activoOriginal.getCodigo(),
                     activoOriginal.getIdActivo());
-
-            // Bien donado (código …-D00001): existe solo en el SCIAF, no hay nada que enviar.
-            if (estabaActivo && activoOriginal.esSoloSciaf()) {
-                return ResponseEntity.ok(Map.of("ok", true, "vsiaf", Activo.SINC_NO_APLICA,
-                        "msg", "Cambios guardados. Es un bien donado: existe solo en el SCIAF y no se envía al VSIAF."));
-            }
 
             if (estabaActivo) {
                 try {
@@ -1027,7 +1031,7 @@ public class ActivosController {
             // sincronización de ACTUAL le sobrescribiría los datos).
             if (activo.esSoloSciaf()) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false,
-                        "msg", "El código de un bien donado (serie D) no se cambia: existe solo en el SCIAF."));
+                        "msg", "El código de un bien donado o adicional (serie propia del SCIAF) no se cambia aquí."));
             }
             if (!nuevoCodigo.matches("^[^-]+-[^-]+-[0-9]+-[0-9]+$")) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false,

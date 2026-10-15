@@ -220,6 +220,6 @@ export function claveCodigo(codigo: string | null | undefined): string {
   // La D de un bien donado (00001D, o D00001 en los primeros) es parte del código: sin
   // ella la clave del donado sería la misma que la del activo normal del mismo número.
   return cuerpo
-    .map((p, i) => String(Number(p.replace(/\D/g, '')) || 0) + (i === cuerpo.length - 1 && /d/i.test(p) ? 'D' : ''))
+    .map((p, i) => String(Number(p.replace(/\D/g, '')) || 0) + (i === cuerpo.length - 1 ? ((p.match(/[da]/i) || [''])[0].toUpperCase()) : ''))
     .join('-');
 }

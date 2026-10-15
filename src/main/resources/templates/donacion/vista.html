@@ -730,7 +730,11 @@
         $v.addClass('dn-vista');
         $panel.scrollTop(0);
         if (cual === 'listado' && tabla) tabla.columns.adjust();
+        // El alto del asistente se mide ahora que se ve (oculto, al abrir el módulo, tomaba
+        // toda la ventana y el pie con los botones quedaba fuera de la vista).
+        if (cual !== 'listado') ajustarPanel();
     }
+    let ajustarPanel = function () {};
 
     function asistenteConDatos() {
         if ($form.hasClass('d-none')) return false;
@@ -1987,6 +1991,6 @@
     reiniciarAsistente();
     iniciarTabla();
     mostrar('listado');
-    SciafModulo.ajustarAlto($panel, 12);
+    ajustarPanel = SciafModulo.ajustarAlto($panel, 12);
 })();
 </script>

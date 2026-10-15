@@ -1302,7 +1302,7 @@ public class JavaDbfService {
 
         // Un bien donado (…-D00001) existe solo en el SCIAF: no hay fila que tocar.
         // Este camino (Londra) escribe directo y no pasa por ActualDbfWriterService.
-        if (com.usic.SistemasActivosFijosUAP.model.entity.Activo.esCodigoDonacion(codigoActivo)) {
+        if (com.usic.SistemasActivosFijosUAP.model.entity.Activo.esCodigoSoloSciaf(codigoActivo)) {
             log.info("⏭ actualizarActivoParaTransferencia: {} es solo del SCIAF (donación), omitido", codigoActivo);
             return;
         }

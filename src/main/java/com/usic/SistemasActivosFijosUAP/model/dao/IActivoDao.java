@@ -272,7 +272,7 @@ public interface IActivoDao extends JpaRepository <Activo, Long>, JpaSpecificati
                 a.idActivo, a.codigo, a.nombre, a.descripcion, a.estado, a.fechaUltimaSync)
             FROM Activo a
             WHERE a.estado NOT IN ('ELIMINADO', 'CANCELADO') AND a.codigo IS NOT NULL
-              AND (a.procedencia IS NULL OR a.procedencia <> 'DONACION')
+              AND (a.procedencia IS NULL OR a.procedencia NOT IN ('DONACION', 'ADICIONAL'))
             """)
     List<DivergenciaActivoDto> listarParaConciliacion();
 

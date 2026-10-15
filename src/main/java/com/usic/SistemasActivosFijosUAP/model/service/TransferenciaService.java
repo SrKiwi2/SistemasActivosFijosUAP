@@ -154,7 +154,7 @@ public class TransferenciaService {
             // Detalle
             TransferenciaDetalle det = new TransferenciaDetalle();
             det.setActivo(a);
-            det.setCodigoActivo(a.getCodigo());
+            det.setCodigoActivo(Activo.codigoReferencia(a));   // NOT NULL: un adicional puede no tener código
             det.setDescripcionActivo(a.getDescripcion());
             det.setCostoActivo(a.getCosto() != null ? BigDecimal.valueOf(a.getCosto()) : null);
             det.setOficinaAnterior(ac.oficinaAnterior);
