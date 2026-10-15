@@ -28,6 +28,17 @@ los botones del otro abren o recargan cosas ajenas. Por eso cada vista:
 Excepción: un menú desplegable que se lleva al `<body>` (Usuario, «Más acciones») queda fuera
 de la raíz; sus acciones se escuchan en `document` con una clase propia del módulo (`usr-accion`).
 
+## Nombres de clases: nada que parezca publicidad
+
+Los bloqueadores de anuncios (Brave Shields, uBlock, AdBlock, el de Edge con extensiones) ocultan
+con `display:none` todo elemento cuya clase esté en EasyList: `ad-panel`, `ad-a`, `ad-box`,
+`ad-banner`, `advert…`, `sponsor…`, etc. El botón funciona pero lo que abre no se ve, sin ningún
+error, y en incógnito (sin extensiones) anda bien. Pasó con Activos adicionales (15-oct): su
+prefijo era `ad-` y el formulario (`ad-panel`) no aparecía en Brave. Por eso:
+
+- prefijo de módulo **nunca** `ad-`, `ads-`, `adv-` ni palabras como `banner`, `sponsor`, `promo`;
+- si hay duda, comparar las clases contra EasyList (`##.clase`) antes de publicar.
+
 ## Estructura de un módulo
 
 - **`vista.html`**: `.sm-cabecera` (migas, título, subtítulo, totales `.sm-dato`, botón principal)

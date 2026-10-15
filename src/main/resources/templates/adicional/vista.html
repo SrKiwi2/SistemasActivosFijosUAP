@@ -6,107 +6,109 @@
      Tabla paginada en el servidor; clic en una fila = detalle en ventana.
      Todo vive dentro de #modAdicional y el script no deja globales (pestañas).
      Ojo Thymeleaf: nada de dos corchetes juntos en el script (ni en comentarios).
+     Prefijo de clases «adi-», NO «ad-»: los bloqueadores de anuncios ocultan .ad-panel, .ad-a…
+     (EasyList) y el formulario no aparecía en Brave (ver docs/PLANTILLA_MODULOS.md).
      ══════════════════════════════════════════════════════════════ -->
-<div class="sm-pagina ad-pantalla" id="modAdicional">
+<div class="sm-pagina adi-pantalla" id="modAdicional">
 
 <style>
     /* Identidad del módulo: verde azulado sólido (Donaciones es morado). Se redefinen los tokens
        de la plantilla dentro del módulo: botones, foco, paginación y cabeceras. Sin degradados. */
-    .ad-pantalla {
+    .adi-pantalla {
         --ad: #0f766e; --ad-claro: #14917f; --ad-borde: #0b5a54; --ad-rgb: 15, 118, 110;
         --ad-suave: rgba(var(--ad-rgb), 0.08);
     }
-    html.dark-style .ad-pantalla, html[data-theme="dark"] .ad-pantalla {
+    html.dark-style .adi-pantalla, html[data-theme="dark"] .adi-pantalla {
         --ad: #14b8a6; --ad-claro: #2dd4bf; --ad-borde: #0f766e; --ad-rgb: 20, 184, 166;
         --ad-suave: rgba(var(--ad-rgb), 0.14);
     }
-    .ad-pantalla {
+    .adi-pantalla {
         --sm-primario: var(--ad); --sm-primario-claro: var(--ad-claro);
         --sm-primario-borde: var(--ad-borde); --sm-primario-rgb: var(--ad-rgb);
         --bs-primary: var(--ad); --bs-primary-rgb: var(--ad-rgb);
     }
-    .ad-pantalla .sm-cabecera-icono { background: var(--ad) !important; box-shadow: none !important; }
-    .ad-pantalla .sm-detalle-head { background: var(--ad-suave); }
-    .ad-pantalla .page-item.active .page-link { background: var(--ad) !important; border-color: var(--ad) !important; color: #fff !important; box-shadow: none; }
-    .ad-pantalla .page-link { color: var(--ad); }
-    .ad-pantalla .sm-dato strong { color: var(--ad); }
-    .ad-sello { display: inline-flex; align-items: center; gap: .3rem; padding: .12rem .55rem; margin-left: .4rem; border-radius: 999px;
+    .adi-pantalla .sm-cabecera-icono { background: var(--ad) !important; box-shadow: none !important; }
+    .adi-pantalla .sm-detalle-head { background: var(--ad-suave); }
+    .adi-pantalla .page-item.active .page-link { background: var(--ad) !important; border-color: var(--ad) !important; color: #fff !important; box-shadow: none; }
+    .adi-pantalla .page-link { color: var(--ad); }
+    .adi-pantalla .sm-dato strong { color: var(--ad); }
+    .adi-sello { display: inline-flex; align-items: center; gap: .3rem; padding: .12rem .55rem; margin-left: .4rem; border-radius: 999px;
         font-size: .72rem; font-weight: 700; letter-spacing: .03em; vertical-align: middle; color: #fff; background: var(--ad); }
-    .ad-codigo { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; }
-    .ad-a { display: inline-block; padding: 0 .28em; margin-left: .05em; border-radius: 5px; color: #fff; background: var(--ad); }
-    .ad-sin { display: inline-block; font-size: .7rem; font-weight: 700; padding: .05rem .4rem; border-radius: 6px; color: #b45309; background: rgba(245, 158, 11, .15); }
-    .ad-antiguo { display: inline-block; font-size: .78rem; padding: .05rem .4rem; border-radius: 6px; border: 1px dashed var(--sm-borde-fuerte); color: var(--sm-texto); }
-    .ad-pantalla .js-tabla tbody tr { cursor: pointer; }
+    .adi-codigo { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; }
+    .adi-a { display: inline-block; padding: 0 .28em; margin-left: .05em; border-radius: 5px; color: #fff; background: var(--ad); }
+    .adi-sin { display: inline-block; font-size: .7rem; font-weight: 700; padding: .05rem .4rem; border-radius: 6px; color: #b45309; background: rgba(245, 158, 11, .15); }
+    .adi-antiguo { display: inline-block; font-size: .78rem; padding: .05rem .4rem; border-radius: 6px; border: 1px dashed var(--sm-borde-fuerte); color: var(--sm-texto); }
+    .adi-pantalla .js-tabla tbody tr { cursor: pointer; }
 
-    .ad-panel { padding: 0; overflow: hidden; }
-    .ad-panel-cuerpo { overflow-y: auto; padding: 1rem 1.1rem; }
-    .ad-vista { animation: ad-aparecer .25s ease both; }
-    .ad-seccion { border: 1px solid var(--sm-borde); border-radius: 12px; margin-bottom: .9rem; background: var(--sm-superficie); }
-    .ad-seccion-cab { display: flex; align-items: center; gap: .5rem; padding: .6rem .9rem; border-bottom: 1px solid var(--sm-borde);
+    .adi-panel { padding: 0; overflow: hidden; }
+    .adi-panel-cuerpo { overflow-y: auto; padding: 1rem 1.1rem; }
+    .adi-vista { animation: adi-aparecer .25s ease both; }
+    .adi-seccion { border: 1px solid var(--sm-borde); border-radius: 12px; margin-bottom: .9rem; background: var(--sm-superficie); }
+    .adi-seccion-cab { display: flex; align-items: center; gap: .5rem; padding: .6rem .9rem; border-bottom: 1px solid var(--sm-borde);
         background: var(--sm-superficie-2); font-weight: 700; color: var(--sm-texto); border-radius: 12px 12px 0 0; }
-    .ad-seccion-cab i { color: var(--ad); font-size: 1.1rem; }
-    .ad-seccion-cab small { font-weight: 400; color: var(--sm-texto-2); margin-left: auto; }
-    .ad-seccion-cuerpo { padding: .85rem .9rem; }
-    .ad-ayuda { font-size: .78rem; color: var(--sm-texto-2); margin-top: .2rem; }
-    .ad-ayuda.mal { color: var(--sm-peligro); }
-    .ad-info { display: flex; gap: .7rem; align-items: center; border-radius: 10px; padding: .6rem .8rem; margin-top: .8rem;
+    .adi-seccion-cab i { color: var(--ad); font-size: 1.1rem; }
+    .adi-seccion-cab small { font-weight: 400; color: var(--sm-texto-2); margin-left: auto; }
+    .adi-seccion-cuerpo { padding: .85rem .9rem; }
+    .adi-ayuda { font-size: .78rem; color: var(--sm-texto-2); margin-top: .2rem; }
+    .adi-ayuda.mal { color: var(--sm-peligro); }
+    .adi-info { display: flex; gap: .7rem; align-items: center; border-radius: 10px; padding: .6rem .8rem; margin-top: .8rem;
         background: var(--ad-suave); border: 1px solid rgba(var(--ad-rgb), .25); }
-    .ad-info > i { font-size: 1.4rem; color: var(--ad); }
-    .ad-pie { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: .75rem 1.1rem;
+    .adi-info > i { font-size: 1.4rem; color: var(--ad); }
+    .adi-pie { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: .75rem 1.1rem;
         border-top: 1px solid var(--sm-borde); background: linear-gradient(var(--sm-superficie-2), var(--sm-superficie-2)), var(--sm-superficie);
         position: sticky; bottom: 0; z-index: 3; }
-    .ad-pie .ad-nota { margin-right: auto; font-size: .78rem; color: var(--sm-texto-2); }
-    .ad-cantidad { display: flex; align-items: stretch; }
-    .ad-cantidad .sm-input { text-align: center; border-radius: 0; font-weight: 700; }
-    .ad-cantidad button { width: 40px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); color: var(--sm-texto); font-weight: 800; }
-    .ad-cantidad button:first-child { border-radius: 10px 0 0 10px; border-right: 0; }
-    .ad-cantidad button:last-child { border-radius: 0 10px 10px 0; border-left: 0; }
+    .adi-pie .adi-nota { margin-right: auto; font-size: .78rem; color: var(--sm-texto-2); }
+    .adi-cantidad { display: flex; align-items: stretch; }
+    .adi-cantidad .sm-input { text-align: center; border-radius: 0; font-weight: 700; }
+    .adi-cantidad button { width: 40px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); color: var(--sm-texto); font-weight: 800; }
+    .adi-cantidad button:first-child { border-radius: 10px 0 0 10px; border-right: 0; }
+    .adi-cantidad button:last-child { border-radius: 0 10px 10px 0; border-left: 0; }
 
-    .ad-pantalla .select2-container--default .select2-selection--single { height: 44px; display: flex; align-items: center; border: 1px solid var(--sm-borde-fuerte);
+    .adi-pantalla .select2-container--default .select2-selection--single { height: 44px; display: flex; align-items: center; border: 1px solid var(--sm-borde-fuerte);
         border-radius: 10px; background: var(--sm-superficie); box-shadow: var(--sm-sombra-campo); }
-    .ad-pantalla .select2-container .select2-selection__rendered { font-size: .95rem; color: var(--sm-texto); padding-left: .9rem; text-transform: uppercase; }
-    .ad-pantalla .select2-container .select2-selection__arrow { height: 42px; }
-    .ad-pantalla .select2-container--focus .select2-selection--single,
-    .ad-pantalla .select2-container--open .select2-selection--single { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); }
-    .ad-pantalla .select2-dropdown { border-color: var(--sm-borde-fuerte); background: var(--sm-superficie); color: var(--sm-texto); }
-    .ad-pantalla .select2-results__option--highlighted { background: var(--ad) !important; }
-    .ad-pantalla .sm-input:focus, .ad-pantalla .sm-select:focus { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); outline: 0; }
-    .ad-sin-mayus { text-transform: none !important; }
+    .adi-pantalla .select2-container .select2-selection__rendered { font-size: .95rem; color: var(--sm-texto); padding-left: .9rem; text-transform: uppercase; }
+    .adi-pantalla .select2-container .select2-selection__arrow { height: 42px; }
+    .adi-pantalla .select2-container--focus .select2-selection--single,
+    .adi-pantalla .select2-container--open .select2-selection--single { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); }
+    .adi-pantalla .select2-dropdown { border-color: var(--sm-borde-fuerte); background: var(--sm-superficie); color: var(--sm-texto); }
+    .adi-pantalla .select2-results__option--highlighted { background: var(--ad) !important; }
+    .adi-pantalla .sm-input:focus, .adi-pantalla .sm-select:focus { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); outline: 0; }
+    .adi-sin-mayus { text-transform: none !important; }
 
     /* Altas rápidas de oficina / responsable */
-    .ad-con-boton { display: flex; gap: .35rem; }
-    .ad-con-boton > :first-child { flex: 1; min-width: 0; }
-    .ad-icono-btn { width: 44px; height: 44px; flex: none; border-radius: 10px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie);
+    .adi-con-boton { display: flex; gap: .35rem; }
+    .adi-con-boton > :first-child { flex: 1; min-width: 0; }
+    .adi-icono-btn { width: 44px; height: 44px; flex: none; border-radius: 10px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie);
         color: var(--sm-texto-2); display: inline-flex; align-items: center; justify-content: center; }
-    .ad-icono-btn:hover:not(:disabled) { color: var(--ad); border-color: var(--ad); }
-    .ad-icono-btn:disabled { opacity: .45; }
-    .ad-sub-alta { border-color: rgba(var(--ad-rgb), .45); background: var(--ad-suave); }
-    .ad-sub-alta .sm-subformulario-cab > i { color: var(--ad); }
-    .ad-sub-pie { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; margin-top: .8rem; }
+    .adi-icono-btn:hover:not(:disabled) { color: var(--ad); border-color: var(--ad); }
+    .adi-icono-btn:disabled { opacity: .45; }
+    .adi-sub-alta { border-color: rgba(var(--ad-rgb), .45); background: var(--ad-suave); }
+    .adi-sub-alta .sm-subformulario-cab > i { color: var(--ad); }
+    .adi-sub-pie { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; margin-top: .8rem; }
 
     /* Selección para etiquetas */
-    .ad-pantalla .js-tabla .ad-marca { width: 18px; height: 18px; cursor: pointer; accent-color: var(--ad); vertical-align: middle; }
-    .ad-pantalla .js-tabla tr.ad-elegida > td { background: var(--ad-suave); }
+    .adi-pantalla .js-tabla .adi-marca { width: 18px; height: 18px; cursor: pointer; accent-color: var(--ad); vertical-align: middle; }
+    .adi-pantalla .js-tabla tr.adi-elegida > td { background: var(--ad-suave); }
 
-    .ad-fotos { display: flex; flex-wrap: wrap; gap: .5rem; }
-    .ad-foto { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); }
-    .ad-foto img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; display: block; }
-    .ad-foto-quitar { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center;
+    .adi-fotos { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .adi-foto { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); }
+    .adi-foto img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; display: block; }
+    .adi-foto-quitar { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center;
         background: rgba(15, 23, 42, .65); color: #fff; font-size: .8rem; }
-    .ad-foto-quitar:hover { background: var(--sm-peligro); }
-    .ad-foto-add { width: 92px; height: 92px; border-radius: 10px; border: 2px dashed rgba(var(--ad-rgb), .45); background: var(--ad-suave); color: var(--ad);
+    .adi-foto-quitar:hover { background: var(--sm-peligro); }
+    .adi-foto-add { width: 92px; height: 92px; border-radius: 10px; border: 2px dashed rgba(var(--ad-rgb), .45); background: var(--ad-suave); color: var(--ad);
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .2rem; font-size: .78rem; font-weight: 700; cursor: pointer; margin: 0; }
-    .ad-foto-add i { font-size: 1.4rem; }
-    .ad-foto-add.oculto { display: none; }
+    .adi-foto-add i { font-size: 1.4rem; }
+    .adi-foto-add.oculto { display: none; }
 
-    .ad-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
-    .ad-tarjeta { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .75rem .9rem; background: var(--sm-superficie-2); }
-    .ad-tarjeta-cab { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ad); margin-bottom: .4rem; }
-    .ad-campo { margin-bottom: .35rem; }
-    .ad-campo small { display: block; font-size: .72rem; color: var(--sm-texto-2); }
-    .ad-campo span { font-weight: 600; color: var(--sm-texto); word-break: break-word; }
-    @keyframes ad-aparecer { from { opacity: 0; } to { opacity: 1; } }
-    @media (prefers-reduced-motion: reduce) { .ad-pantalla * { animation: none !important; transition: none !important; } }
+    .adi-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+    .adi-tarjeta { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .75rem .9rem; background: var(--sm-superficie-2); }
+    .adi-tarjeta-cab { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ad); margin-bottom: .4rem; }
+    .adi-campo { margin-bottom: .35rem; }
+    .adi-campo small { display: block; font-size: .72rem; color: var(--sm-texto-2); }
+    .adi-campo span { font-weight: 600; color: var(--sm-texto); word-break: break-word; }
+    @keyframes adi-aparecer { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .adi-pantalla * { animation: none !important; transition: none !important; } }
 </style>
 
 <header class="sm-cabecera">
@@ -115,9 +117,9 @@
         <nav class="sm-migas" aria-label="Ubicación">
             <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Activos adicionales
         </nav>
-        <h1 class="sm-titulo">Activos adicionales <span class="ad-sello"><i class="ti ti-shield-check"></i> SOLO SCIAF</span></h1>
+        <h1 class="sm-titulo">Activos adicionales <span class="adi-sello"><i class="ti ti-shield-check"></i> SOLO SCIAF</span></h1>
         <p class="sm-subtitulo">Bienes que no estaban registrados. Nada es obligatorio: registre lo que sepa y su <b>código antiguo</b>.
-            Con predio y grupo contable reciben código propio <span class="ad-codigo">01-04-06-00001<span class="ad-a">A</span></span>; no van al VSIAF.</p>
+            Con predio y grupo contable reciben código propio <span class="adi-codigo">01-04-06-00001<span class="adi-a">A</span></span>; no van al VSIAF.</p>
     </div>
     <div class="sm-cabecera-acciones">
         <span class="sm-dato"><strong class="js-t-total">—</strong> registrados</span>
@@ -169,7 +171,7 @@
 </section>
 
 <!-- Formulario: alta o corrección -->
-<section class="sm-card ad-panel js-panel-form d-none">
+<section class="sm-card adi-panel js-panel-form d-none">
     <form class="js-form" autocomplete="off" novalidate>
         <div class="sm-detalle-head">
             <div class="sm-cabecera-icono"><i class="ti ti-box-multiple"></i></div>
@@ -177,69 +179,69 @@
                 <h5 class="sm-modal-titulo js-form-titulo">Registre lo que sepa del bien</h5>
                 <small>Ningún dato es obligatorio. Solo escriba el nombre o el código antiguo para poder reconocerlo.</small></div>
         </div>
-        <div class="ad-panel-cuerpo js-panel-cuerpo">
+        <div class="adi-panel-cuerpo js-panel-cuerpo">
 
-            <div class="ad-seccion">
-                <div class="ad-seccion-cab"><i class="ti ti-tag"></i> Identificación</div>
-                <div class="ad-seccion-cuerpo row g-2">
+            <div class="adi-seccion">
+                <div class="adi-seccion-cab"><i class="ti ti-tag"></i> Identificación</div>
+                <div class="adi-seccion-cuerpo row g-2">
                     <div class="col-lg-9">
                         <label class="sm-label">Nombre o descripción</label>
                         <textarea class="sm-input js-desc" rows="2" maxlength="600" style="min-height:60px" placeholder="Ej: SILLA DE ESCRITORIO GIRATORIA"></textarea>
                     </div>
                     <div class="col-lg-3 js-bloque-cantidad">
                         <label class="sm-label">Cantidad</label>
-                        <div class="ad-cantidad">
+                        <div class="adi-cantidad">
                             <button type="button" class="js-menos" aria-label="Uno menos">−</button>
                             <input type="number" class="sm-input js-cantidad" min="1" max="200" value="1" />
                             <button type="button" class="js-mas" aria-label="Uno más">+</button>
                         </div>
-                        <div class="ad-ayuda">Varios iguales: un activo por unidad.</div>
+                        <div class="adi-ayuda">Varios iguales: un activo por unidad.</div>
                     </div>
                     <div class="col-md-6">
                         <label class="sm-label">Código antiguo <small class="text-muted js-ayuda-antiguo">(el que usaba Activos Fijos)</small></label>
                         <textarea class="sm-input js-antiguos" rows="1" style="min-height:44px" placeholder="Ej: AF-2015-0231"></textarea>
-                        <div class="ad-ayuda js-info-antiguos"></div>
+                        <div class="adi-ayuda js-info-antiguos"></div>
                     </div>
                     <div class="col-md-6">
                         <label class="sm-label">Serie(s)</label>
                         <textarea class="sm-input js-series" rows="1" style="min-height:44px"></textarea>
-                        <div class="ad-ayuda js-info-series"></div>
+                        <div class="adi-ayuda js-info-series"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="ad-seccion">
-                <div class="ad-seccion-cab"><i class="ti ti-layers-subtract"></i> Clasificación <small>con predio y grupo contable recibe código nuevo</small></div>
-                <div class="ad-seccion-cuerpo row g-2">
+            <div class="adi-seccion">
+                <div class="adi-seccion-cab"><i class="ti ti-layers-subtract"></i> Clasificación <small>con predio y grupo contable recibe código nuevo</small></div>
+                <div class="adi-seccion-cuerpo row g-2">
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Predio</label><select class="js-predio"><option value=""></option></select></div>
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Grupo contable</label><select class="js-grupo"><option value=""></option></select></div>
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Auxiliar</label><select class="js-auxiliar" disabled><option value=""></option></select></div>
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Estado de conservación</label><select class="sm-select js-estado"></select></div>
                     <div class="col-12">
-                        <div class="ad-info"><i class="ti ti-barcode"></i><div class="js-codigo-previo">—</div></div>
+                        <div class="adi-info"><i class="ti ti-barcode"></i><div class="js-codigo-previo">—</div></div>
                     </div>
                 </div>
             </div>
 
-            <div class="ad-seccion">
-                <div class="ad-seccion-cab"><i class="ti ti-map-pin"></i> Ubicación</div>
-                <div class="ad-seccion-cuerpo row g-2">
+            <div class="adi-seccion">
+                <div class="adi-seccion-cab"><i class="ti ti-map-pin"></i> Ubicación</div>
+                <div class="adi-seccion-cuerpo row g-2">
                     <div class="col-md-6"><label class="sm-label">Oficina</label>
-                        <div class="ad-con-boton">
+                        <div class="adi-con-boton">
                             <div><select class="js-oficina" disabled><option value=""></option></select></div>
-                            <button type="button" class="ad-icono-btn js-alta-oficina" disabled title="Crear una oficina nueva en este predio"><i class="ti ti-plus"></i></button>
+                            <button type="button" class="adi-icono-btn js-alta-oficina" disabled title="Crear una oficina nueva en este predio"><i class="ti ti-plus"></i></button>
                         </div></div>
                     <div class="col-md-6"><label class="sm-label">Responsable</label>
-                        <div class="ad-con-boton">
+                        <div class="adi-con-boton">
                             <div><select class="js-responsable" disabled><option value=""></option></select></div>
-                            <button type="button" class="ad-icono-btn js-alta-resp" disabled title="Registrar un responsable nuevo en esta oficina"><i class="ti ti-user-plus"></i></button>
+                            <button type="button" class="adi-icono-btn js-alta-resp" disabled title="Registrar un responsable nuevo en esta oficina"><i class="ti ti-user-plus"></i></button>
                         </div></div>
                     <div class="col-12">
                         <!-- Alta rápida de oficina -->
-                        <div class="sm-subformulario ad-sub-alta js-sub-oficina d-none">
+                        <div class="sm-subformulario adi-sub-alta js-sub-oficina d-none">
                             <div class="sm-subformulario-cab"><i class="ti ti-door"></i>
                                 <div><b>Nueva oficina</b> en <span class="js-sub-ofi-predio">—</span>
-                                    <div class="ad-ayuda mt-0">El código lo propone el sistema (el siguiente libre del predio).</div></div>
+                                    <div class="adi-ayuda mt-0">El código lo propone el sistema (el siguiente libre del predio).</div></div>
                             </div>
                             <div class="row g-2">
                                 <div class="col-md-3"><label class="sm-label">Código <span class="sm-req">*</span></label>
@@ -247,7 +249,7 @@
                                 <div class="col-md-9"><label class="sm-label">Nombre <span class="sm-req">*</span> <small class="text-muted js-ofi-cuenta">0 / 65</small></label>
                                     <input type="text" class="sm-input js-ofi-nombre" maxlength="65" placeholder="Ej: LABORATORIO DE QUÍMICA" /></div>
                             </div>
-                            <div class="ad-sub-pie">
+                            <div class="adi-sub-pie">
                                 <button type="button" class="sm-btn sm-btn-neutro js-sub-cerrar"><i class="ti ti-x"></i> Cancelar</button>
                                 <button type="button" class="sm-btn sm-btn-suave js-ofi-crear" data-subir="false"
                                         title="Se registra solo en el SCIAF y se avisa a los administradores para que la suban"><i class="ti ti-clock-pause"></i> Crear y dejar pendiente</button>
@@ -255,10 +257,10 @@
                             </div>
                         </div>
                         <!-- Alta rápida de responsable -->
-                        <div class="sm-subformulario ad-sub-alta js-sub-resp d-none">
+                        <div class="sm-subformulario adi-sub-alta js-sub-resp d-none">
                             <div class="sm-subformulario-cab"><i class="ti ti-user-plus"></i>
                                 <div><b>Nuevo responsable</b> en <span class="js-sub-resp-ofi">—</span>
-                                    <div class="ad-ayuda mt-0">Escriba el C.I.: si la persona ya existe, se completan sus nombres.</div></div>
+                                    <div class="adi-ayuda mt-0">Escriba el C.I.: si la persona ya existe, se completan sus nombres.</div></div>
                             </div>
                             <div class="row g-2">
                                 <div class="col-md-3"><label class="sm-label">C.I. <span class="sm-req">*</span></label>
@@ -275,7 +277,7 @@
                                     <input type="number" class="sm-input js-resp-cod" min="1" /></div>
                                 <div class="col-md-2 d-flex align-items-end"><small class="text-muted js-resp-cuenta">0 / 35</small></div>
                             </div>
-                            <div class="ad-sub-pie">
+                            <div class="adi-sub-pie">
                                 <button type="button" class="sm-btn sm-btn-neutro js-sub-cerrar"><i class="ti ti-x"></i> Cancelar</button>
                                 <button type="button" class="sm-btn sm-btn-suave js-resp-crear" data-subir="false"
                                         title="Se registra solo en el SCIAF y se avisa a los administradores para que lo suban"><i class="ti ti-clock-pause"></i> Crear y dejar pendiente</button>
@@ -288,9 +290,9 @@
                 </div>
             </div>
 
-            <div class="ad-seccion">
-                <div class="ad-seccion-cab"><i class="ti ti-list-details"></i> Datos</div>
-                <div class="ad-seccion-cuerpo row g-2">
+            <div class="adi-seccion">
+                <div class="adi-seccion-cab"><i class="ti ti-list-details"></i> Datos</div>
+                <div class="adi-seccion-cuerpo row g-2">
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Fecha de adquisición</label><input type="date" class="sm-input js-fecha" /></div>
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Valor unitario (Bs)</label><input type="number" class="sm-input js-valor text-end" min="0" step="0.01" placeholder="0.00" /></div>
                     <div class="col-lg-2 col-md-6"><label class="sm-label">Vida útil (años)</label><input type="number" class="sm-input js-vida text-center" min="0" max="100" /></div>
@@ -303,17 +305,17 @@
                     <div class="col-md-6"><label class="sm-label">Características</label>
                         <textarea class="sm-input js-caract" rows="2" style="min-height:60px" maxlength="4000"></textarea></div>
                     <div class="col-md-6"><label class="sm-label">Observación</label>
-                        <textarea class="sm-input ad-sin-mayus js-obs" data-sm-mayus="no" rows="2" style="min-height:60px" maxlength="4000"
+                        <textarea class="sm-input adi-sin-mayus js-obs" data-sm-mayus="no" rows="2" style="min-height:60px" maxlength="4000"
                                   placeholder="Dónde se encontró, estado, quién lo informó…"></textarea></div>
-                    <div class="col-12"><div class="ad-ayuda">Así quedará la descripción: <b class="js-previa">—</b> <span class="js-largo"></span></div></div>
+                    <div class="col-12"><div class="adi-ayuda">Así quedará la descripción: <b class="js-previa">—</b> <span class="js-largo"></span></div></div>
                 </div>
             </div>
 
-            <div class="ad-seccion js-seccion-fotos">
-                <div class="ad-seccion-cab"><i class="ti ti-photo"></i> Fotos <small>hasta 3; se ponen a cada unidad</small></div>
-                <div class="ad-seccion-cuerpo">
-                    <div class="ad-fotos js-fotos">
-                        <label class="ad-foto-add js-foto-add" title="Agregar fotos (JPG, PNG o WEBP)">
+            <div class="adi-seccion js-seccion-fotos">
+                <div class="adi-seccion-cab"><i class="ti ti-photo"></i> Fotos <small>hasta 3; se ponen a cada unidad</small></div>
+                <div class="adi-seccion-cuerpo">
+                    <div class="adi-fotos js-fotos">
+                        <label class="adi-foto-add js-foto-add" title="Agregar fotos (JPG, PNG o WEBP)">
                             <input type="file" class="d-none js-foto-input" accept="image/jpeg,image/png,image/webp" multiple />
                             <i class="ti ti-camera-plus"></i><span>Agregar</span>
                         </label>
@@ -321,8 +323,8 @@
                 </div>
             </div>
         </div>
-        <div class="ad-pie">
-            <span class="ad-nota js-pie-nota">Nada es obligatorio.</span>
+        <div class="adi-pie">
+            <span class="adi-nota js-pie-nota">Nada es obligatorio.</span>
             <button type="button" class="sm-btn sm-btn-neutro js-cancelar"><i class="ti ti-x"></i> Cancelar</button>
             <button type="button" class="sm-btn sm-btn-suave js-guardar-otro" title="Guarda y deja la clasificación y la ubicación para cargar el siguiente"><i class="ti ti-repeat"></i> Guardar y registrar otro</button>
             <button type="button" class="sm-btn sm-btn-exito js-guardar"><i class="ti ti-device-floppy"></i> Guardar</button>
@@ -365,9 +367,9 @@
     function fechaBonita(iso) { if (!iso) return '—'; const p = String(iso).substring(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso; }
     function lineas(texto) { const l = (texto || '').split(/\r?\n/).map(mayus); while (l.length && !l[l.length - 1]) l.pop(); return l; }
     function codigoHtml(c) {
-        if (!c) return '<span class="ad-sin">SIN CÓDIGO</span>';
+        if (!c) return '<span class="adi-sin">SIN CÓDIGO</span>';
         const m = /^(.*-\d{5})A$/i.exec(c);
-        return m ? '<span class="ad-codigo">' + esc(m[1]) + '<span class="ad-a">A</span></span>' : '<span class="ad-codigo">' + esc(c) + '</span>';
+        return m ? '<span class="adi-codigo">' + esc(m[1]) + '<span class="adi-a">A</span></span>' : '<span class="adi-codigo">' + esc(c) + '</span>';
     }
     // El title de Swal se interpreta como HTML: todo texto va escapado (un código antiguo podría traer etiquetas).
     function aviso(texto, icono) { Swal.fire({ toast: true, position: 'top-end', icon: icono || 'warning', title: esc(texto), showConfirmButton: false, timer: 3500, timerProgressBar: true }); }
@@ -411,15 +413,15 @@
                 serverSide: true, ordering: false, deferRender: true,
                 ajax: { url: URL + '/api/datatables', type: 'POST' },
                 language: { emptyTable: 'Todavía no hay activos adicionales registrados.', zeroRecords: 'Ningún activo adicional coincide con la búsqueda.' },
-                createdRow: function (tr, a) { tr.dataset.id = a.idActivo; tr.tabIndex = 0; $(tr).toggleClass('ad-elegida', elegidos.has(a.idActivo)); },
+                createdRow: function (tr, a) { tr.dataset.id = a.idActivo; tr.tabIndex = 0; $(tr).toggleClass('adi-elegida', elegidos.has(a.idActivo)); },
                 columns: [
                     // Solo los que tienen código llevan etiqueta (el QR lleva el código).
-                    { data: null, className: 'text-center ad-celda-marca', render: function (d, t, a) {
+                    { data: null, className: 'text-center adi-celda-marca', render: function (d, t, a) {
                         return a.codigo && a.estado === 'ACTIVO'
-                            ? '<input type="checkbox" class="ad-marca" aria-label="Marcar para etiqueta"' + (elegidos.has(a.idActivo) ? ' checked' : '') + '>' : '';
+                            ? '<input type="checkbox" class="adi-marca" aria-label="Marcar para etiqueta"' + (elegidos.has(a.idActivo) ? ' checked' : '') + '>' : '';
                     } },
                     { data: 'codigo', render: function (v) { return codigoHtml(v); } },
-                    { data: 'codigoAntiguo', render: function (v) { return v ? '<span class="ad-antiguo">' + esc(v) + '</span>' : '<span class="text-muted">—</span>'; } },
+                    { data: 'codigoAntiguo', render: function (v) { return v ? '<span class="adi-antiguo">' + esc(v) + '</span>' : '<span class="text-muted">—</span>'; } },
                     { data: 'descripcion', render: function (v) { return '<span class="sm-mayus">' + esc(v) + '</span>'; } },
                     { data: 'grupo', render: function (v) { return v ? esc(v) : '<span class="text-muted">—</span>'; } },
                     { data: null, render: function (d, t, a) {
@@ -435,7 +437,7 @@
     }
     function recargar() { if (tabla) tabla.ajax.reload(null, false); }
     $tabla.on('click', 'tbody tr[data-id]', function (e) {
-        if ($(e.target).closest('td.ad-celda-marca').find('.ad-marca').length) return;   // la casilla no abre el detalle
+        if ($(e.target).closest('td.adi-celda-marca').find('.adi-marca').length) return;   // la casilla no abre el detalle
         abrirDetalle(Number(this.dataset.id));
     });
     $tabla.on('keydown', 'tbody tr[data-id]', function (e) {
@@ -443,20 +445,20 @@
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDetalle(Number(this.dataset.id)); }
     });
     // Toda la celda marca (blanco más grande que la casilla).
-    $tabla.on('click', 'tbody td.ad-celda-marca', function (e) {
-        const $c = $(this).find('.ad-marca');
+    $tabla.on('click', 'tbody td.adi-celda-marca', function (e) {
+        const $c = $(this).find('.adi-marca');
         if (!$c.length) return;
-        if (!$(e.target).is('.ad-marca')) $c.prop('checked', !$c.prop('checked'));
+        if (!$(e.target).is('.adi-marca')) $c.prop('checked', !$c.prop('checked'));
         const tr = this.parentNode, a = tabla.row(tr).data();
         if (!a) return;
         if (!marcar(a.idActivo, a.codigo, $c.prop('checked'))) $c.prop('checked', false);
-        $(tr).toggleClass('ad-elegida', elegidos.has(a.idActivo));
+        $(tr).toggleClass('adi-elegida', elegidos.has(a.idActivo));
     });
     $raiz.on('click', '.js-limpiar-sel', function () {
         elegidos.clear();
         pintarSeleccion();
-        $tabla.find('.ad-marca').prop('checked', false);
-        $tabla.find('tr.ad-elegida').removeClass('ad-elegida');
+        $tabla.find('.adi-marca').prop('checked', false);
+        $tabla.find('tr.adi-elegida').removeClass('adi-elegida');
     });
     function imprimirEtiquetas(ids) {
         window.open(URL + '/api/etiquetas?ids=' + ids.map(encodeURIComponent).join(','), '_blank', 'noopener');
@@ -467,7 +469,7 @@
         $listado.toggleClass('d-none', cual !== 'listado');
         $panel.toggleClass('d-none', cual !== 'form');
         const $v = cual === 'form' ? $panel : $listado;
-        $v.removeClass('ad-vista'); void $v[0].offsetWidth; $v.addClass('ad-vista');
+        $v.removeClass('adi-vista'); void $v[0].offsetWidth; $v.addClass('adi-vista');
         if (cual === 'listado' && tabla) tabla.columns.adjust();
         // El alto del formulario se mide recién ahora que se ve: medido oculto (al abrir el
         // módulo) tomaba toda la ventana y los botones quedaban fuera de la vista hasta que
@@ -891,10 +893,10 @@
     function esImagenValida(f) { return /^image\/(jpeg|png|webp)$/.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name || ''); }
     function pintarFotos() {
         const $c = $form.find('.js-fotos');
-        $c.find('.ad-foto').remove();
+        $c.find('.adi-foto').remove();
         st.fotos.forEach(function (f, i) {
-            $('<div class="ad-foto">').append($('<img alt="Foto">').attr('src', f.url).addClass('js-foto-ver').attr('data-url', f.url))
-                .append('<button type="button" class="ad-foto-quitar js-foto-mem-quitar" data-i="' + i + '" title="Quitar"><i class="ti ti-x"></i></button>')
+            $('<div class="adi-foto">').append($('<img alt="Foto">').attr('src', f.url).addClass('js-foto-ver').attr('data-url', f.url))
+                .append('<button type="button" class="adi-foto-quitar js-foto-mem-quitar" data-i="' + i + '" title="Quitar"><i class="ti ti-x"></i></button>')
                 .insertBefore($c.find('.js-foto-add'));
         });
         $c.find('.js-foto-add').toggleClass('oculto', st.fotos.length >= MAX_FOTOS);
@@ -936,22 +938,22 @@
     }
 
     function pintarDetalle(d) {
-        const campo = function (et, v) { return '<div class="ad-campo"><small>' + et + '</small><span>' + (v != null && v !== '' ? esc(v) : '—') + '</span></div>'; };
+        const campo = function (et, v) { return '<div class="adi-campo"><small>' + et + '</small><span>' + (v != null && v !== '' ? esc(v) : '—') + '</span></div>'; };
         const vigente = d.estado === 'ACTIVO';
         let fotos = '';
         (d.fotos || []).forEach(function (f) {
-            fotos += '<div class="ad-foto"><img src="' + esc(f.url) + '" alt="Foto" class="js-foto-ver" data-url="' + esc(f.url) + '" loading="lazy">'
-                + '<button type="button" class="ad-foto-quitar js-foto-quitar" data-id="' + esc(f.id) + '" title="Quitar foto"><i class="ti ti-x"></i></button></div>';
+            fotos += '<div class="adi-foto"><img src="' + esc(f.url) + '" alt="Foto" class="js-foto-ver" data-url="' + esc(f.url) + '" loading="lazy">'
+                + '<button type="button" class="adi-foto-quitar js-foto-quitar" data-id="' + esc(f.id) + '" title="Quitar foto"><i class="ti ti-x"></i></button></div>';
         });
         if (vigente && (d.fotos || []).length < MAX_FOTOS) {
-            fotos += '<label class="ad-foto-add" title="Agregar fotos"><input type="file" class="d-none js-foto-detalle" accept="image/jpeg,image/png,image/webp" multiple data-ya="'
+            fotos += '<label class="adi-foto-add" title="Agregar fotos"><input type="file" class="d-none js-foto-detalle" accept="image/jpeg,image/png,image/webp" multiple data-ya="'
                 + (d.fotos || []).length + '"><i class="ti ti-camera-plus"></i><span>Agregar</span></label>';
         }
         $detalle.html(
             '<div class="sm-detalle-head">'
             + '<div class="sm-cabecera-icono"><i class="ti ti-box-multiple"></i></div>'
             + '<div class="flex-grow-1"><span class="sm-detalle-kicker">Activo adicional · solo SCIAF' + (vigente ? '' : ' · <span class="text-danger">' + esc(d.estado) + '</span>') + '</span>'
-            + '<h5 class="sm-modal-titulo">' + codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="ad-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : '') + '</h5>'
+            + '<h5 class="sm-modal-titulo">' + codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="adi-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : '') + '</h5>'
             + '<small>Registrado por ' + esc(d.registradoPor || '—') + '</small></div>'
             + '<div class="d-flex gap-2 flex-wrap justify-content-end">'
             + (vigente && d.codigo ? '<button type="button" class="sm-btn sm-btn-suave js-etiqueta-una"><i class="ti ti-qrcode"></i> Etiqueta</button>' : '')
@@ -959,23 +961,23 @@
             + (INICIAL.esAdmin && d.eliminable ? '<button type="button" class="sm-btn sm-btn-peligro js-eliminar"><i class="ti ti-trash"></i> Eliminar</button>' : '')
             + '</div><button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>'
             + '<div class="sm-detalle-scroll">'
-            + '<div class="ad-tarjetas">'
-            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-tag"></i> Identificación</div>'
+            + '<div class="adi-tarjetas">'
+            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-tag"></i> Identificación</div>'
             + campo('Descripción', d.descripcion) + campo('Código antiguo', d.codigoAntiguo)
             + campo('Marca / modelo', [d.marca, d.modelo].filter(Boolean).join(' · ')) + campo('Serie', d.serie) + '</div>'
-            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-layers-subtract"></i> Clasificación</div>'
+            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-layers-subtract"></i> Clasificación</div>'
             + campo('Grupo contable', d.grupo) + campo('Auxiliar', d.auxiliar) + campo('Conservación', d.conservacion) + campo('Financiador', d.financiador) + '</div>'
-            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-map-pin"></i> Ubicación</div>'
+            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-map-pin"></i> Ubicación</div>'
             + campo('Predio', d.predio) + campo('Oficina', d.oficina) + campo('Responsable', d.responsable) + '</div>'
-            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-list-details"></i> Datos</div>'
+            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-list-details"></i> Datos</div>'
             + campo('Fecha de adquisición', d.fechaAdquisicion ? fechaBonita(d.fechaAdquisicion) : null) + campo('Valor', d.valor ? bs(d.valor) : null)
             + campo('Vida útil', d.vidaUtil ? d.vidaUtil + ' año(s)' : null)
             + campo('Color / material / medidas', [d.color, d.material, d.dimensiones].filter(Boolean).join(' · ')) + '</div>'
             + '</div>'
-            + (d.caracteristicas ? '<div class="ad-tarjeta mb-3"><div class="ad-tarjeta-cab">Características</div><div style="white-space:pre-line">' + esc(d.caracteristicas) + '</div></div>' : '')
-            + (d.observacion ? '<div class="ad-tarjeta mb-3"><div class="ad-tarjeta-cab">Observación</div><div style="white-space:pre-line">' + esc(d.observacion) + '</div></div>' : '')
-            + '<div class="ad-tarjeta"><div class="ad-tarjeta-cab"><i class="ti ti-photo"></i> Fotos <small class="text-muted text-lowercase fw-normal">(hasta ' + MAX_FOTOS + ')</small></div>'
-            + '<div class="ad-fotos">' + (fotos || '<span class="text-muted small">Sin fotos.</span>') + '</div></div>'
+            + (d.caracteristicas ? '<div class="adi-tarjeta mb-3"><div class="adi-tarjeta-cab">Características</div><div style="white-space:pre-line">' + esc(d.caracteristicas) + '</div></div>' : '')
+            + (d.observacion ? '<div class="adi-tarjeta mb-3"><div class="adi-tarjeta-cab">Observación</div><div style="white-space:pre-line">' + esc(d.observacion) + '</div></div>' : '')
+            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-photo"></i> Fotos <small class="text-muted text-lowercase fw-normal">(hasta ' + MAX_FOTOS + ')</small></div>'
+            + '<div class="adi-fotos">' + (fotos || '<span class="text-muted small">Sin fotos.</span>') + '</div></div>'
             + '</div>');
         $detalle.data('activo', d);
     }
@@ -986,7 +988,7 @@
         if (!d || !archivos.length) { aviso('Solo se aceptan fotos JPG, PNG o WEBP.'); return; }
         const ya = Number($(this).data('ya')) || 0;
         if (ya + archivos.length > MAX_FOTOS) { aviso('Cada activo admite hasta ' + MAX_FOTOS + ' fotos (ya tiene ' + ya + ').'); return; }
-        $(this).closest('.ad-foto-add').css('opacity', .5);
+        $(this).closest('.adi-foto-add').css('opacity', .5);
         try {
             const fd = new FormData();
             fd.append('idsActivo', d.idActivo);
@@ -1016,7 +1018,7 @@
         reiniciar(false);
         st.edicion = { id: d.idActivo, codigo: d.codigo, idPredio: d.idPredio, idGrupo: d.idGrupoContable, conVida: !!d.conVida };
         $form.find('.js-form-kicker').text('Corregir activo adicional');
-        $form.find('.js-form-titulo').html(codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="ad-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : ''));
+        $form.find('.js-form-titulo').html(codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="adi-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : ''));
         $form.find('.js-bloque-cantidad, .js-seccion-fotos, .js-guardar-otro').addClass('d-none');
         $form.find('.js-ayuda-antiguo').text('');
         $form.find('.js-desc').val(d.descripcionBase || '');

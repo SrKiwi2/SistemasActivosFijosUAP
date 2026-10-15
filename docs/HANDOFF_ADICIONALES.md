@@ -95,6 +95,12 @@ el alto cada vez que se muestra un panel que estaba oculto.
 - `revisor`: sin hallazgos graves; aplicados el aviso de etiquetas saltadas y el error claro si el
   PDF falla (también en Donaciones).
 
+## Bloqueadores de anuncios (15-oct)
+
+En Brave el botón «Nuevo adicional» no abría nada (en incógnito sí): EasyList oculta `.ad-panel`
+(el recuadro del formulario) y `.ad-a` (la A del código). El prefijo del módulo pasó de `ad-` a
+`adi-`; ninguna clase del sistema queda en EasyList (comparado contra EasyList + EasyList Spanish).
+
 ## Pendiente / ofrecer
 
 1. En Consulta, un adicional sin código no lleva la pastilla «ADICIONAL» (se reconoce por el
