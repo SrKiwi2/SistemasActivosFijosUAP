@@ -100,7 +100,7 @@ public class PdfActaFaltanteService {
 
     /**
      * @param adjuntos solo para notificaciones: se elige al imprimir (no se guarda) y agrega
-     *                 "Se adjunta documentación de respaldo" sobre la línea de copia (C.c.).
+     *                 "Se adjunta documentación de respaldo" debajo de la línea de copia (C.c.).
      */
     public byte[] generar(ActaFaltanteDTO acta, boolean adjuntos) throws Exception {
         if (acta.esNotificacion()) return notificacion(acta, false, adjuntos);
@@ -149,7 +149,6 @@ public class PdfActaFaltanteService {
     private static final DateTimeFormatter FECHA_LARGA = DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", ES);
     private static final String UAP = "UNIVERSIDAD AMAZÓNICA DE PANDO";
 
-    private static final Font N_CAB    = new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD);
     private static final Font N_TEXTO  = new Font(Font.FontFamily.HELVETICA, 10);
     private static final Font N_NEGRITA = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD);
     private static final Font N_TABLA_CAB = new Font(Font.FontFamily.HELVETICA, 8, Font.BOLD);
@@ -200,12 +199,6 @@ public class PdfActaFaltanteService {
         doc.addCreator("SCIAF");
         doc.open();
 
-        for (String linea : new String[] { UAP, "DIRECCIÓN ADMINISTRATIVA FINANCIERA", "SECCIÓN DE ACTIVOS FIJOS" }) {
-            Paragraph p = new Paragraph(linea, N_CAB);
-            p.setAlignment(Element.ALIGN_CENTER);
-            doc.add(p);
-        }
-
         // La fecha del papel es desde cuándo corre el plazo: la emisión o, si se cambió el plazo, ese día.
         Paragraph fecha = new Paragraph(nvl(acta.ciudad(), "Cobija") + ", "
                 + (acta.fechaDelDocumento() != null ? acta.fechaDelDocumento().format(FECHA_LARGA) : ""), N_NEGRITA);
@@ -233,8 +226,9 @@ public class PdfActaFaltanteService {
             doc.add(anulada);
         }
 
-        doc.add(new Paragraph("Señor(a):", N_NEGRITA));
-        doc.add(new Paragraph(acta.personaNombre().toUpperCase(ES), N_NEGRITA));
+        // Como el modelo de Activos Fijos: "Señor(a)" sin dos puntos y solo el nombre sin negrita.
+        doc.add(new Paragraph("Señor(a)", N_NEGRITA));
+        doc.add(new Paragraph(acta.personaNombre().toUpperCase(ES), N_TEXTO));
         if (acta.personaCargo() != null) doc.add(new Paragraph(acta.personaCargo().toUpperCase(ES), N_NEGRITA));
         if (acta.unidad() != null) doc.add(new Paragraph(acta.unidad().toUpperCase(ES), N_NEGRITA));
         doc.add(new Paragraph(UAP, N_NEGRITA));
@@ -408,9 +402,9 @@ public class PdfActaFaltanteService {
         Paragraph pie = new Paragraph();
         // 1. setLeading define el alto de línea (interlineado). Disminuye este valor para apegar más el texto (ej. 8f o 9f).
         pie.setLeading(9f); 
-        if (adjuntos) pie.add(new Chunk("Se adjunta documentación de respaldo\n", N_PIE_B));
         pie.add(new Chunk("C.c.: ", N_PIE_B));
         pie.add(new Chunk("Archivo – Sección de Activos Fijos\n", N_PIE));
+        if (adjuntos) pie.add(new Chunk("Se adjunta documentación de respaldo\n", N_PIE_B));
         pie.add(new Chunk("Documento generado por: ", N_PIE_B));
         pie.add(new Chunk("Sistema de Control Interno de Activos Fijos – SCIAF\n", N_PIE));
         pie.add(new Chunk("Código de verificación: ", N_PIE_B));
