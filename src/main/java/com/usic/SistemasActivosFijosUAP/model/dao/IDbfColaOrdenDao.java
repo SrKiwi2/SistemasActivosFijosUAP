@@ -80,6 +80,17 @@ public interface IDbfColaOrdenDao extends JpaRepository<DbfColaOrden, Long> {
      * Custodia de faltantes: dice si el traslado a la custodia ya llegó al VSIAF (un
      * reintento automático deja una orden nueva y esta la encuentra igual).
      */
+    /** Orden de una tabla para el activo encolada dentro de una ventana de tiempo (Activos duplicados). */
+    java.util.Optional<DbfColaOrden> findFirstByIdActivoAndTablaAndFechaEncoladoBetweenOrderByIdOrdenDesc(
+            Long idActivo, String tabla, java.time.LocalDateTime desde, java.time.LocalDateTime hasta);
+
     java.util.Optional<DbfColaOrden> findFirstByIdActivoAndTablaAndFechaEncoladoGreaterThanEqualOrderByIdOrdenDesc(
             Long idActivo, String tabla, java.time.LocalDateTime desde);
+
+    /**
+     * Órdenes de una tabla con registro del SCIAF conocido, de la más vieja a la más nueva.
+     * La sync de RESP mira la última de cada responsable: si no quedó OK, el DBF todavía
+     * tiene el dato viejo y no hay que pisar el del SCIAF.
+     */
+    List<DbfColaOrden> findByTablaAndIdRegistroIsNotNullOrderByIdOrdenAsc(String tabla);
 }

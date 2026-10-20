@@ -83,6 +83,12 @@ public class Oficina extends AuditoriaConfig {
     @Column(name = "es_custodia", columnDefinition = "boolean default false", nullable = false)
     private boolean esCustodia = false;
 
+    /** true = oficina de duplicados del predio (una por predio): ahí van los registros que son
+     *  el mismo bien físico que otro activo (error del revalúo) hasta que el nuevo revalúo los
+     *  regularice. Es otra cosa que la de faltantes. La sync desde el DBF no la toca. */
+    @Column(name = "es_duplicados", columnDefinition = "boolean default false", nullable = false)
+    private boolean esDuplicados = false;
+
     public String calcularHash() {
         String datos = String.join("|",
             predio != null && predio.getIdPredio() != null 

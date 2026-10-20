@@ -1,0 +1,704 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Activos duplicados — plantilla de pantallas (docs/PLANTILLA_MODULOS.md)
+     El mismo bien físico registrado dos veces en el VSIAF con dos códigos (error del revalúo).
+     El código que sobra va a la oficina de duplicados de su predio, a nombre de la misma persona;
+     el que se queda no se toca. No se corrige nada: lo hará el nuevo revalúo.
+     Plan: docs/PLAN_ACTIVOS_DUPLICADOS.md.
+     Todo vive dentro de #modDuplicados y el script no deja globales (pestañas).
+     Ojo Thymeleaf: nada de dos corchetes juntos en el script (ni en comentarios).
+     Prefijo de clases «dup-» (nunca «ad-»: los bloqueadores de anuncios lo ocultan).
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina dup-pantalla" id="modDuplicados">
+
+<style>
+    /* Identidad del módulo: índigo sólido (Faltantes es rojo; Donaciones, morado). */
+    .dup-pantalla {
+        --dp: #4338ca; --dp-claro: #5b54e0; --dp-borde: #3730a3; --dp-rgb: 67, 56, 202;
+        --dp-suave: rgba(var(--dp-rgb), 0.08);
+    }
+    html.dark-style .dup-pantalla, html[data-theme="dark"] .dup-pantalla {
+        --dp: #818cf8; --dp-claro: #a5b4fc; --dp-borde: #6366f1; --dp-rgb: 129, 140, 248;
+        --dp-suave: rgba(var(--dp-rgb), 0.14);
+    }
+    .dup-pantalla {
+        --sm-primario: var(--dp); --sm-primario-claro: var(--dp-claro);
+        --sm-primario-borde: var(--dp-borde); --sm-primario-rgb: var(--dp-rgb);
+        --bs-primary: var(--dp); --bs-primary-rgb: var(--dp-rgb);
+    }
+    .dup-pantalla .sm-cabecera-icono { background: var(--dp) !important; box-shadow: none !important; }
+    .dup-pantalla .page-item.active .page-link { background: var(--dp) !important; border-color: var(--dp) !important; color: #fff !important; box-shadow: none; }
+    .dup-pantalla .page-link { color: var(--dp); }
+    .dup-pantalla .sm-dato strong { color: var(--dp); }
+    .dup-pantalla .sm-cabecera-texto { flex: 1 1 280px; }
+    .dup-pantalla .sm-subtitulo { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    .dup-pantalla.dup-en-form .sm-cabecera-acciones, .dup-pantalla.dup-en-form .sm-subtitulo { display: none; }
+    .dup-pantalla .js-tabla tbody tr { cursor: pointer; }
+    .dup-pantalla .js-tabla td { vertical-align: middle; }
+    .dup-codigo { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; }
+    .dup-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 160px; font-size: .82rem; color: var(--sm-texto-2); }
+    .dup-una { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dup-nowrap { white-space: nowrap; }
+    .dup-pantalla .js-listado { container-type: inline-size; container-name: duplista; }
+    @media (min-width: 768px) {
+        @container duplista (max-width: 1050px) { .dup-col-origen { display: none; } }
+        @container duplista (max-width: 880px) { .dup-col-fecha { display: none; } }
+    }
+
+    /* Registro por pasos */
+    .dup-panel { padding: 0; overflow: hidden; }
+    .dup-panel-cuerpo { overflow-y: auto; padding: 1rem 1.1rem; }
+    .dup-paso { border: 1px solid var(--sm-borde); border-radius: 12px; margin-bottom: .9rem; background: var(--sm-superficie); }
+    .dup-paso-cab { display: flex; align-items: center; gap: .6rem; padding: .6rem .9rem; border-bottom: 1px solid var(--sm-borde);
+        background: var(--sm-superficie-2); border-radius: 12px 12px 0 0; font-weight: 700; color: var(--sm-texto); }
+    .dup-paso-num { width: 26px; height: 26px; flex: none; border-radius: 50%; background: var(--dp); color: #fff; display: inline-flex;
+        align-items: center; justify-content: center; font-size: .85rem; }
+    .dup-paso-cuerpo { padding: .85rem .9rem; }
+    .dup-ayuda { font-size: .8rem; color: var(--sm-texto-2); margin: 0 0 .6rem; }
+    .dup-buscar { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .dup-buscar .sm-campo { flex: 1 1 260px; }
+    .dup-ficha { border: 1px solid var(--sm-borde); border-radius: 10px; padding: .65rem .8rem; margin-top: .7rem; background: var(--sm-superficie-2); }
+    .dup-ficha.sobra { border-left: 4px solid var(--sm-peligro); }
+    .dup-ficha.queda { border-left: 4px solid var(--sm-exito); }
+    .dup-ficha-tit { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--sm-texto-2); margin-bottom: .2rem; }
+    .dup-ficha .dup-codigo { font-size: 1rem; color: var(--sm-texto); }
+    .dup-ficha-desc { font-weight: 600; color: var(--sm-texto); margin: .2rem 0 .4rem; overflow-wrap: anywhere; }
+    .dup-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .15rem .9rem; font-size: .82rem; }
+    .dup-datos small { display: block; color: var(--sm-texto-2); font-size: .7rem; }
+    .dup-datos span { font-weight: 600; color: var(--sm-texto); overflow-wrap: anywhere; }
+    .dup-marcas { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
+    .dup-comparar { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+    @media (max-width: 900px) { .dup-comparar { grid-template-columns: 1fr; } }
+    .dup-gemelos { margin-top: .7rem; }
+    .dup-gemelo { display: flex; gap: .7rem; align-items: flex-start; width: 100%; text-align: left; border: 1px solid var(--sm-borde);
+        border-radius: 10px; padding: .5rem .7rem; margin-bottom: .4rem; background: var(--sm-superficie); color: var(--sm-texto); }
+    .dup-gemelo:hover { border-color: var(--dp); background: var(--dp-suave); }
+    .dup-puntaje { flex: none; width: 46px; text-align: center; font-weight: 800; color: var(--dp); }
+    .dup-puntaje small { display: block; font-size: .62rem; font-weight: 600; color: var(--sm-texto-2); }
+    .dup-motivos { font-size: .74rem; color: var(--sm-texto-2); }
+    .dup-tarjeta { display: flex; gap: .6rem; align-items: flex-start; border-radius: 10px; padding: .55rem .75rem; margin-bottom: .45rem; font-size: .86rem; }
+    .dup-tarjeta > i { font-size: 1.2rem; margin-top: .05rem; }
+    .dup-tarjeta.ok { background: rgba(34, 197, 94, .1); color: #15803d; }
+    .dup-tarjeta.info { background: var(--dp-suave); color: var(--sm-texto); }
+    .dup-tarjeta.atencion { background: rgba(245, 158, 11, .13); color: #92400e; }
+    .dup-tarjeta.falta { background: rgba(var(--sm-peligro-rgb), .1); color: var(--sm-peligro); }
+    html.dark-style .dup-tarjeta.atencion, html[data-theme="dark"] .dup-tarjeta.atencion { color: #fbbf24; }
+    html.dark-style .dup-tarjeta.ok, html[data-theme="dark"] .dup-tarjeta.ok { color: #4ade80; }
+    .dup-pie { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: .75rem 1.1rem;
+        border-top: 1px solid var(--sm-borde); background: var(--sm-superficie-2); position: sticky; bottom: 0; z-index: 3; }
+    .dup-pie .dup-nota { margin-right: auto; font-size: .78rem; color: var(--sm-texto-2); }
+    .dup-textarea { width: 100%; min-height: 90px; resize: vertical; text-transform: none !important; }
+
+    /* Detalle */
+    .dup-linea { list-style: none; margin: 0; padding: 0; font-size: .84rem; }
+    .dup-linea li { display: flex; gap: .55rem; padding: .3rem 0; border-bottom: 1px dashed var(--sm-borde); }
+    .dup-linea li:last-child { border-bottom: 0; }
+    .dup-linea i { color: var(--dp); margin-top: .15rem; }
+    .dup-accion { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .8rem .9rem; margin-top: .8rem; background: var(--sm-superficie-2); }
+    .dup-destinos { max-height: 34vh; overflow-y: auto; margin-top: .5rem; }
+    .dup-destino { display: flex; gap: .55rem; align-items: flex-start; padding: .4rem .55rem; border: 1px solid var(--sm-borde); border-radius: 8px;
+        margin-bottom: .3rem; background: var(--sm-superficie); cursor: pointer; font-size: .84rem; }
+    .dup-destino:has(input:checked) { border-color: var(--dp); background: var(--dp-suave); }
+</style>
+
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-copy"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-map-search"></i> Control por responsable <i class="ti ti-chevron-right"></i> Activos duplicados
+        </nav>
+        <h1 class="sm-titulo">Activos duplicados</h1>
+        <p class="sm-subtitulo" title="El mismo bien registrado dos veces en el VSIAF (error del revalúo). El código que sobra va a la oficina de duplicados de su predio, a nombre de la misma persona. No se corrige nada: lo hará el nuevo revalúo.">
+            El mismo bien registrado dos veces en el VSIAF. El código que sobra va a la <b>oficina de duplicados</b> de su predio; no se corrige nada: lo hará el nuevo revalúo.</p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-t-proceso">—</strong> en proceso</span>
+        <span class="sm-dato"><strong class="js-t-duplicados">—</strong> en duplicados</span>
+        <span class="sm-dato"><strong class="js-t-retirados">—</strong> retirados</span>
+        <button type="button" class="sm-btn js-nuevo"><i class="ti ti-plus"></i> Registrar duplicado</button>
+    </div>
+</header>
+
+<!-- Listado -->
+<section class="sm-card js-listado">
+    <div class="sm-toolbar">
+        <div class="sm-buscador">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-buscar" placeholder="Buscar por código, descripción, persona, oficina o N° de notificación…"
+                   autocomplete="off" aria-label="Buscar casos de duplicados" />
+            <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="sm-segmento js-segmento" role="group" aria-label="Filtrar por estado">
+            <button type="button" class="activo" data-filtro="">Todos</button>
+            <button type="button" data-filtro="EN_PROCESO">En proceso</button>
+            <button type="button" data-filtro="EN_DUPLICADOS" data-tono="exito">En duplicados</button>
+            <button type="button" data-filtro="RETIRADO">Retirados</button>
+            <button type="button" data-filtro="ANULADO" data-tono="peligro">Anulados</button>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <label class="sm-filas">
+            <i class="ti ti-list-numbers"></i> Filas
+            <select class="sm-select js-largo" aria-label="Filas por página">
+                <option value="auto" selected>Ajustar a pantalla</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </label>
+    </div>
+    <table class="table sm-tabla align-middle js-tabla">
+        <thead>
+            <tr>
+                <th class="dup-nowrap">Código que sobra</th>
+                <th class="dup-nowrap">Se conserva</th>
+                <th>Persona</th>
+                <th class="dup-col-origen">Origen</th>
+                <th>Estado</th>
+                <th class="dup-nowrap">Notificación</th>
+                <th class="dup-col-fecha dup-nowrap">Registro</th>
+            </tr>
+        </thead>
+    </table>
+</section>
+
+<!-- Registro por pasos -->
+<section class="sm-card dup-panel js-panel-form d-none">
+    <div class="sm-detalle-head">
+        <div class="sm-cabecera-icono"><i class="ti ti-copy"></i></div>
+        <div class="flex-grow-1">
+            <span class="sm-detalle-kicker">Registrar activo duplicado</span>
+            <h5 class="sm-modal-titulo mb-0">El mismo bien con dos códigos</h5>
+            <small>El que sobra va a la oficina de duplicados de su predio. El que se queda no se toca.</small>
+        </div>
+        <button type="button" class="btn-close js-cancelar" aria-label="Cerrar"></button>
+    </div>
+    <div class="dup-panel-cuerpo js-panel-cuerpo">
+
+        <div class="dup-paso">
+            <div class="dup-paso-cab"><span class="dup-paso-num">1</span> ¿Qué código sobra?</div>
+            <div class="dup-paso-cuerpo">
+                <p class="dup-ayuda">Es el registro <b>sin bien físico propio</b>: en el barrido, normalmente es el que salió <b>FALTANTE</b>.</p>
+                <div class="dup-buscar">
+                    <div class="sm-campo"><i class="ti ti-barcode"></i>
+                        <input type="text" class="sm-input js-cod-sobra" placeholder="Código del activo que sobra" autocomplete="off"></div>
+                    <button type="button" class="sm-btn sm-btn-suave js-buscar-sobra"><i class="ti ti-search"></i> Buscar</button>
+                </div>
+                <div class="js-ficha-sobra"></div>
+            </div>
+        </div>
+
+        <div class="dup-paso">
+            <div class="dup-paso-cab"><span class="dup-paso-num">2</span> ¿Con qué activo es el mismo bien?</div>
+            <div class="dup-paso-cuerpo">
+                <p class="dup-ayuda">Es el que <b>se queda</b>: el de la etiqueta que tiene el bien. Puede escribir su código o elegirlo entre los parecidos
+                    (el sistema solo sugiere; quien vio el bien decide).</p>
+                <div class="dup-buscar">
+                    <div class="sm-campo"><i class="ti ti-barcode"></i>
+                        <input type="text" class="sm-input js-cod-queda" placeholder="Código del activo que se queda" autocomplete="off"></div>
+                    <button type="button" class="sm-btn sm-btn-suave js-buscar-queda"><i class="ti ti-search"></i> Buscar</button>
+                    <button type="button" class="sm-btn sm-btn-neutro js-invertir" title="Intercambiar el que sobra y el que se queda" disabled>
+                        <i class="ti ti-arrows-exchange"></i> Invertir</button>
+                </div>
+                <div class="js-ficha-queda"></div>
+                <div class="dup-gemelos js-gemelos"></div>
+            </div>
+        </div>
+
+        <div class="dup-paso">
+            <div class="dup-paso-cab"><span class="dup-paso-num">3</span> Revise lo que va a pasar</div>
+            <div class="dup-paso-cuerpo js-revision">
+                <p class="dup-ayuda mb-0">Elija los dos activos y aquí verá qué hará el sistema.</p>
+            </div>
+        </div>
+
+        <div class="dup-paso">
+            <div class="dup-paso-cab"><span class="dup-paso-num">4</span> ¿Por qué es el mismo bien?</div>
+            <div class="dup-paso-cuerpo">
+                <p class="dup-ayuda">Va en la notificación. Por ejemplo: «En el levantamiento del 15/10 se encontró una sola computadora con la etiqueta
+                    del código que se queda; misma serie y modelo».</p>
+                <textarea class="sm-input dup-textarea js-motivo" maxlength="2000" data-sm-mayus="no"
+                          placeholder="Motivo (al menos 10 caracteres)"></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="dup-pie">
+        <span class="dup-nota">Al registrar se emite la notificación NOT:SCIAF:AD y el traslado sigue solo cuando el VSIAF confirma.</span>
+        <button type="button" class="sm-btn sm-btn-neutro js-cancelar"><i class="ti ti-x"></i> Cancelar</button>
+        <button type="button" class="sm-btn sm-btn-suave js-previa" disabled><i class="ti ti-eye"></i> Vista previa</button>
+        <button type="button" class="sm-btn sm-btn-exito js-registrar" disabled><i class="ti ti-file-certificate"></i> Registrar y emitir notificación</button>
+    </div>
+</section>
+
+<!-- Detalle de un caso -->
+<div class="modal fade js-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable sm-detalle-dialog">
+        <div class="modal-content sm-modal sm-detalle-content js-detalle"></div>
+    </div>
+</div>
+
+<script th:inline="javascript">
+(function () {
+    const URL = '/administracion/duplicados';
+    const INICIAL = /*[[${inicial}]]*/ {};
+    const $raiz = $('#modDuplicados');
+    // SciafModulo.escapar no escapa comillas: acá los textos también van dentro de atributos
+    // (title, data-*), y una descripción como «MONITOR 24"» rompería el HTML o inyectaría código.
+    const esc = function (v) {
+        return SciafModulo.escapar(v == null ? '' : v).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    };
+    const $listado = $raiz.find('.js-listado');
+    const $tabla = $raiz.find('.js-tabla');
+    const $panel = $raiz.find('.js-panel-form');
+    const $modal = $raiz.find('.js-modal');
+    const $detalle = $raiz.find('.js-detalle');
+    const st = { sobra: null, queda: null, situacion: null, enviando: false, filtro: '' };
+
+    const ESTADOS = {
+        EN_PROCESO:    { texto: 'En proceso',    clase: 'sm-pastilla-aviso' },
+        EN_DUPLICADOS: { texto: 'En duplicados', clase: 'sm-pastilla-activo' },
+        RETIRADO:      { texto: 'Retirado',      clase: 'sm-pastilla-info' },
+        ANULADO:       { texto: 'Anulado',       clase: 'sm-pastilla-peligro' }
+    };
+    const ENVIOS = {
+        ESPERANDO_ALTA: 'Esperando que el VSIAF confirme la oficina de duplicados',
+        ENVIADO: 'Traslado en la cola del VSIAF',
+        CONFIRMADO: 'Confirmado en el VSIAF',
+        ERROR: 'Con error'
+    };
+
+    function bs(n) { return n == null ? '—' : 'Bs ' + Number(n).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fecha(iso) { if (!iso) return '—'; const s = String(iso); const p = s.substring(0, 10).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] + (s.length > 15 ? ' ' + s.substring(11, 16) : '') : s; }
+    function aviso(texto, icono) { Swal.fire({ toast: true, position: 'top-end', icon: icono || 'warning', title: esc(texto), showConfirmButton: false, timer: 4000, timerProgressBar: true }); }
+    function pastilla(estado) { const e = ESTADOS[estado] || { texto: estado || '—', clase: '' }; return '<span class="sm-pastilla ' + e.clase + '">' + esc(e.texto) + '</span>'; }
+
+    function pintarTotales(t) {
+        t = t || {};
+        $raiz.find('.js-t-proceso').text((t.EN_PROCESO || 0).toLocaleString('es-BO'));
+        $raiz.find('.js-t-duplicados').text((t.EN_DUPLICADOS || 0).toLocaleString('es-BO'));
+        $raiz.find('.js-t-retirados').text((t.RETIRADO || 0).toLocaleString('es-BO'));
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  Listado (paginado en el servidor)
+    // ════════════════════════════════════════════════════════════
+    let tabla = null;
+    function iniciarTabla() {
+        tabla = SciafModulo.tabla({
+            tabla: $tabla, minFilas: 3, buscador: $raiz.find('.js-buscar'), largo: $raiz.find('.js-largo'),
+            dt: {
+                serverSide: true, ordering: false, deferRender: true,
+                ajax: { url: URL + '/api/datatables', type: 'POST', data: function (d) { d.estado = st.filtro; } },
+                language: { emptyTable: 'Todavía no se registró ningún activo duplicado.', zeroRecords: 'Ningún caso coincide con la búsqueda.' },
+                createdRow: function (tr, f) { tr.dataset.id = f.idDuplicado; tr.tabIndex = 0; },
+                columns: [
+                    { data: null, render: function (d, t, f) {
+                        return '<span class="dup-codigo">' + esc(f.codigo || '—') + '</span><span class="dup-desc sm-mayus" title="' + esc(f.descripcion) + '">' + esc(f.descripcion) + '</span>';
+                    } },
+                    { data: 'codigoPrincipal', className: 'dup-nowrap', render: function (v) { return '<span class="dup-codigo">' + esc(v || '—') + '</span>'; } },
+                    { data: 'persona', render: function (v) { return '<span class="dup-una sm-mayus" title="' + esc(v) + '">' + esc(v || '—') + '</span>'; } },
+                    { data: null, className: 'dup-col-origen', render: function (d, t, f) {
+                        return '<span class="dup-una" title="' + esc((f.oficinaOrigen || '') + ' · ' + (f.unidad || '')) + '">' + esc(f.oficinaOrigen || '—')
+                            + '<small class="d-block text-muted">' + esc(f.unidad || '') + '</small></span>';
+                    } },
+                    { data: null, render: function (d, t, f) {
+                        let h = pastilla(f.estado);
+                        if (f.estado === 'EN_PROCESO' && f.estadoEnvio) {
+                            h += '<small class="d-block ' + (f.estadoEnvio === 'ERROR' ? 'text-danger' : 'text-muted') + '" title="' + esc(f.mensajeEnvio || '') + '">'
+                                + esc(ENVIOS[f.estadoEnvio] || f.estadoEnvio) + '</small>';
+                        }
+                        return h;
+                    } },
+                    { data: 'numero', className: 'dup-nowrap', render: function (v) { return v ? esc(String(v).replace('NOT-AD-', 'AD ')) : '—'; } },
+                    { data: null, className: 'dup-col-fecha dup-nowrap', render: function (d, t, f) {
+                        return esc(fecha(f.fecha)) + '<small class="d-block text-muted">' + esc(f.usuario || '') + '</small>';
+                    } }
+                ]
+            }
+        });
+        $tabla.on('xhr.dt', function (e, s, json) { if (json) pintarTotales(json.totales); });
+    }
+    function recargar() { if (tabla) tabla.ajax.reload(null, false); }
+    $raiz.on('click', '.js-segmento button', function () {
+        $raiz.find('.js-segmento button').removeClass('activo');
+        $(this).addClass('activo');
+        st.filtro = $(this).data('filtro') || '';
+        if (tabla) tabla.ajax.reload();
+    });
+    $tabla.on('click', 'tbody tr[data-id]', function () { abrirDetalle(Number(this.dataset.id)); });
+    $tabla.on('keydown', 'tbody tr[data-id]', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirDetalle(Number(this.dataset.id)); }
+    });
+
+    // En vivo: el ciclo de envío avisa cuando el VSIAF confirma un traslado.
+    let esperaRecarga = null;
+    $(document).on('sciaf:duplicados.modDup', function () {
+        if (!document.body.contains($raiz[0])) { $(document).off('.modDup'); return; }
+        clearTimeout(esperaRecarga);
+        esperaRecarga = setTimeout(recargar, 600);
+    });
+
+    function mostrar(cual) {
+        $raiz.toggleClass('dup-en-form', cual === 'form');
+        $listado.toggleClass('d-none', cual !== 'listado');
+        $panel.toggleClass('d-none', cual !== 'form');
+        if (cual === 'form') ajustarCuerpo();
+        else { if (tabla) tabla.columns.adjust(); try { window.dispatchEvent(new Event('resize')); } catch (e) { /* viejo */ } }
+    }
+    let ajustarCuerpo = function () {};
+
+    // ════════════════════════════════════════════════════════════
+    //  Registro por pasos
+    // ════════════════════════════════════════════════════════════
+    function reiniciar() {
+        st.sobra = null; st.queda = null; st.situacion = null;
+        $panel.find('.js-cod-sobra, .js-cod-queda, .js-motivo').val('');
+        $panel.find('.js-ficha-sobra, .js-ficha-queda, .js-gemelos').empty();
+        $panel.find('.js-revision').html('<p class="dup-ayuda mb-0">Elija los dos activos y aquí verá qué hará el sistema.</p>');
+        refrescarBotones();
+    }
+
+    function fichaHtml(f, tipo) {
+        const titulo = tipo === 'sobra' ? 'Sobra · va a la oficina de duplicados' : 'Se queda · no se toca';
+        const marcas = [];
+        if (f.enCustodia) marcas.push('<span class="sm-pastilla sm-pastilla-peligro">En oficina de faltantes</span>');
+        if (f.enDuplicados) marcas.push('<span class="sm-pastilla sm-pastilla-aviso">Ya en duplicados</span>');
+        if (f.bloqueado) marcas.push('<span class="sm-pastilla sm-pastilla-peligro">Bloqueado</span>');
+        if (f.soloSciaf) marcas.push('<span class="sm-pastilla sm-pastilla-info">Solo SCIAF</span>');
+        if (f.estado && f.estado !== 'ACTIVO') marcas.push('<span class="sm-pastilla sm-pastilla-peligro">' + esc(f.estado) + '</span>');
+        const dato = function (et, v) { return '<div><small>' + et + '</small><span>' + (v != null && v !== '' ? esc(v) : '—') + '</span></div>'; };
+        return '<div class="dup-ficha ' + tipo + '">'
+            + '<div class="dup-ficha-tit">' + titulo + '</div>'
+            + '<div class="dup-codigo">' + esc(f.codigo) + '</div>'
+            + '<div class="dup-ficha-desc sm-mayus">' + esc(f.descripcion || '—') + '</div>'
+            + '<div class="dup-datos">'
+            + dato('Marca', f.marca) + dato('Modelo', f.modelo) + dato('N° de serie', f.serie)
+            + dato('Grupo contable', f.grupo) + dato('Auxiliar', f.auxiliar)
+            + dato('Costo', f.costo != null ? bs(f.costo) : null) + dato('Costo anterior', f.costoAnterior != null ? bs(f.costoAnterior) : null)
+            + dato('Fecha de adquisición', f.fechaAdquisicion ? fecha(f.fechaAdquisicion) : null)
+            + dato('Revaluado', f.revaluado == null ? null : (f.revaluado ? 'Sí' : 'No'))
+            + dato('Predio', f.unidad ? f.unidad + (f.predio ? ' · ' + f.predio : '') : null)
+            + dato('Oficina', f.oficina ? (f.codOfi != null ? f.codOfi + ' – ' : '') + f.oficina : null)
+            + dato('Responsable', f.persona ? f.persona + (f.codResp ? ' (cód. ' + f.codResp + ')' : '') : null)
+            + '</div>' + (marcas.length ? '<div class="dup-marcas">' + marcas.join('') + '</div>' : '') + '</div>';
+    }
+
+    async function buscarFicha(codigo) {
+        const r = await SciafModulo.pedir(URL + '/api/activo?codigo=' + encodeURIComponent(codigo), { metodo: 'GET' });
+        const d = await r.json();
+        if (!r.ok || d.ok === false) throw new Error(d.msg || 'No se encontró el activo.');
+        return d;
+    }
+
+    async function elegir(tipo, codigo) {
+        codigo = (codigo || '').trim().toUpperCase();
+        if (!codigo) { aviso('Escriba el código.'); return; }
+        const $f = $panel.find(tipo === 'sobra' ? '.js-ficha-sobra' : '.js-ficha-queda');
+        $f.html('<div class="dup-ayuda mt-2"><i class="ti ti-loader-2"></i> Buscando…</div>');
+        try {
+            const f = await buscarFicha(codigo);
+            st[tipo] = f;
+            $panel.find(tipo === 'sobra' ? '.js-cod-sobra' : '.js-cod-queda').val(f.codigo);
+            $f.html(fichaHtml(f, tipo));
+            if (tipo === 'sobra') cargarGemelos();
+            await revisar();
+        } catch (e) {
+            st[tipo] = null;
+            $f.html(e.sesionPerdida ? '' : '<div class="dup-tarjeta falta mt-2"><i class="ti ti-alert-circle"></i><div>' + esc(e.message) + '</div></div>');
+            await revisar();
+        }
+    }
+
+    async function cargarGemelos() {
+        const $g = $panel.find('.js-gemelos');
+        if (!st.sobra) { $g.empty(); return; }
+        $g.html('<div class="dup-ayuda"><i class="ti ti-loader-2"></i> Buscando activos parecidos en el mismo predio…</div>');
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/activo/' + st.sobra.idActivo + '/gemelos', { metodo: 'GET' });
+            const lista = await r.json();
+            if (!r.ok || lista.ok === false) throw new Error(lista.msg || 'No se pudieron buscar parecidos.');
+            if (!lista.length) { $g.html('<div class="dup-ayuda">No se encontraron activos parecidos en el mismo predio y grupo. Escriba el código del que se queda.</div>'); return; }
+            let h = '<div class="dup-ayuda"><b>Parecidos en el mismo predio</b> (sugerencias; elija solo si es el bien que vio):</div>';
+            lista.forEach(function (g) {
+                h += '<button type="button" class="dup-gemelo js-gemelo" data-codigo="' + esc(g.codigo) + '">'
+                    + '<span class="dup-puntaje">' + esc(g.puntaje) + '<small>de 100</small></span>'
+                    + '<span class="flex-grow-1"><span class="dup-codigo">' + esc(g.codigo) + '</span> <span class="sm-mayus">' + esc(g.descripcion) + '</span>'
+                    + '<span class="d-block dup-motivos">' + esc((g.oficina || '') + (g.persona ? ' · ' + g.persona : '')) + '</span>'
+                    + '<span class="d-block dup-motivos">' + esc((g.motivos || []).join(' · ')) + '</span></span></button>';
+            });
+            $g.html(h);
+        } catch (e) { if (!e.sesionPerdida) $g.html('<div class="dup-ayuda text-danger">' + esc(e.message) + '</div>'); }
+    }
+
+    async function revisar() {
+        const $r = $panel.find('.js-revision');
+        st.situacion = null;
+        refrescarBotones();
+        if (!st.sobra) { $r.html('<p class="dup-ayuda mb-0">Elija los dos activos y aquí verá qué hará el sistema.</p>'); return; }
+        try {
+            const url = URL + '/api/situacion?sobrante=' + st.sobra.idActivo + (st.queda ? '&principal=' + st.queda.idActivo : '');
+            const r = await SciafModulo.pedir(url, { metodo: 'GET' });
+            const s = await r.json();
+            if (!r.ok || s.ok === false) throw new Error(s.msg || 'No se pudo revisar.');
+            st.situacion = s;
+            let h = '';
+            (s.bloqueos || []).forEach(function (b) { h += '<div class="dup-tarjeta falta"><i class="ti ti-ban"></i><div><b>No se puede registrar:</b> ' + esc(b) + '</div></div>'; });
+            (s.avisos || []).forEach(function (a) {
+                const fuerte = a.indexOf('ATENCIÓN') === 0;
+                h += '<div class="dup-tarjeta atencion"><i class="ti ti-alert-triangle"></i><div>' + esc(a)
+                    + (fuerte ? '<label class="d-flex gap-2 mt-2 fw-bold"><input type="checkbox" class="js-confirma"> Lo revisé: los códigos están bien elegidos.</label>' : '')
+                    + '</div></div>';
+            });
+            if (s.puedeRegistrar) {
+                h += '<div class="dup-tarjeta ok"><i class="ti ti-circle-check"></i><div><b>No necesita hacer nada más.</b> '
+                    + esc(st.sobra.codigo) + ' irá a <b>' + esc(s.oficinaDestino || 'la oficina de duplicados') + '</b>'
+                    + (s.creaOficina ? ' (se creará y se dará de alta en el VSIAF)' : '')
+                    + ', a nombre de <b>' + esc(st.sobra.persona || '—') + '</b>'
+                    + (s.creaResponsable ? ' (se le dará de alta en esa oficina)' : '') + '. '
+                    + (st.queda ? esc(st.queda.codigo) + ' se queda como está.' : '') + '</div></div>';
+            }
+            if (s.faltanteNumero) {
+                h += '<div class="dup-tarjeta info"><i class="ti ti-info-circle"></i><div>La notificación aclarará que la ' + esc(s.faltanteNumero)
+                    + ' queda sin efecto para este bien.</div></div>';
+            }
+            $r.html(h || '<p class="dup-ayuda mb-0">Elija el activo que se queda.</p>');
+        } catch (e) {
+            if (!e.sesionPerdida) $r.html('<div class="dup-tarjeta falta"><i class="ti ti-alert-circle"></i><div>' + esc(e.message) + '</div></div>');
+        }
+        refrescarBotones();
+    }
+
+    function listo() {
+        const s = st.situacion;
+        if (!s || !s.puedeRegistrar || !st.sobra || !st.queda) return false;
+        const $c = $panel.find('.js-confirma');
+        if ($c.length && !$c.prop('checked')) return false;
+        return ($panel.find('.js-motivo').val() || '').trim().length >= 10;
+    }
+    function refrescarBotones() {
+        const ok = listo() && !st.enviando;
+        $panel.find('.js-registrar, .js-previa').prop('disabled', !ok);
+        $panel.find('.js-invertir').prop('disabled', !(st.sobra && st.queda));
+    }
+
+    $raiz.on('click', '.js-nuevo', function () { reiniciar(); mostrar('form'); $panel.find('.js-cod-sobra').trigger('focus'); });
+    $raiz.on('click', '.js-cancelar', function () { mostrar('listado'); });
+    $raiz.on('click', '.js-buscar-sobra', function () { elegir('sobra', $panel.find('.js-cod-sobra').val()); });
+    $raiz.on('click', '.js-buscar-queda', function () { elegir('queda', $panel.find('.js-cod-queda').val()); });
+    $raiz.on('keydown', '.js-cod-sobra, .js-cod-queda', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        elegir($(this).hasClass('js-cod-sobra') ? 'sobra' : 'queda', this.value);
+    });
+    $raiz.on('click', '.js-gemelo', function () { elegir('queda', $(this).data('codigo')); });
+    $raiz.on('click', '.js-invertir', async function () {
+        const a = st.sobra, b = st.queda;
+        if (!a || !b) return;
+        st.sobra = b; st.queda = a;
+        $panel.find('.js-cod-sobra').val(b.codigo);
+        $panel.find('.js-cod-queda').val(a.codigo);
+        $panel.find('.js-ficha-sobra').html(fichaHtml(b, 'sobra'));
+        $panel.find('.js-ficha-queda').html(fichaHtml(a, 'queda'));
+        cargarGemelos();
+        await revisar();
+    });
+    $raiz.on('input', '.js-motivo', refrescarBotones);
+    $raiz.on('change', '.js-confirma', refrescarBotones);
+
+    function pedido() {
+        return { idSobrante: st.sobra.idActivo, idPrincipal: st.queda.idActivo,
+                 motivo: ($panel.find('.js-motivo').val() || '').trim(),
+                 confirmaAvisos: $panel.find('.js-confirma').prop('checked') === true };
+    }
+
+    $raiz.on('click', '.js-previa', async function () {
+        if (!listo()) return;
+        const ventana = window.open('', '_blank');
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/vista-previa', { json: pedido() });
+            if (!r.ok) { let m = 'No se pudo armar la vista previa.'; try { m = (await r.json()).msg || m; } catch (x) { /* no JSON */ } throw new Error(m); }
+            const blob = await r.blob();
+            const enlace = (window.URL || window.webkitURL).createObjectURL(blob);
+            if (ventana) ventana.location = enlace; else window.open(enlace, '_blank');
+        } catch (e) { if (ventana) ventana.close(); SciafModulo.avisarError(e, 'Vista previa'); }
+    });
+
+    $raiz.on('click', '.js-registrar', async function () {
+        if (!listo() || st.enviando) return;
+        const s = st.situacion;
+        const ok = await sciafConfirmar({
+            titulo: '¿Registrar ' + esc(st.sobra.codigo) + ' como duplicado?',
+            texto: '<div class="text-start"><b>' + esc(st.sobra.codigo) + '</b> irá a <b>' + esc(s.oficinaDestino || 'la oficina de duplicados') + '</b> a nombre de <b>'
+                + esc(st.sobra.persona || '—') + '</b>.<br><b>' + esc(st.queda.codigo) + '</b> se queda como está.<br>'
+                + 'Se emitirá la notificación NOT:SCIAF:AD' + (s.faltanteNumero ? ' y se cerrará su faltante (' + esc(s.faltanteNumero) + ')' : '') + '.</div>',
+            aceptar: 'Sí, registrar'
+        });
+        if (!ok) return;
+        st.enviando = true; refrescarBotones();
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/registrar', { json: pedido() });
+            if (!res.ok) throw new Error(res.msg);
+            mostrar('listado');
+            recargar();
+            Swal.fire({ icon: 'success', title: esc(res.numero), html: esc(res.msg),
+                showCancelButton: true, confirmButtonText: 'Imprimir notificación', cancelButtonText: 'Cerrar' })
+                .then(function (x) { if (x.isConfirmed) window.open(URL + '/api/caso/' + res.idDuplicado + '/pdf', '_blank', 'noopener'); });
+        } catch (e) { SciafModulo.avisarError(e, 'No se registró'); }
+        finally { st.enviando = false; refrescarBotones(); }
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  Detalle, retiro y anulación
+    // ════════════════════════════════════════════════════════════
+    async function abrirDetalle(id) {
+        $detalle.html('<div class="js-cargando" style="min-height:320px"></div>');
+        bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+        const carga = SciafPrecarga.montar($detalle.find('.js-cargando'), { compacta: true, texto: 'Abriendo el caso…', alReintentar: function () { abrirDetalle(id); } });
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/caso/' + encodeURIComponent(id), { metodo: 'GET' });
+            const d = await r.json();
+            if (!r.ok || d.ok === false) throw new Error(d.msg || 'No se pudo abrir.');
+            carga.cerrar();
+            pintarDetalle(d);
+        } catch (e) { if (!e.sesionPerdida) carga.error('No se pudo abrir el caso', e.message || ''); }
+    }
+
+    function pintarDetalle(d) {
+        const linea = [];
+        linea.push('<li><i class="ti ti-file-certificate"></i><div>Registrado el ' + esc(fecha(d.registro)) + ' por ' + esc(d.usuarioRegistro || '—')
+            + (d.notificacion ? ' · ' + esc(d.notificacion) + (d.notificacionEstado === 'ANULADA' ? ' <b class="text-danger">(anulada)</b>' : '') : '') + '</div></li>');
+        if (d.faltante) linea.push('<li><i class="ti ti-alert-triangle"></i><div>Cerró su faltante (' + esc(d.faltante) + ')</div></li>');
+        if (d.fechaEnvio) linea.push('<li><i class="ti ti-truck"></i><div>Movido a ' + esc(d.destino || 'la oficina de duplicados') + ' el ' + esc(fecha(d.fechaEnvio)) + '</div></li>');
+        if (d.estado === 'EN_PROCESO' && d.estadoEnvio) {
+            linea.push('<li><i class="ti ti-clock"></i><div>' + esc(ENVIOS[d.estadoEnvio] || d.estadoEnvio)
+                + (d.mensajeEnvio ? '<small class="d-block ' + (d.estadoEnvio === 'ERROR' ? 'text-danger' : 'text-muted') + '">' + esc(d.mensajeEnvio) + '</small>' : '') + '</div></li>');
+        }
+        if (d.fechaRetiro) {
+            linea.push('<li><i class="ti ti-arrow-back-up"></i><div>' + (d.estado === 'ANULADO' ? 'Anulado' : 'Retirado' + (d.retiradoA ? ' hacia ' + esc(d.retiradoA) : ''))
+                + ' el ' + esc(fecha(d.fechaRetiro)) + ' por ' + esc(d.usuarioRetiro || '—')
+                + (d.justificacionRetiro ? '<small class="d-block text-muted" style="white-space:pre-line">' + esc(d.justificacionRetiro) + '</small>' : '') + '</div></li>');
+        }
+        $detalle.html(
+            '<div class="sm-detalle-head">'
+            + '<div class="sm-cabecera-icono"><i class="ti ti-copy"></i></div>'
+            + '<div class="flex-grow-1"><span class="sm-detalle-kicker">Activo duplicado · ' + pastilla(d.estado) + '</span>'
+            + '<h5 class="sm-modal-titulo"><span class="dup-codigo">' + esc(d.sobrante ? d.sobrante.codigo : '—') + '</span>'
+            + ' <small class="text-muted">es el mismo bien que</small> <span class="dup-codigo">' + esc(d.principal ? d.principal.codigo : '—') + '</span></h5>'
+            + '<small>A nombre de ' + esc(d.persona || '—') + (d.oficinaOrigen ? ' · venía de ' + esc(d.oficinaOrigen) : '') + '</small></div>'
+            + '<div class="d-flex gap-2 flex-wrap justify-content-end">'
+            + (d.notificacion ? '<button type="button" class="sm-btn sm-btn-suave js-imprimir"><i class="ti ti-printer"></i> Notificación</button>' : '')
+            + (d.puedeReintentar ? '<button type="button" class="sm-btn js-reintentar"><i class="ti ti-refresh"></i> Reintentar</button>' : '')
+            + (d.puedeRetirar ? '<button type="button" class="sm-btn sm-btn-suave js-abrir-retiro"><i class="ti ti-arrow-back-up"></i> Retirar de duplicados</button>' : '')
+            + (d.puedeAnular ? '<button type="button" class="sm-btn sm-btn-peligro js-abrir-anular"><i class="ti ti-ban"></i> Anular</button>' : '')
+            + '</div><button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>'
+            + '<div class="sm-detalle-scroll">'
+            + '<div class="dup-comparar">' + (d.sobrante ? fichaHtml(d.sobrante, 'sobra') : '') + (d.principal ? fichaHtml(d.principal, 'queda') : '') + '</div>'
+            + '<div class="dup-ficha mt-3"><div class="dup-ficha-tit">Motivo</div><div style="white-space:pre-line">' + esc(d.motivo || '—') + '</div></div>'
+            + '<div class="dup-ficha mt-3"><div class="dup-ficha-tit">Historial</div><ul class="dup-linea">' + linea.join('') + '</ul></div>'
+            + '<div class="js-accion"></div>'
+            + '</div>');
+        $detalle.data('caso', d);
+    }
+
+    $raiz.on('click', '.js-imprimir', function () {
+        const d = $detalle.data('caso');
+        if (d) window.open(URL + '/api/caso/' + d.idDuplicado + '/pdf', '_blank', 'noopener');
+    });
+
+    $raiz.on('click', '.js-reintentar', async function () {
+        const d = $detalle.data('caso');
+        if (!d || !await sciafConfirmar({ titulo: '¿Reintentar el traslado?', texto: 'Se vuelve a pedir al VSIAF lo que quedó con error.' })) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/caso/' + d.idDuplicado + '/reintentar', { json: {} });
+            if (!res.ok) throw new Error(res.msg);
+            aviso(res.msg, 'success');
+            recargar();
+            abrirDetalle(d.idDuplicado);
+        } catch (e) { SciafModulo.avisarError(e, 'No se reintentó'); }
+    });
+
+    // Retiro: elegir a quién vuelve y justificar.
+    $raiz.on('click', '.js-abrir-retiro', function () {
+        const $a = $detalle.find('.js-accion');
+        $a.html('<div class="dup-accion"><div class="dup-ficha-tit">Retirar de la oficina de duplicados</div>'
+            + '<p class="dup-ayuda">El bien vuelve a un responsable del mismo predio con una transferencia interna que viaja al VSIAF. '
+            + 'Úselo solo si corresponde (por ejemplo, se registró por error o el revalúo lo indica).</p>'
+            + '<div class="sm-campo"><i class="ti ti-search"></i><input type="text" class="sm-input js-buscar-destino" placeholder="Buscar responsable u oficina…" autocomplete="off"></div>'
+            + '<div class="dup-destinos js-destinos"><div class="dup-ayuda mt-2">Cargando…</div></div>'
+            + '<label class="sm-label mt-2">Justificación</label>'
+            + '<textarea class="sm-input dup-textarea js-justificacion" maxlength="2000" data-sm-mayus="no" placeholder="Por qué se retira (al menos 10 caracteres)"></textarea>'
+            + '<div class="d-flex gap-2 justify-content-end mt-2"><button type="button" class="sm-btn sm-btn-neutro js-cerrar-accion">Cancelar</button>'
+            + '<button type="button" class="sm-btn sm-btn-exito js-retirar"><i class="ti ti-arrow-back-up"></i> Retirar</button></div></div>');
+        cargarDestinos('');
+        $a[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    let esperaDestinos = null;
+    $raiz.on('input', '.js-buscar-destino', function () {
+        const q = this.value;
+        clearTimeout(esperaDestinos);
+        esperaDestinos = setTimeout(function () { cargarDestinos(q); }, 300);
+    });
+    async function cargarDestinos(q) {
+        const d = $detalle.data('caso');
+        const $l = $detalle.find('.js-destinos');
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/caso/' + d.idDuplicado + '/destinos?q=' + encodeURIComponent(q || ''), { metodo: 'GET' });
+            const lista = await r.json();
+            if (!r.ok || lista.ok === false) throw new Error(lista.msg || 'No se pudieron traer los responsables.');
+            if (!lista.length) { $l.html('<div class="dup-ayuda mt-2">Ningún responsable coincide.</div>'); return; }
+            $l.html(lista.map(function (x) {
+                return '<label class="dup-destino"><input type="radio" name="dupDestino" value="' + esc(x.idResponsable) + '"' + (x.original ? ' checked' : '') + '>'
+                    + '<span><b class="sm-mayus">' + esc(x.nombre || x.codResp) + '</b>' + (x.original ? ' <span class="sm-pastilla sm-pastilla-info">quien lo tenía</span>' : '')
+                    + '<small class="d-block text-muted">' + esc((x.codOfi != null ? x.codOfi + ' – ' : '') + (x.oficina || '')) + (x.cargo ? ' · ' + esc(x.cargo) : '') + '</small></span></label>';
+            }).join(''));
+        } catch (e) { if (!e.sesionPerdida) $l.html('<div class="dup-ayuda text-danger mt-2">' + esc(e.message) + '</div>'); }
+    }
+    $raiz.on('click', '.js-cerrar-accion', function () { $detalle.find('.js-accion').empty(); });
+    $raiz.on('click', '.js-retirar', async function () {
+        const d = $detalle.data('caso');
+        const destino = $detalle.find('input[name="dupDestino"]:checked').val();
+        const just = ($detalle.find('.js-justificacion').val() || '').trim();
+        if (!destino) { aviso('Elija a quién vuelve el bien.'); return; }
+        if (just.length < 10) { aviso('Escriba la justificación (al menos 10 caracteres).'); return; }
+        const nombre = $detalle.find('input[name="dupDestino"]:checked').closest('label').find('b').text();
+        if (!await sciafConfirmar({ titulo: '¿Retirar ' + esc(d.sobrante.codigo) + ' de duplicados?',
+            texto: 'Vuelve a <b>' + esc(nombre) + '</b> con una transferencia interna que va al VSIAF.', aceptar: 'Sí, retirar' })) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/caso/' + d.idDuplicado + '/retirar', { json: { idResponsableDestino: Number(destino), justificacion: just } });
+            if (!res.ok) throw new Error(res.msg);
+            aviso(res.msg, 'success');
+            recargar();
+            abrirDetalle(d.idDuplicado);
+        } catch (e) { SciafModulo.avisarError(e, 'No se retiró'); }
+    });
+
+    // Anulación: solo antes de que el bien se mueva.
+    $raiz.on('click', '.js-abrir-anular', function () {
+        $detalle.find('.js-accion').html('<div class="dup-accion"><div class="dup-ficha-tit">Anular el registro</div>'
+            + '<p class="dup-ayuda">El bien todavía no se movió: no se mueve nada, la notificación queda anulada y, si se había cerrado su faltante, vuelve a quedar abierto.</p>'
+            + '<textarea class="sm-input dup-textarea js-justificacion" maxlength="2000" data-sm-mayus="no" placeholder="Por qué se anula (al menos 10 caracteres)"></textarea>'
+            + '<div class="d-flex gap-2 justify-content-end mt-2"><button type="button" class="sm-btn sm-btn-neutro js-cerrar-accion">Cancelar</button>'
+            + '<button type="button" class="sm-btn sm-btn-peligro js-anular"><i class="ti ti-ban"></i> Anular</button></div></div>');
+    });
+    $raiz.on('click', '.js-anular', async function () {
+        const d = $detalle.data('caso');
+        const just = ($detalle.find('.js-justificacion').val() || '').trim();
+        if (just.length < 10) { aviso('Escriba por qué se anula (al menos 10 caracteres).'); return; }
+        if (!await sciafConfirmar({ titulo: '¿Anular el registro de ' + esc(d.sobrante.codigo) + '?',
+            texto: 'La notificación ' + esc(d.notificacion || '') + ' quedará anulada.', peligrosa: true, aceptar: 'Sí, anular' })) return;
+        try {
+            const res = await SciafModulo.pedirJson(URL + '/api/caso/' + d.idDuplicado + '/anular', { json: { justificacion: just } });
+            if (!res.ok) throw new Error(res.msg);
+            aviso(res.msg, 'success');
+            recargar();
+            abrirDetalle(d.idDuplicado);
+        } catch (e) { SciafModulo.avisarError(e, 'No se anuló'); }
+    });
+
+    // ── arranque ──
+    pintarTotales(INICIAL.totales);
+    iniciarTabla();
+    mostrar('listado');
+    ajustarCuerpo = SciafModulo.ajustarAlto($panel.find('.js-panel-cuerpo'), 70);
+})();
+</script>
+</div>

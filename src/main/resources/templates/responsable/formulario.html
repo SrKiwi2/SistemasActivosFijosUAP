@@ -23,6 +23,7 @@
 </div>
 
 <form id="formResponsable" method="post" novalidate autocomplete="off"
+      th:attr="data-otras-oficinas=${otrasOficinas != null ? otrasOficinas : 0},data-id-persona=${idPersonaResp},data-puede-personas-cargos=${puedePersonasCargos == true},data-cargo-original=${responsable.cargo != null ? responsable.cargo.nombre : ''}"
       th:action="${responsable.idResponsable != null} ? @{/administracion/responsable/modificar-responsable} : @{/administracion/responsable/registrar-responsable}">
 
     <input type="hidden" name="idResponsableEnc" th:if="${idEnc != null}" th:value="${idEnc}">
@@ -436,9 +437,37 @@
                     Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
                 } else if (res.vsiafOk === false) {
                     Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
+                } else {
+                    ofrecerCargoEnOtrasOficinas();
                 }
             }
         });
+
+        /* ── Cargo nuevo: ¿también en las otras oficinas de la persona? ──
+           Lleva a «Personas y cargos» con la persona y el cargo ya elegidos; allí se ve la
+           vista previa y se aplica a las oficinas que se marquen. */
+        function ofrecerCargoEnOtrasOficinas() {
+            const otras = Number($form.data('otras-oficinas')) || 0;
+            const idPersona = $form.data('id-persona');
+            const cargo = ($cargo.val() || '').trim().toUpperCase();
+            const original = String($form.data('cargo-original') || '').trim().toUpperCase();
+            if (!esEdicion || !otras || !idPersona || !cargo || cargo === original) return;
+            if (String($form.data('puede-personas-cargos')) !== 'true' || !window.cargarContenido) return;
+            Swal.fire({
+                icon: 'question',
+                title: 'Esta persona tiene ' + otras + ' oficina(s) más',
+                html: '¿Quiere poner el cargo <b>' + esc(cargo) + '</b> también en sus otras oficinas?'
+                    + '<br><small class="text-muted">Se abre «Personas y cargos» con la persona y el cargo elegidos; '
+                    + 'allí ve la vista previa y marca en qué oficinas aplicarlo.</small>',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, abrir Personas y cargos',
+                cancelButtonText: 'No, solo esta'
+            }).then(r => {
+                if (!r.isConfirmed) return;
+                window.cargarContenido('/administracion/personas-cargos/vista?persona=' + encodeURIComponent(idPersona)
+                    + '&cargo=' + encodeURIComponent(cargo));
+            });
+        }
 
         // Cursor listo para escribir.
         const $primero = esEdicion ? $('#respNombre') : $ci;

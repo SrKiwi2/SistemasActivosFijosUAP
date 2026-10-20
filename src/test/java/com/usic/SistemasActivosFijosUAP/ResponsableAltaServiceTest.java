@@ -47,7 +47,7 @@ class ResponsableAltaServiceTest {
         personaService = mock(IPersonaService.class);
         cargoService = mock(ICargoService.class);
         servicio = new ResponsableAltaService(responsableService, personaService, cargoService,
-                mock(IOficinaService.class));
+                mock(com.usic.SistemasActivosFijosUAP.model.dao.ICargoDao.class), mock(IOficinaService.class));
 
         oficina = new Oficina();
         oficina.setIdOficina(7L);

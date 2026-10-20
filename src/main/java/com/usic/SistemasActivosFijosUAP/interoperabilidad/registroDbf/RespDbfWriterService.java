@@ -442,6 +442,11 @@ public class RespDbfWriterService {
 
     private String construirNombreCompleto(Persona p, int maxLength) {
         if (p == null) return "";
+        // «SIN DATOS» es la persona comodín de las filas sin nombre del VSIAF: allá va en blanco, como estaba.
+        if ("SIN DATOS".equalsIgnoreCase(p.getNombre() == null ? "" : p.getNombre().trim())
+                && (p.getPaterno() == null || p.getPaterno().isBlank()) && (p.getMaterno() == null || p.getMaterno().isBlank())) {
+            return "";
+        }
         String s = String.join(" ", 
             p.getNombre() != null ? p.getNombre().trim() : "",
             p.getPaterno() != null ? p.getPaterno().trim() : "",

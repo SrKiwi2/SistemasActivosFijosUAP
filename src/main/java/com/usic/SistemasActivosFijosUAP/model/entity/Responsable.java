@@ -89,6 +89,12 @@ public class Responsable extends AuditoriaConfig {
     @Column(name = "es_custodia", columnDefinition = "boolean default false", nullable = false)
     private boolean esCustodia = false;
 
+    /** true = la persona dentro de la oficina de duplicados del predio. Un activo a su cargo
+     *  no se mueve por los caminos normales: sale desde Activos duplicados, con justificación.
+     *  La sync desde el DBF no la toca. */
+    @Column(name = "es_duplicados", columnDefinition = "boolean default false", nullable = false)
+    private boolean esDuplicados = false;
+
     public String calcularHash() {
         String datos = String.join("|",
             oficina != null && oficina.getIdOficina() != null 

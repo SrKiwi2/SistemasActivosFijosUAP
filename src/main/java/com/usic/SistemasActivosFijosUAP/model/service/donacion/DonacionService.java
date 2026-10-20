@@ -251,6 +251,10 @@ public class DonacionService {
             throw new IllegalArgumentException("La oficina " + oficina.getNombre()
                     + " es de faltantes (custodia): los bienes donados no pueden registrarse ahí.");
         }
+        if (!mismaOficina && oficina.isEsDuplicados()) {
+            throw new IllegalArgumentException("La oficina " + oficina.getNombre()
+                    + " es de duplicados: los bienes donados no pueden registrarse ahí.");
+        }
         Responsable responsable = req.getIdResponsable() == null ? null : responsableService.findById(req.getIdResponsable());
         if (responsable == null || (!mismoResp && (ELIMINADO.equalsIgnoreCase(responsable.getEstado())
                 || (responsable.getApiEstado() != null && responsable.getApiEstado() == 3)))) {
@@ -262,6 +266,9 @@ public class DonacionService {
         }
         if (!mismoResp && responsable.isEsCustodia()) {
             throw new IllegalArgumentException("El responsable elegido es de custodia de faltantes.");
+        }
+        if (!mismoResp && responsable.isEsDuplicados()) {
+            throw new IllegalArgumentException("El responsable elegido es de la oficina de duplicados.");
         }
         Predio predio = oficina.getPredio();
         String codMun = predio != null && predio.getMunicipio() != null ? limpiar(predio.getMunicipio().getCodigo()) : null;
@@ -584,7 +591,7 @@ public class DonacionService {
                     && a.getOficina().getIdOficina().equals(acta.getOficina().getIdOficina())
                     && a.getResponsable() != null && acta.getResponsable() != null
                     && a.getResponsable().getIdResponsable().equals(acta.getResponsable().getIdResponsable());
-            if (!mismoLugar || a.enCustodia() || Boolean.TRUE.equals(a.getBloqueado())) {
+            if (!mismoLugar || a.enCustodiaODuplicados() || Boolean.TRUE.equals(a.getBloqueado())) {
                 throw new IllegalArgumentException("El bien " + cod + " ya no está donde se registró (o está bloqueado): "
                         + "devuélvalo a " + nombreDe(acta.getResponsable()) + " antes de anular.");
             }
@@ -686,7 +693,7 @@ public class DonacionService {
             for (DonacionBien b : bienes) {
                 Activo a = b.getActivo();
                 if (!Activo.ESTADO_ACTIVO.equals(a.getEstado()) || !enSuLugar(a, acta)
-                        || a.enCustodia() || Boolean.TRUE.equals(a.getBloqueado())) {
+                        || a.enCustodiaODuplicados() || Boolean.TRUE.equals(a.getBloqueado())) {
                     out.add(a.getIdActivo());
                 }
             }

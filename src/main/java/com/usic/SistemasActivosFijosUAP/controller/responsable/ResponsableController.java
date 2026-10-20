@@ -32,14 +32,17 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.TextoVsiaf;
 import com.usic.SistemasActivosFijosUAP.model.IService.ICargoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IDbfColaOrdenDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IOficinaDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.SyncResult;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
+import com.usic.SistemasActivosFijosUAP.model.entity.DbfColaOrden;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
@@ -49,6 +52,8 @@ import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesResponsableRep
 import com.usic.SistemasActivosFijosUAP.model.service.ResponsableAltaService;
 import com.usic.SistemasActivosFijosUAP.model.service.SyncControlService;
 import com.usic.SistemasActivosFijosUAP.model.service.VsiafApoyoService;
+import com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona;
+import com.usic.SistemasActivosFijosUAP.model.service.personas.ResolutorPersonaSync;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.AutorizacionService;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService;
@@ -80,6 +85,7 @@ public class ResponsableController {
     private final IOficinaDao oficinaDao;
     /** Sin VSIAF a la vista (laptop de desarrollo, montaje caído) la sincronización avisa en vez de leer 0 registros. */
     private final com.usic.SistemasActivosFijosUAP.componet.VsiafDisponibilidad vsiaf;
+    private final IDbfColaOrdenDao colaOrdenDao;
 
     private static final Logger log = LoggerFactory.getLogger(ResponsableController.class);
 
@@ -269,6 +275,18 @@ public class ResponsableController {
         model.addAttribute("bloquearClave", activosACargo > 0);
         boolean admin = esAdmin(request);
         model.addAttribute("esAdmin", admin);
+        // Al cambiar el cargo, el formulario ofrece llevarlo a las otras oficinas de la persona
+        // (módulo Personas y cargos), si las tiene y si el usuario puede entrar ahí.
+        if (responsable.getIdResponsable() != null && responsable.getPersona() != null) {
+            final Long idEste = responsable.getIdResponsable();
+            Long idPersona = responsable.getPersona().getIdPersona();
+            long otras = responsableDao.findByPersonaIdPersona(idPersona).stream()
+                    .filter(o -> "ACTIVO".equals(o.getEstado()) && !o.getIdResponsable().equals(idEste)).count();
+            model.addAttribute("otrasOficinas", otras);
+            model.addAttribute("idPersonaResp", idPersona);
+            model.addAttribute("puedePersonasCargos",
+                    com.usic.SistemasActivosFijosUAP.controller.personas.PersonasCargosController.puedeUsar(request));
+        }
         if (responsable.getIdResponsable() != null && admin) {
             Map<Long, String> nombres = vsiafApoyoService.nombresUsuario(
                     java.util.Arrays.asList(responsable.getRegistroIdUsuario(), responsable.getModificacionIdUsuario()));
@@ -484,15 +502,6 @@ public class ResponsableController {
                 nombre, paterno, materno, correo, cargoEfectivo, null, modoRapido, true, subirVsiaf, desde);
     }
 
-    private boolean esCiValido(String ci) {
-        if (ci == null || ci.isBlank()) {
-            return false;
-        }
-        
-        String ciLimpio = ci.trim().replaceAll("[.\\-\\s]", "");
-        return ciLimpio.matches("\\d{5,}");
-    }
-
     /** Sincronización manual desde el DBF: solo administradores (el resto no la necesita). */
     @ValidarUsuarioAutenticado
     @PostMapping("/sync-from-mounted")
@@ -521,16 +530,31 @@ public class ResponsableController {
             log.info("✅ Total registros leídos del DBF: {}", filas.size());
             
             Map<String, Oficina> oficinasCache = cargarOficinasEnCache();
-            Map<String, Persona> personasCache = cargarPersonasEnCache();
-            Map<String, Cargo> cargosCache = cargarCargosEnCache();
+            List<Cargo> todosLosCargos = cargoService.findAll();
+            Map<String, Cargo> cargosCache = cargarCargosEnCache(todosLosCargos);
+            Map<Long, Cargo> cargosPorId = new HashMap<>();
+            for (Cargo c : todosLosCargos) cargosPorId.put(c.getIdCargo(), c);
             Map<String, Responsable> responsablesCache = cargarResponsablesEnCache();
-            
+
+            // A qué persona va cada fila: no mueve lo ya enlazado, sigue las unificaciones,
+            // reconoce C.I. falsos y nombres que perdieron la Ñ (ver ResolutorPersonaSync).
+            Set<String> ciInvalidos = responsableGestionService.ciInvalidos();
+            ResolutorPersonaSync personas = new ResolutorPersonaSync(personaService.findAll(), ciInvalidos,
+                    personaService::save, this::procesarNombreCompleto);
+
+            // Responsables con un cambio del SCIAF que no llegó a RESP.DBF (la última orden está
+            // ENCOLADA o en ERROR): el DBF trae el dato viejo, así que esta pasada no los toca,
+            // ni por su clave nueva ni por la vieja (si la orden cambiaba oficina o código).
+            Set<Long> conOrdenPendiente = new HashSet<>();
+            Set<String> clavesDbfPendientes = new HashSet<>();
+            ordenesRespSinAplicar(conOrdenPendiente, clavesDbfPendientes);
+
             int inserted = 0, updated = 0, skipped = 0;
-            int sinOficina = 0, personasCreadas = 0, cargosCreados = 0;
+            int sinOficina = 0, cargosCreados = 0;
+            Set<String> cargosConEnieVieja = new java.util.TreeSet<>();
             int camposNulos = 0;
             int duplicadosDbf = 0;
-            int sinCi = 0;
-            int colisionesCache = 0;
+            int omitidosPorCola = 0;
 
             List<Responsable> batch = new ArrayList<>(500);
             Set<String> seenKeys = new HashSet<>(filas.size());
@@ -551,6 +575,12 @@ public class ResponsableController {
                                 f.getCodOfi() + "|" + 
                                 (f.getCodResp() != null ? f.getCodResp() : "NULL");
 
+                if (clavesDbfPendientes.contains(claveDbf(f.getEntidadCodigo(), f.getUnidad(),
+                        String.valueOf(f.getCodOfi()), f.getCodResp()))) {
+                    omitidosPorCola++;
+                    continue;
+                }
+
                 if (!seenKeys.add(keyDbf)) {
                     duplicadosDbf++;
                     log.debug("⚠️ Duplicado REAL detectado en DBF: {}", keyDbf);
@@ -566,101 +596,61 @@ public class ResponsableController {
                     continue;
                 }
 
-                Persona persona = null;
-                boolean tieneCiValido = esCiValido(f.getCi());
+                String claveResponsable = oficina.getIdOficina() + "|" +
+                    (f.getCodResp() != null ? f.getCodResp().trim() : "NULL");
 
-                if (tieneCiValido) {
-                    String ciNorm = f.getCi().trim().replaceAll("[.\\-\\s]", "").toUpperCase();
-                    persona = personasCache.get(ciNorm);
+                Responsable responsable = responsablesCache.get(claveResponsable);
 
-                    if (persona == null) {
-                        String[] partes = procesarNombreCompleto(f.getNombre());
-                        String nombre = partes[0] == null || partes[0].isEmpty() ? "SIN DATOS" : partes[0];
-                        
-                        persona = new Persona();
-                        persona.setNombre(nombre);
-                        persona.setPaterno(partes[1]);
-                        persona.setMaterno(partes[2]);
-                        persona.setCi(ciNorm);
-                        persona.setEstado("ACTIVO");
-                        persona = personaService.save(persona);
-
-                        personasCache.put(ciNorm, persona);
-                        personasCreadas++;
-                    } else {
-                        boolean nombreInvalido = "SIN DATOS".equals(persona.getNombre()) 
-                                                || persona.getNombre() == null 
-                                                || persona.getNombre().isBlank();
-
-                        if (nombreInvalido && f.getNombre() != null && !f.getNombre().isBlank()) {
-                            log.info("♻️ Reparando nombre Persona ID {}: '{}'", persona.getIdPersona(), f.getNombre());
-                            String[] partes = procesarNombreCompleto(f.getNombre());
-                            persona.setNombre(partes[0]);
-                            persona.setPaterno(partes[1]);
-                            persona.setMaterno(partes[2]);
-                            persona = personaService.save(persona);
-                            personasCache.put(ciNorm, persona);
-                        }
-                    }
-                } else if (f.getNombre() != null && !f.getNombre().isBlank()) {
-                    String[] partes = procesarNombreCompleto(f.getNombre());
-                    String nombreCompletoNorm = String.join(" ", partes[0], nvl(partes[1]), nvl(partes[2])).trim();
-                    
-                    persona = personasCache.get("NOMBRE:" + nombreCompletoNorm);
-                    
-                    if (persona == null) {
-                         persona = personaService.buscarPersonaPorNombreCompletoUno(partes[0], partes[1], partes[2]);
-                         if (persona == null) {
-                            persona = new Persona();
-                            persona.setNombre(partes[0]);
-                            persona.setPaterno(partes[1]);
-                            persona.setMaterno(partes[2]);
-                            persona.setEstado("ACTIVO");
-                            persona = personaService.save(persona);
-                            personasCreadas++;
-                         }
-                         personasCache.put("NOMBRE:" + nombreCompletoNorm, persona);
-                    }
-                } else {
-                    persona = personasCache.get("NOMBRE:SIN DATOS");
-                    if (persona == null) {
-                        persona = personaService.buscarPersonaPorNombreCompletoUno("SIN DATOS", null, null);
-                        if (persona == null) {
-                             persona = new Persona();
-                             persona.setNombre("SIN DATOS");
-                             persona.setEstado("ACTIVO");
-                             persona = personaService.save(persona);
-                        }
-                        personasCache.put("NOMBRE:SIN DATOS", persona);
-                    }
-                    sinCi++;
+                if (responsable != null && conOrdenPendiente.contains(responsable.getIdResponsable())) {
+                    omitidosPorCola++;
+                    continue;
+                }
+                // Marcada pendiente (su último envío no llegó, p. ej. falló al aplicar un cambio de
+                // Personas y cargos) y el DBF dice otra cosa: el dato bueno es el del SCIAF. No se
+                // pisa; se reenvía desde Responsables. Si coincide, se desmarca como siempre.
+                if (responsable != null && responsable.isPendienteDbf() && !coincideConDbf(responsable, f)) {
+                    omitidosPorCola++;
+                    continue;
                 }
 
-                if (persona == null) continue;
+                // getIdPersona() de un proxy no lo inicializa: no hay consulta por fila.
+                Long idPersonaActual = responsable != null && responsable.getPersona() != null
+                        ? responsable.getPersona().getIdPersona() : null;
+                // La Ñ tecleada en el VSIAF viene en código DOS y en CP1252 se lee «¥». Se repone
+                // aquí y no en JavaDbfService: upsertResponsable relee y reescribe RESP.DBF entero
+                // con ese lector, y cambiaría los bytes de filas que nadie tocó.
+                String nombreDbf = TextoVsiaf.repararEnieDos(f.getNombre());
+                String cargoDbf = TextoVsiaf.repararEnieDos(f.getCargo());
+                Persona persona = personas.resolver(nombreDbf, f.getCi(), idPersonaActual);
 
                 Cargo cargo = null;
-                if (f.getCargo() != null && !f.getCargo().isBlank()) {
-                    String keyCargo = f.getCargo().toUpperCase().trim();
+                if (cargoDbf != null && !cargoDbf.isBlank()) {
+                    String keyCargo = cargoDbf.toUpperCase().trim();
                     cargo = cargosCache.get(keyCargo);
+                    if (cargo == null && keyCargo.indexOf('Ñ') >= 0) {
+                        // Cargo creado por la sync vieja con la Ñ leída como «¥» (o «¤» si era ñ):
+                        // se usa ese mismo, sin renombrarlo (la corrección la hace un usuario en
+                        // el módulo de cargos). Así no nace un cargo duplicado.
+                        cargo = cargosCache.get(keyCargo.replace('Ñ', '¥'));
+                        if (cargo == null) cargo = cargosCache.get(keyCargo.replace('Ñ', '¤'));
+                        if (cargo != null) cargosConEnieVieja.add(cargo.getNombre());
+                    }
                     if (cargo == null) {
                         cargo = new Cargo();
-                        cargo.setNombre(f.getCargo().trim());
+                        cargo.setNombre(cargoDbf.trim());
                         cargo.setEstado("ACTIVO");
                         cargo = cargoService.save(cargo);
                         cargosCache.put(keyCargo, cargo);
+                        cargosPorId.put(cargo.getIdCargo(), cargo);
                         cargosCreados++;
                     }
+                    cargo = seguirFusion(cargo, cargosPorId);
                 }
-
-                String claveResponsable = oficina.getIdOficina() + "|" + 
-                    (f.getCodResp() != null ? f.getCodResp().trim() : "NULL");
-                
-                Responsable responsable = responsablesCache.get(claveResponsable);
 
                 if (responsable != null) {
                     colisionesPorClave.merge(claveResponsable, 1, Integer::sum);
                 }
-                
+
                 boolean esNuevo = (responsable == null);
                 
                 if (esNuevo) {
@@ -675,7 +665,7 @@ public class ResponsableController {
                 responsable.setPersona(persona);
                 responsable.setCargo(cargo);
                 
-                String observ = f.getObserv();
+                String observ = TextoVsiaf.repararEnieDos(f.getObserv());
                 if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) observ = null;
                 responsable.setObserv(observ);
                 
@@ -725,8 +715,15 @@ public class ResponsableController {
             syncControlService.registrarSincronizacion("responsable", resultado);
             
             Map<String, Object> response = resultado.toResponseMap();
-            response.put("personasCreadas", personasCreadas);
+            response.putAll(personas.contadores());
+            response.put("cargosCreados", cargosCreados);
+            response.put("sugerenciasCargoEnie", cargosConEnieVieja.size());
+            response.put("omitidosPorColaPendiente", omitidosPorCola);
             response.put("duplicadosDbf", duplicadosDbf);
+            log.info("Sync RESP: {}", response);
+            // Correcciones que la sync NO hace sola: las aplica un usuario desde el módulo.
+            personas.sugerencias().forEach(sg -> log.info("Sync RESP sugerencia · {}", sg));
+            cargosConEnieVieja.forEach(c -> log.info("Sync RESP sugerencia · CARGO_ENIE · «{}»", c));
             return ResponseEntity.ok(response);
 
         } catch (Exception ex) {
@@ -772,44 +769,16 @@ public class ResponsableController {
         return cache;
     }
 
-    private Map<String, Persona> cargarPersonasEnCache() {
-        List<Persona> todas = personaService.findAll();
-        Map<String, Persona> cache = new HashMap<>(todas.size() * 2);
-        log.info("=== CONSTRUYENDO CACHÉ DE PERSONAS ===");
-        
-        for (Persona p : todas) {
-            if (p.getCi() != null && !p.getCi().isBlank()) {
-                String ciNormalizado = p.getCi().trim()
-                .replaceAll("[.\\-\\s]", "")
-                .toUpperCase();
-            
-                if (ciNormalizado.matches("\\d{5,}")) {
-                    cache.put(ciNormalizado, p);
-                }
-            }
-            
-            String nombreCompleto = String.join(" ",
-                p.getNombre() != null ? p.getNombre().trim() : "",
-                p.getPaterno() != null ? p.getPaterno().trim() : "",
-                p.getMaterno() != null ? p.getMaterno().trim() : ""
-            ).trim().toUpperCase();
-            
-            if (!nombreCompleto.isEmpty()) {
-                cache.put("NOMBRE:" + nombreCompleto, p);
-            }
-        }
-        log.info("✅ Personas en caché: {} (con {} claves)", todas.size(), cache.size());
-        return cache;
-    }
-
-    private Map<String, Cargo> cargarCargosEnCache() {
-        List<Cargo> todos = cargoService.findAll();
+    private Map<String, Cargo> cargarCargosEnCache(List<Cargo> todos) {
         
         return todos.stream()
             .collect(Collectors.toMap(
                 c -> (c.getNombre() != null ? c.getNombre().toUpperCase().trim() : ""),
                 c -> c,
-                (existing, replacement) -> existing,
+                // Mismo nombre en dos cargos (p. ej. el vigente y uno juntado en él): gana el
+                // vigente; si no, el primero. El FUSIONADO se sigue luego con seguirFusion.
+                // (sin estado cuenta como vigente; ELIMINADO / FUSIONADO pierden).
+                (existing, replacement) -> !vigente(existing) && vigente(replacement) ? replacement : existing,
                 HashMap::new
             ));
     }
@@ -998,25 +967,75 @@ public class ResponsableController {
         return new String[]{nombre, paterno, materno};
     }
 
+    /** Conserva la Ñ: antes la cambiaba por N y la sync guardaba ACUNA / MUNOZ. */
     private String limpiarNombre(String nombre) {
-        if (nombre == null || nombre.isBlank()) {
-            return "";
-        }
-        
-        String limpio = nombre.toUpperCase().trim();
-        
-        limpio = limpio
-            .replace("Á", "A")
-            .replace("É", "E")
-            .replace("Í", "I")
-            .replace("Ó", "O")
-            .replace("Ú", "U")
-            .replace("Ñ", "N")
-            .replace("-", " ")
-            .replace(".", " ");
+        return IdentidadPersona.normalizarNombre(nombre);
+    }
 
-        limpio = limpio.replaceAll("[^A-Z0-9\\s]", "");
-        return limpio.replaceAll("\\s+", " ").trim();
+    /**
+     * Responsables cuya última orden a RESP no quedó OK (ENCOLADA o ERROR), y las claves del
+     * DBF que esas órdenes buscan (la clave vieja, si la orden cambiaba oficina o código).
+     */
+    private void ordenesRespSinAplicar(Set<Long> ids, Set<String> clavesDbf) {
+        Map<Long, DbfColaOrden> ultima = new HashMap<>();
+        for (DbfColaOrden o : colaOrdenDao.findByTablaAndIdRegistroIsNotNullOrderByIdOrdenAsc("RESP")) {
+            ultima.put(o.getIdRegistro(), o);
+        }
+        for (DbfColaOrden o : ultima.values()) {
+            if (DbfColaOrden.ENCOLADA.equals(o.getEstado()) || DbfColaOrden.ERROR.equals(o.getEstado())) {
+                ids.add(o.getIdRegistro());
+                Map<String, String> c = new HashMap<>();
+                // Formato de DbfColaRegistroService: "ENTIDAD=148 UNIDAD=CULP CODOFIC=323 CODRESP=2".
+                if (o.getClave() != null) {
+                    for (String par : o.getClave().trim().split("\\s+")) {
+                        int eq = par.indexOf('=');
+                        if (eq > 0) c.put(par.substring(0, eq), par.substring(eq + 1));
+                    }
+                }
+                if (c.containsKey("CODOFIC") && c.containsKey("CODRESP")) {
+                    clavesDbf.add(claveDbf(c.get("ENTIDAD"), c.get("UNIDAD"), c.get("CODOFIC"), c.get("CODRESP")));
+                }
+            }
+        }
+    }
+
+    private static String claveDbf(String entidad, String unidad, String codOfic, String codResp) {
+        return String.join("|", nvl(entidad).trim(), nvl(unidad).trim().toUpperCase(),
+                soloNumero(codOfic), soloNumero(codResp));
+    }
+
+    private static String soloNumero(String s) {
+        String d = nvl(s).replaceAll("\\D", "");
+        return d.isEmpty() ? "" : String.valueOf(Long.parseLong(d));
+    }
+
+    /** ¿RESP.DBF ya tiene lo que el SCIAF quiere escribir en esta fila (nombre, C.I., cargo)? */
+    private static boolean coincideConDbf(Responsable r, com.usic.SistemasActivosFijosUAP.model.dto.interoperabilidad.ResponsableDbf f) {
+        Persona p = r.getPersona();
+        String nomresp = p == null ? "" : com.usic.SistemasActivosFijosUAP.model.service.personas.PlanPersona.nomresp(
+                new com.usic.SistemasActivosFijosUAP.model.service.personas.PlanPersona.DatosPersona(
+                        p.getIdPersona(), p.getNombre(), p.getPaterno(), p.getMaterno(), null, null, false));
+        boolean nombre = IdentidadPersona.normalizarNombre(nomresp)
+                .equals(IdentidadPersona.normalizarNombre(TextoVsiaf.repararEnieDos(f.getNombre())));
+        boolean ci = nvl(p == null ? null : p.getCi()).trim().equalsIgnoreCase(nvl(f.getCi()).trim());
+        String cargoSciaf = r.getCargo() == null ? "" : nvl(r.getCargo().getNombre());
+        boolean cargo = cargoSciaf.trim().equalsIgnoreCase(nvl(TextoVsiaf.repararEnieDos(f.getCargo())).trim());
+        return nombre && ci && cargo;
+    }
+
+    private static boolean vigente(Cargo c) {
+        return c.getEstado() == null || "ACTIVO".equals(c.getEstado());
+    }
+
+    /** Un cargo normalizado en el módulo de personas y cargos apunta al que quedó. */
+    private static Cargo seguirFusion(Cargo c, Map<Long, Cargo> porId) {
+        int saltos = 0;
+        while (c != null && "FUSIONADO".equals(c.getEstado()) && c.getFusionadoEn() != null && saltos++ < 10) {
+            Cargo destino = porId.get(c.getFusionadoEn());
+            if (destino == null) break;
+            c = destino;
+        }
+        return c;
     }
 
     private static String nvl(String s) {

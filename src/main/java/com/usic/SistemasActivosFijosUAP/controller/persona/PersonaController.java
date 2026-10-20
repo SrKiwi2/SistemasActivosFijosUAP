@@ -30,6 +30,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.SesionPermisosService;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService;
+import com.usic.SistemasActivosFijosUAP.model.service.personas.PersonaHistorialService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class PersonaController {
     private final IUsuarioService usuarioService;
     private final SesionPermisosService sesionPermisos;
     private final ResponsableGestionService responsableGestionService;
+    private final PersonaHistorialService personaHistorial;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -182,7 +184,8 @@ public class PersonaController {
         }
 
         String nombreYCiAntes = ResponsableGestionService.nombreYCi(actual);
-        boolean identificableAntes = ResponsableGestionService.esIdentificable(actual);
+        boolean identificableAntes = responsableGestionService.esIdentificable(actual);
+        Map<String, Object> fotoAntes = PersonaHistorialService.foto(actual);
         actual.setCi(persona.getCi());
         actual.setNombre(persona.getNombre());
         actual.setPaterno(persona.getPaterno());
@@ -192,6 +195,9 @@ public class PersonaController {
             actual.setModificacionIdUsuario(usuario.getIdUsuario());
         }
         personaService.save(actual);
+        if (!nombreYCiAntes.equals(ResponsableGestionService.nombreYCi(actual))) {
+            personaHistorial.registrarDatos(fotoAntes, actual, usuario, PersonaHistorialService.ORIGEN_PERSONA);
+        }
 
         // Si la persona tiene usuario, su sesión guarda el nombre viejo (barra superior):
         // se rearma sola y el navegador lo cambia al momento.

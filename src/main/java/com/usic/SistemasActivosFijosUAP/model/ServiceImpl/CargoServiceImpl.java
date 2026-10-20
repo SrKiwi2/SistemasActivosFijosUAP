@@ -35,9 +35,24 @@ public class CargoServiceImpl implements ICargoService{
         dao.deleteById(idEntidad);
     }
 
+    /**
+     * Cargo vigente con ese nombre exacto. Si hay más de uno, el más antiguo (antes lanzaba
+     * error de resultado único). Si solo existe juntado en otro (FUSIONADO, Personas y cargos),
+     * devuelve aquel en el que quedó: así Bajas, Transferencias, Asignaciones, Ingresos y el
+     * alta de responsables no vuelven a crear un cargo ya juntado.
+     */
     @Override
     public Cargo buscarPorNombre(String nombre) {
-        return dao.buscarPorNombre(nombre);
+        List<Cargo> mismos = dao.findByNombreOrderByIdCargoAsc(nombre);
+        for (Cargo c : mismos) if ("ACTIVO".equals(c.getEstado())) return c;
+        for (Cargo c : mismos) {
+            Cargo d = c;
+            for (int saltos = 0; d != null && "FUSIONADO".equals(d.getEstado()) && d.getFusionadoEn() != null && saltos < 10; saltos++) {
+                d = dao.findById(d.getFusionadoEn()).orElse(null);
+            }
+            if (d != null && "ACTIVO".equals(d.getEstado())) return d;
+        }
+        return null;
     }
 
     @Override

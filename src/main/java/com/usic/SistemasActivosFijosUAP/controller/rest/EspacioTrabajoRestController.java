@@ -65,11 +65,23 @@ public class EspacioTrabajoRestController {
                         m.put("fecha", e.getFechaActualizacion() != null ? e.getFechaActualizacion().toString() : null);
                         return ResponseEntity.ok(m);
                     })
-                    .orElseGet(() -> ResponseEntity.ok(Map.of("ok", true, "clave", clave, "datos", (Object) null)));
+                    .orElseGet(() -> ResponseEntity.ok(sinDatos(true, clave)));
         } catch (Exception e) {
             log.warn("[ESPACIO] No se pudo leer '{}' de {}: {}", clave, u.getUsuario(), e.getMessage());
-            return ResponseEntity.ok(Map.of("ok", false, "clave", clave, "datos", (Object) null));
+            return ResponseEntity.ok(sinDatos(false, clave));
         }
+    }
+
+    /**
+     * Respuesta «no hay nada guardado». Con HashMap y no Map.of: Map.of no acepta null y
+     * tiraba NullPointerException (500) en toda pantalla abierta por primera vez.
+     */
+    private static Map<String, Object> sinDatos(boolean ok, String clave) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ok", ok);
+        m.put("clave", clave);
+        m.put("datos", null);
+        return m;
     }
 
     @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)

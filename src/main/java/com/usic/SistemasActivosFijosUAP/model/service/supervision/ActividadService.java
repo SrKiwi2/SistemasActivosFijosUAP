@@ -37,6 +37,8 @@ public class ActividadService {
 
     public static final String MOD_OFICINA = "OFICINA";
     public static final String MOD_RESPONSABLE = "RESPONSABLE";
+    public static final String MOD_PERSONA = "PERSONA";
+    public static final String MOD_CARGO = "CARGO";
     public static final String MOD_ACTIVO = "ACTIVO";
     public static final String MOD_ASIGNACION = "ASIGNACION";
     public static final String MOD_TRANSFERENCIA = "TRANSFERENCIA";

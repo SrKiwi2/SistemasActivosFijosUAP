@@ -39,6 +39,27 @@ prefijo era `ad-` y el formulario (`ad-panel`) no aparecía en Brave. Por eso:
 - prefijo de módulo **nunca** `ad-`, `ads-`, `adv-` ni palabras como `banner`, `sponsor`, `promo`;
 - si hay duda, comparar las clases contra EasyList (`##.clase`) antes de publicar.
 
+## Que la pantalla entre en la ventana (sin scroll de página)
+
+Lo que más alto roba en una laptop (1366×768 deja ~630 px útiles; barra superior + pestañas ya
+usan ~145) es la cabecera cuando se parte en varias líneas. Lo aplicado en Activos adicionales
+(`adicional/vista.html`, bloque «Responsive»), reutilizable:
+
+- `.sm-cabecera-texto { flex: 1 1 280px }` y subtítulo a una línea (`-webkit-line-clamp: 1`,
+  texto completo en `title`): el ícono ya no queda solo en una fila.
+- Con un formulario abierto, ocultar los totales y el botón «Nuevo» de la cabecera.
+- `@media (max-height: 820px)` / `(max-height: 660px)`: menos relleno, sin migas, título menor.
+- Ocultar columnas según el ancho **del listado**, no de la ventana (el menú lateral le quita
+  260 px): `container-type: inline-size` en la tarjeta del listado + `@container`. Nunca en la
+  raíz del módulo: el contenedor encierra a los `position: fixed` y la ventana modal vive ahí.
+- Filas de alto parejo (descripción a 2 líneas, ubicación a 1 con ellipsis) para que «Ajustar a
+  pantalla» acierte; `minFilas: 3`.
+- Al cambiar de vista (listado ↔ formulario) la cabecera cambia de alto sin que cambie la ventana:
+  volver a medir (`ajustarAlto` devuelve la función; la tabla escucha `resize`) y un
+  `ResizeObserver` sobre la cabecera (menú lateral que se abre o cierra).
+- Para probarlo, el marco real importa (barra superior fija, pestañas, `#contenido`): en una
+  página suelta no aparece el scroll.
+
 ## Estructura de un módulo
 
 - **`vista.html`**: `.sm-cabecera` (migas, título, subtítulo, totales `.sm-dato`, botón principal)

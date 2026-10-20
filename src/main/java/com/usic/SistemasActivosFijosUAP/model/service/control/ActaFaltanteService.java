@@ -89,6 +89,7 @@ public class ActaFaltanteService {
     private final IOficinaDao oficinaDao;
     private final IHallazgoInventarioDao hallazgoDao;
     private final IActivoDao activoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.dao.IActivoDuplicadoDao duplicadoDao;
     private final IPersonasDao personaDao;
     private final IConfiguracionGestionDao configuracionDao;
     private final CustodiaFaltantesRepo repo;
@@ -902,6 +903,10 @@ public class ActaFaltanteService {
         Oficina o = a.getOficina();
         if (o == null || o.getPredio() == null) return "no tiene oficina o predio";
         if (r.isEsCustodia() || o.isEsCustodia()) return "ya está en una oficina de faltantes";
+        if (r.isEsDuplicados() || o.isEsDuplicados()) return "está en la oficina de duplicados (es un registro duplicado, no un faltante)";
+        if (!duplicadoDao.pendientesDelActivo(a.getIdActivo()).isEmpty()) {
+            return "está registrado como duplicado (Activos duplicados): no es un faltante";
+        }
         if (Boolean.TRUE.equals(a.getBloqueado())) return "está bloqueado";
         return null;
     }

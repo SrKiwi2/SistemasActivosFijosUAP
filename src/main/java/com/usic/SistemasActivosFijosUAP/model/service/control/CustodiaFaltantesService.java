@@ -578,6 +578,10 @@ public class CustodiaFaltantesService {
             throw new ReglaNegocioException("Este responsable ya es de la oficina de faltantes: "
                     + "sus bienes ya están en custodia.");
         }
+        if (r.isEsDuplicados() || oficina.isEsDuplicados()) {
+            throw new ReglaNegocioException("Este responsable es de la oficina de duplicados: "
+                    + "sus bienes son registros duplicados, no faltantes.");
+        }
         return r;
     }
 

@@ -183,10 +183,10 @@ public class CustodiaFaltantesRepo {
                    pe.ci, c.nombre as cargo, o.id_oficina, o.cod_ofi, o.nombre as oficina,
                    (r.id_responsable = ?) as original, (o.id_oficina = ?) as de_origen
             from responsable r
-            join oficina o      on o.id_oficina = r.id_oficina and not o.es_custodia and o._estado = 'ACTIVO'
+            join oficina o      on o.id_oficina = r.id_oficina and not o.es_custodia and not o.es_duplicados and o._estado = 'ACTIVO'
             left join persona pe on pe.id_persona = r.id_persona
             left join cargo c    on c.id_cargo = r.id_cargo
-            where o.id_predio = ? and not r.es_custodia and r._estado = 'ACTIVO'
+            where o.id_predio = ? and not r.es_custodia and not r.es_duplicados and r._estado = 'ACTIVO'
               and (? = '' or lower(concat_ws(' ', r.codigo_funcionario, pe.nombre, pe.paterno, pe.materno, pe.ci, o.nombre,
                                               cast(o.cod_ofi as text))) like ?)
             order by original desc, de_origen desc, nombre, o.cod_ofi

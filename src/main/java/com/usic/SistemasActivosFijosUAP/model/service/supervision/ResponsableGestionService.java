@@ -20,6 +20,10 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ResponsableAltaService;
 import com.usic.SistemasActivosFijosUAP.model.service.VsiafApoyoService;
+import com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona;
+import com.usic.SistemasActivosFijosUAP.model.service.personas.PersonaHistorialService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IParametroSistemaDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.ParametroSistema;
 
 import lombok.RequiredArgsConstructor;
 
@@ -41,6 +45,8 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
     private final ResponsableAltaService responsableAltaService;
     private final VsiafApoyoService vsiafApoyoService;
     private final ActividadService actividadService;
+    private final IParametroSistemaDao parametroDao;
+    private final PersonaHistorialService personaHistorial;
 
     /** Datos del formulario de edición. */
     public record DatosResponsable(Long idResponsable, String ci, Short codExp, String codigoFuncionario,
@@ -215,6 +221,7 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
         }
         String nombreYCiAntes = nombreYCi(persona);
         boolean identificableAntes = esIdentificable(persona);
+        Map<String, Object> fotoAntes = persona.getIdPersona() != null ? PersonaHistorialService.foto(persona) : null;
         persona.setNombre(ResponsableAltaService.mayus(d.nombre()));
         persona.setPaterno(ResponsableAltaService.mayus(d.paterno()));
         persona.setMaterno(ResponsableAltaService.mayus(d.materno()));
@@ -222,6 +229,9 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
         persona.setCorreo(ResponsableAltaService.limpiar(d.correo()));
         persona = personaService.save(persona);
         r.setPersona(persona);
+        if (fotoAntes != null && !Objects.equals(nombreYCiAntes, nombreYCi(persona))) {
+            personaHistorial.registrarDatos(fotoAntes, persona, autor, PersonaHistorialService.ORIGEN_RESPONSABLE);
+        }
 
         r.setOficina(nuevaOficina);
         r.setCargo(responsableAltaService.obtenerCargo(cargoEfectivo(r, d), autor));
@@ -296,14 +306,48 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
     }
 
     /**
+     * Manda al VSIAF (UPDATE por la cola) lo que el SCIAF tiene hoy de una fila de responsable:
+     * NOMRESP, C.I. y cargo. La usa «Personas y cargos» después de guardar. Devuelve null si la
+     * fila todavía no está en el VSIAF (pendiente o rechazada): no hay qué actualizar, su
+     * alta leerá el dato vigente.
+     */
+    public VsiafApoyoService.Envio enviarFilaAlVsiaf(Long idResponsable, String usuarioNombre) {
+        return enviarFilaAlVsiaf(idResponsable, usuarioNombre, false);
+    }
+
+    /**
+     * @param yaEstaEnVsiaf la fila estaba en el VSIAF antes del cambio y quien llama la marcó
+     *                      pendiente a propósito (para que la sync no la pise mientras viaja):
+     *                      se manda el UPDATE sin tomar esa marca como «nunca se envió».
+     */
+    public VsiafApoyoService.Envio enviarFilaAlVsiaf(Long idResponsable, String usuarioNombre, boolean yaEstaEnVsiaf) {
+        Responsable r = buscar(idResponsable);
+        if (!yaEstaEnVsiaf
+                && vsiafApoyoService.necesitaAlta(VsiafApoyoService.TABLA_RESP, r.getIdResponsable(), r.isPendienteDbf())) {
+            return null;
+        }
+        return vsiafApoyoService.actualizarResponsable(r, vsiafApoyoService.claveDe(r), usuarioNombre);
+    }
+
+    /**
      * ¿La persona es un individuo reconocible y no un registro "comodín" de la sincronización?
      * Lo es si tiene un C.I. válido (el mismo criterio con el que la sincronización enlaza por
-     * C.I.: 5 o más dígitos) y no es la persona "SIN DATOS".
+     * C.I.: {@link IdentidadPersona#numeroCi}) y su nombre no es una marca del VSIAF.
      */
-    public static boolean esIdentificable(Persona p) {
-        if (p == null || "SIN DATOS".equalsIgnoreCase(nvl(p.getNombre()).trim())) return false;
-        String ci = nvl(p.getCi()).trim().replaceAll("[.\\-\\s]", "");
-        return ci.matches("\\d{5,}");
+    public boolean esIdentificable(Persona p) {
+        if (p == null) return false;
+        // Mismas reglas que la sync: C.I. falsos (000000, 1234567… y los del parámetro) y
+        // marcas del VSIAF (ACEFALO, … DEVOLUCION, SIN DATOS) no identifican a nadie.
+        String nombre = IdentidadPersona.normalizarNombre(
+                String.join(" ", nvl(p.getNombre()), nvl(p.getPaterno()), nvl(p.getMaterno())));
+        if (IdentidadPersona.esNombreEspecial(nombre)) return false;
+        return IdentidadPersona.numeroCi(p.getCi(), ciInvalidos()) != null;
+    }
+
+    /** C.I. falsos vigentes: los de por defecto más el parámetro {@code personas.ci_invalidos}. */
+    public Set<String> ciInvalidos() {
+        return IdentidadPersona.ciInvalidos(parametroDao.findById(IdentidadPersona.CLAVE_CI_INVALIDOS)
+                .map(ParametroSistema::getValor).orElse(null));
     }
 
     private boolean tieneOtrosResponsables(Persona p, Responsable r) {

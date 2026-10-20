@@ -49,6 +49,7 @@ public class ResponsableAltaService {
     private final IResponsableService responsableService;
     private final IPersonaService personaService;
     private final ICargoService cargoService;
+    private final com.usic.SistemasActivosFijosUAP.model.dao.ICargoDao cargoDao;
     private final IOficinaService oficinaService;
 
     /** Datos del formulario de alta. */
@@ -218,6 +219,15 @@ public class ResponsableAltaService {
         if (nombre == null) return null;
         Cargo cargo = cargoService.buscarPorNombre(nombre);
         if (cargo != null) return cargo;
+
+        // Un cargo juntado en otro (Personas y cargos › Cargos) queda FUSIONADO: si alguien
+        // escribe su texto viejo, se usa el que quedó en vez de crear un duplicado.
+        Cargo viejo = cargoDao.findFirstByNombreIgnoreCase(nombre).orElse(null);
+        for (int saltos = 0; viejo != null && "FUSIONADO".equals(viejo.getEstado()) && viejo.getFusionadoEn() != null
+                && saltos < 10; saltos++) {
+            viejo = cargoDao.findById(viejo.getFusionadoEn()).orElse(null);
+        }
+        if (viejo != null && "ACTIVO".equals(viejo.getEstado())) return viejo;
 
         cargo = new Cargo();
         cargo.setNombre(nombre);

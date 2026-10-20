@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title th:text="${n != null} ? ${n.numeroImpreso()} + ' · Verificación' : 'Verificación de documento'">Verificación de notificación</title>
+    <style>
+        :root {
+            --fondo: #f3f5f9; --tarjeta: #ffffff; --texto: #1f2a37; --suave: #5f6b7a; --borde: #e3e7ee;
+            --azul: #213480; --ok: #13795b; --ok-f: #e3f5ee; --mal: #b0202d; --mal-f: #fbe7e9;
+            --aviso: #8a5a00; --aviso-f: #fff4dc;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--fondo); color: var(--texto);
+               font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        main { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+        header { text-align: center; margin-bottom: 18px; }
+        header .inst { font-size: .78rem; letter-spacing: .06em; color: var(--suave); text-transform: uppercase; }
+        header h1 { margin: 4px 0 0; font-size: 1.35rem; color: var(--azul); }
+        .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+        .estado { display: flex; gap: 12px; align-items: flex-start; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+        .estado b { display: block; font-size: 1.05rem; }
+        .estado.ok { background: var(--ok-f); color: var(--ok); }
+        .estado.mal { background: var(--mal-f); color: var(--mal); }
+        .estado.aviso { background: var(--aviso-f); color: var(--aviso); }
+        .estado .ico { font-size: 1.6rem; line-height: 1; }
+        dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+        dt { color: var(--suave); font-size: .82rem; }
+        dd { margin: 0; font-weight: 600; word-break: break-word; }
+        h2 { font-size: .95rem; margin: 0 0 10px; }
+        .bien { border: 1px solid var(--borde); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+        .bien .tit { font-size: .75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 4px; }
+        .bien.sobra .tit { color: var(--mal); }
+        .bien.queda .tit { color: var(--ok); }
+        .cod { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; font-weight: 700; color: var(--azul); }
+        .huella { font-family: ui-monospace, Consolas, monospace; letter-spacing: .04em; }
+        footer { text-align: center; color: var(--suave); font-size: .78rem; margin-top: 18px; }
+        @media (max-width: 480px) { dl { grid-template-columns: 1fr; gap: 2px; } dd { margin-bottom: 8px; } }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div class="inst">Universidad Amazónica de Pando · Sección de Activos Fijos</div>
+        <h1>Verificación de notificación de activo registrado como duplicado</h1>
+    </header>
+
+    <div th:if="${n == null}" class="estado mal">
+        <div class="ico">✕</div>
+        <div><b>Notificación no encontrada</b>
+            Este código no corresponde a ningún documento emitido por el SCIAF. Si el papel dice lo
+            contrario, el documento no es auténtico o el código está dañado.</div>
+    </div>
+
+    <th:block th:if="${n != null}">
+        <div th:if="${!n.integra()}" class="estado mal">
+            <div class="ico">!</div>
+            <div><b>El registro de este documento fue alterado</b>
+                El contenido guardado no coincide con su huella. Consulte a la Sección de Activos Fijos.</div>
+        </div>
+        <div th:if="${n.integra() and n.estado() == 'ANULADA'}" class="estado mal">
+            <div class="ico">✕</div>
+            <div><b>Notificación anulada</b>
+                <span th:text="'Se anuló' + (${n.fechaAnulacion() != null} ? ' el ' + ${#temporals.format(n.fechaAnulacion(), 'dd/MM/yyyy HH:mm')} : '')
+                     + (${n.motivoAnulacion() != null} ? ': ' + ${n.motivoAnulacion()} : '.')">Se anuló.</span></div>
+        </div>
+        <div th:if="${n.integra() and n.estado() == 'VIGENTE' and n.estadoCaso() == 'RETIRADO'}" class="estado aviso">
+            <div class="ico">i</div>
+            <div><b>Notificación auténtica · el activo ya salió de duplicados</b>
+                <span th:text="'Se retiró de la oficina de duplicados' + (${n.fechaRetiro() != null} ? ' el ' + ${#temporals.format(n.fechaRetiro(), 'dd/MM/yyyy')} : '')
+                     + (${n.justificacionRetiro() != null} ? ': ' + ${n.justificacionRetiro()} : '.')">Se retiró.</span></div>
+        </div>
+        <div th:if="${n.integra() and n.estado() == 'VIGENTE' and n.estadoCaso() != 'RETIRADO'}" class="estado ok">
+            <div class="ico">✓</div>
+            <div><b>Notificación auténtica y vigente</b>
+                Emitida por el SCIAF. Compare los datos de abajo con el papel: deben coincidir.</div>
+        </div>
+
+        <section class="tarjeta">
+            <dl>
+                <dt>Número</dt><dd th:text="${n.numeroImpreso()}">NOT:SCIAF:AD N° 001/2026</dd>
+                <dt>Destinatario</dt><dd th:text="${n.c().destinatario()}">—</dd>
+                <dt>C.I.</dt><dd th:text="${ciOculto != null} ? ${ciOculto} : '—'">—</dd>
+                <dt>Registrado por</dt><dd th:text="${n.c().registradoPor()}">—</dd>
+                <dt>Motivo</dt><dd th:text="${n.c().motivo()}">—</dd>
+                <dt th:if="${n.c().faltanteNumero() != null}">Faltante que aclara</dt>
+                <dd th:if="${n.c().faltanteNumero() != null}" th:text="${n.c().faltanteNumero()}">—</dd>
+            </dl>
+        </section>
+
+        <section class="tarjeta">
+            <h2>Registros</h2>
+            <div class="bien sobra">
+                <div class="tit">Duplicado · va a la ubicación de duplicados</div>
+                <div class="cod" th:text="${n.c().sobrante().codigo()}">—</div>
+                <div th:text="${n.c().sobrante().descripcion()}">—</div>
+            </div>
+            <div class="bien queda">
+                <div class="tit">Se conserva</div>
+                <div class="cod" th:text="${n.c().principal().codigo()}">—</div>
+                <div th:text="${n.c().principal().descripcion()}">—</div>
+            </div>
+        </section>
+
+        <footer>
+            Huella del contenido: <span class="huella" th:text="${n.huella()}">—</span><br>
+            Sistema de Control Interno de Activos Fijos – SCIAF
+        </footer>
+    </th:block>
+</main>
+</body>
+</html>

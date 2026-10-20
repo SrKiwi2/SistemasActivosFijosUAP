@@ -126,6 +126,7 @@ Work spans several machines, so in-flight task state lives in `docs/` handoff fi
 - `docs/HANDOFF_USUARIOS_MENU_RUTA.md` — faltante transfers marked in red, asset route tracking, user management, live permissions (no re-login), menu management (seeder is now insert-only).
 - `docs/HANDOFF_DONACIONES.md` — donated-asset registration (`/administracion/donacion`): `D`-series codes (`MUN-PRED-GRP-D00001`) that live only in the SCIAF; where the VSIAF guards are and what is pending.
 - `docs/HANDOFF_ADICIONALES.md` — additional assets (`/administracion/adicional`): items not previously registered, all fields optional, legacy code (`activo.codigo_antiguo`), `A`-series codes only when predio+grupo are known; SCIAF-only like donations.
+- `docs/PLAN_ACTIVOS_DUPLICADOS.md` — duplicated assets (`/administracion/duplicados`): same physical asset registered twice in VSIAF with two codes (revaluation error); the spare code goes to a per-predio `es_duplicados` office (separate from faltantes' `es_custodia`) with notification NOT:SCIAF:AD; decisions, files, pending items.
 - `docs/HANDOFF_PLANTILLA_MODULOS.md` — **active work**: migrating screens module-by-module to the shared template (`sciaf-modulo.*`, `sciaf-precarga.*`, guide in `docs/PLANTILLA_MODULOS.md`); modules done, open decisions, pitfalls and the user's working rules. Read first when continuing UI work.
 
 ### Security Configuration

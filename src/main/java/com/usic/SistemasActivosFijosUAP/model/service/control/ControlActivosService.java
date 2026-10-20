@@ -69,6 +69,7 @@ public class ControlActivosService {
     private final IInventarioDao        inventarioDao;
     private final IInventarioDetalleDao detalleDao;
     private final IHallazgoInventarioDao hallazgoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.dao.IActivoDuplicadoDao duplicadoDao;
     private final IActivoDao            activoDao;
     private final IOficinaDao           oficinaDao;
     private final IEstadoActivoDao      estadoActivoDao;
@@ -285,6 +286,12 @@ public class ControlActivosService {
             throw new ReglaNegocioException("La oficina " + oficina.getNombre()
                     + " es la oficina de faltantes del predio: no se hace levantamiento ahí. "
                     + "Sus bienes se siguen desde Faltantes.");
+        }
+        if (oficina.isEsDuplicados()) {
+            // Sus bienes son registros duplicados: no tienen bien físico propio y saldrían como faltantes.
+            throw new ReglaNegocioException("La oficina " + oficina.getNombre()
+                    + " es la oficina de duplicados del predio: no se hace levantamiento ahí. "
+                    + "Sus bienes se siguen desde Activos duplicados.");
         }
 
         Inventario inv = new Inventario();
@@ -638,6 +645,10 @@ public class ControlActivosService {
         }
         if (idActivo != null && TIPO_FALTANTE.equals(tipo) && hallazgoDao
                 .existsByActivoIdActivoAndTipoHallazgoAndEstadoHallazgoIn(idActivo, tipo, PENDIENTES)) {
+            return false;
+        }
+        // Registrado como duplicado (Activos duplicados): no tiene bien propio, no es un faltante.
+        if (idActivo != null && TIPO_FALTANTE.equals(tipo) && !duplicadoDao.pendientesDelActivo(idActivo).isEmpty()) {
             return false;
         }
 

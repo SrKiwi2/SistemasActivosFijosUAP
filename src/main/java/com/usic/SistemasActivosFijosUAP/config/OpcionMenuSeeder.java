@@ -77,6 +77,7 @@ public class OpcionMenuSeeder {
         { "opcion_persona",        "grp_usuarios",     "Persona",                      "ti ti-id-badge-2",       "blue",   "/administracion/persona/vista",                      "/administracion/persona",               "" },
         { "opcion_usuario",        "grp_usuarios",     "Usuario",                      "ti ti-user-cog",         "cyan",   "/administracion/usuario/vista",                      "/administracion/usuario",               "" },
         { "opcion_responsable",    "grp_usuarios",     "Responsables",                 "ti ti-user-check",       "teal",   "/administracion/responsable/vista",                  "/administracion/responsable",           "" },
+        { "opcion_personas_cargos","grp_usuarios",     "Personas y cargos",            "ti ti-users-group",      "amber",  "/administracion/personas-cargos/vista",              "/administracion/personas-cargos",       "" },
         { "opcion_menu_admin",     "grp_usuarios",     "Gestión de Menú",              "ti ti-menu-2",           "purple", "/administracion/menu/vista",                         "/administracion/menu",                  "" },
 
         { "opcion_comunicados",    "grp_comunicacion", "Comunicados",                  "ti ti-send",             "cyan",   "/administracion/comunicados/vista",                  "/administracion/comunicados",           "" },
@@ -122,6 +123,9 @@ public class OpcionMenuSeeder {
 
         { "opcion_control_mapa",      "grp_control",   "Mapa de Control",              "ti ti-layout-grid",      "red",    "/administracion/control-activos/vista",              "/administracion/control-activos",       "" },
         { "opcion_control_faltantes", "grp_control",   "Faltantes",                    "ti ti-alert-triangle",   "red",    "/administracion/control-activos/faltantes/vista",    "/administracion/control-activos/faltantes", "" },
+        // Mismo bien registrado dos veces en el VSIAF (error del revalúo): el código que sobra va a la
+        // oficina de duplicados del predio. Asignable al usuario de revalúos además de los administradores.
+        { "opcion_duplicados",        "grp_control",   "Activos duplicados",           "ti ti-copy",             "purple", "/administracion/duplicados/vista",                   "/administracion/duplicados",            "" },
 
         { "opcion_aan",            "grp_movimientos",  "Asignaciones",                 "ti ti-clipboard-check",  "green",  "/administracion/asignacion/vista",                   "/administracion/asignacion",            "" },
         { "opcion_ta",             "grp_movimientos",  "Transferencias",               "ti ti-arrows-exchange-2","blue",   "/administracion/transferencia/vista",                "/administracion/transferencia",         "" },

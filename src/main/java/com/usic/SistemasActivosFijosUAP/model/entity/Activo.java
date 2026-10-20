@@ -349,9 +349,24 @@ public class Activo extends AuditoriaConfig{
             || (responsable != null && responsable.isEsCustodia());
     }
 
-    /** Bloqueado o en custodia: no cambia de oficina ni de responsable por los caminos normales. */
+    /**
+     * El bien está en la oficina de duplicados de su predio: es el registro que sobra de un
+     * bien registrado dos veces. Como {@link #enCustodia()}, se deduce de la oficina o del
+     * responsable.
+     */
+    public boolean enDuplicados() {
+        return (oficina != null && oficina.isEsDuplicados())
+            || (responsable != null && responsable.isEsDuplicados());
+    }
+
+    /** En la oficina de faltantes o en la de duplicados: sale solo desde su módulo. */
+    public boolean enCustodiaODuplicados() {
+        return enCustodia() || enDuplicados();
+    }
+
+    /** Bloqueado, en custodia o en duplicados: no cambia de oficina ni de responsable por los caminos normales. */
     public boolean inmovilizado() {
-        return Boolean.TRUE.equals(bloqueado) || enCustodia();
+        return Boolean.TRUE.equals(bloqueado) || enCustodia() || enDuplicados();
     }
 
     /**
@@ -366,6 +381,10 @@ public class Activo extends AuditoriaConfig{
         if (enCustodia()) {
             return "El activo " + getCodigo() + " está en la oficina de faltantes: no se puede " + accion
                     + ". Sale de ahí resolviendo su faltante (Control de Activos → Faltantes).";
+        }
+        if (enDuplicados()) {
+            return "El activo " + getCodigo() + " está en la oficina de duplicados: no se puede " + accion
+                    + ". Sale de ahí con «Retirar de duplicados», con justificación (Control por responsable → Activos duplicados).";
         }
         return null;
     }

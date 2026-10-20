@@ -29,6 +29,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.adicional.AdicionalService;
+import com.usic.SistemasActivosFijosUAP.model.service.adicional.ReporteAdicionalService;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AdicionalController {
 
     private final AdicionalService adicionalService;
+    private final ReporteAdicionalService reporteAdicionalService;
     private final ActividadService actividadService;
     private final IGrupoContableService grupoService;
     private final IOrganismoFinancieroService financiadorService;
@@ -232,6 +234,40 @@ public class AdicionalController {
             log.error("No se generaron las etiquetas", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(org.springframework.http.MediaType.TEXT_PLAIN)
                     .body("No se pudo generar el PDF de etiquetas. Intente de nuevo.");
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/reportes/opciones")
+    @ResponseBody
+    public ResponseEntity<?> opcionesReporte(HttpServletRequest request) {
+        if (!puede(request)) return sinPermiso();
+        return ResponseEntity.ok(reporteAdicionalService.opciones(RolesSciaf.usuarioDe(request), opciones(request)));
+    }
+
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/reportes/asignacion.pdf")
+    public ResponseEntity<?> reporteAsignacion(@RequestParam Long oficinaId,
+                                                @RequestParam(required = false) Long responsableId,
+                                                @RequestParam(required = false) String fecha,
+                                                HttpServletRequest request) {
+        if (!puede(request)) return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Sin permiso para Activos adicionales.");
+        try {
+            java.time.LocalDateTime cuando;
+            try {
+                cuando = fecha == null || fecha.isBlank() ? null : java.time.LocalDateTime.parse(fecha);
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("La fecha del acta no es válida.");
+            }
+            byte[] pdf = reporteAdicionalService.generar(oficinaId, responsableId, cuando, RolesSciaf.usuarioDe(request), opciones(request));
+            return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                    .header("Content-Disposition", "inline; filename=acta-adicionales.pdf").body(pdf);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().contentType(org.springframework.http.MediaType.TEXT_PLAIN).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            log.error("No se generó el reporte de adicionales", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(org.springframework.http.MediaType.TEXT_PLAIN).body("No se pudo generar el reporte.");
         }
     }
 

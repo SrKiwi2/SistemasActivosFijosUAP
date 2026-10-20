@@ -63,6 +63,18 @@ public interface IActivoAdicionalDao extends JpaRepository<ActivoAdicional, Long
             """)
     Page<ActivoAdicional> listar(@Param("q") String q, Pageable pageable);
 
+    /** Bienes vigentes con oficina, para elegir e imprimir actas por responsable. */
+    @Query("""
+            select x from ActivoAdicional x join fetch x.activo a
+              join fetch a.oficina o left join fetch o.predio
+              left join fetch a.responsable r left join fetch r.persona left join fetch r.cargo
+              left join fetch a.estadoActivo
+            where a.estado = 'ACTIVO' and (:oficina is null or o.idOficina = :oficina)
+              and (:responsable is null or r.idResponsable = :responsable)
+            order by o.nombre, r.idResponsable, a.codigo, a.idActivo
+            """)
+    List<ActivoAdicional> paraReporte(@Param("oficina") Long oficina, @Param("responsable") Long responsable);
+
     @Query("select count(x) from ActivoAdicional x join x.activo a where a.estado <> 'ELIMINADO'")
     long contarTodos();
 

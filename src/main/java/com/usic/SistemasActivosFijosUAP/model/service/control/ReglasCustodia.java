@@ -21,9 +21,18 @@ public final class ReglasCustodia {
         boolean esCustodia = (oficina != null && oficina.isEsCustodia())
                 || (responsable != null && responsable.isEsCustodia())
                 || (responsable != null && responsable.getOficina() != null && responsable.getOficina().isEsCustodia());
-        if (!esCustodia) return null;
-        return "La oficina de faltantes no se puede elegir como destino: los bienes llegan ahí solo "
-                + "registrando el faltante (Control de Activos → Faltantes), que emite el acta.";
+        if (esCustodia) {
+            return "La oficina de faltantes no se puede elegir como destino: los bienes llegan ahí solo "
+                    + "registrando el faltante (Control de Activos → Faltantes), que emite el acta.";
+        }
+        boolean esDuplicados = (oficina != null && oficina.isEsDuplicados())
+                || (responsable != null && responsable.isEsDuplicados())
+                || (responsable != null && responsable.getOficina() != null && responsable.getOficina().isEsDuplicados());
+        if (esDuplicados) {
+            return "La oficina de duplicados no se puede elegir como destino: los bienes llegan ahí solo "
+                    + "registrándolos como duplicados (Control por responsable → Activos duplicados), que emite la notificación.";
+        }
+        return null;
     }
 
     /** @throws IllegalStateException si el destino es la oficina de faltantes */

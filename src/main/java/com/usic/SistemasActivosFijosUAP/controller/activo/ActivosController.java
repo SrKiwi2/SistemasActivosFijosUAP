@@ -1339,7 +1339,7 @@ public class ActivosController {
                 if (opt.isEmpty()) { noEncontrados.add(codigo); continue; }
                 Activo a = opt.get();
                 if (Boolean.TRUE.equals(a.getBloqueado())) { bloqueados.add(codigo); continue; }
-                if (a.enCustodia()) { enCustodia.add(codigo); continue; }
+                if (a.enCustodiaODuplicados()) { enCustodia.add(codigo); continue; }
 
                 Predio predioActual = (a.getOficina() != null) ? a.getOficina().getPredio() : null;
                 boolean cambiaPredio = predioActual == null
@@ -1449,7 +1449,7 @@ public class ActivosController {
                     Activo a = optActivo.get();
                     if (Boolean.TRUE.equals(a.getBloqueado())) {
                         activosBloqueados.add(codigo);
-                    } else if (a.enCustodia()) {
+                    } else if (a.enCustodiaODuplicados()) {
                         activosEnCustodia.add(codigo);
                     } else {
                         acos.add(new TransferenciaService.ActivoConOrigen(a));
@@ -1464,8 +1464,8 @@ public class ActivosController {
             }
             if (!activosEnCustodia.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
-                        "Estos activos están en la oficina de faltantes y salen de ahí solo resolviendo su faltante "
-                        + "(Control de Activos → Faltantes): " + String.join(", ", activosEnCustodia)));
+                        "Estos activos están en la oficina de faltantes o en la de duplicados y salen de ahí solo desde "
+                        + "su módulo (Control de Activos → Faltantes / Activos duplicados): " + String.join(", ", activosEnCustodia)));
             }
     
             if (acos.isEmpty()) {
@@ -1892,7 +1892,7 @@ public class ActivosController {
                     Activo a = optActivo.get();
                     if (Boolean.TRUE.equals(a.getBloqueado())) {
                         activosBloqueados.add(codigo);
-                    } else if (a.enCustodia()) {
+                    } else if (a.enCustodiaODuplicados()) {
                         activosEnCustodia.add(codigo);
                     } else {
                         activos.add(a);
@@ -1907,8 +1907,8 @@ public class ActivosController {
             }
             if (!activosEnCustodia.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false, "msg",
-                        "Estos activos están en la oficina de faltantes y salen de ahí solo resolviendo su faltante "
-                        + "(Control de Activos → Faltantes): " + String.join(", ", activosEnCustodia)));
+                        "Estos activos están en la oficina de faltantes o en la de duplicados y salen de ahí solo desde "
+                        + "su módulo (Control de Activos → Faltantes / Activos duplicados): " + String.join(", ", activosEnCustodia)));
             }
 
             if (activos.isEmpty()) {

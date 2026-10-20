@@ -1,0 +1,1135 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     PANTALLA: Personas y cargos (docs/PLAN_PERSONAS_UNIFICADAS.md, fases 2 y 4)
+     Plantilla sm-* (docs/PLANTILLA_MODULOS.md). Todo vive dentro de #modPersonasCargos,
+     el script es una IIFE sin globales y los desplegables se abren dentro de la raíz.
+
+     Flujo: elegir la persona principal → (opcional) sumarle otros registros de la misma
+     persona → elegir el cargo y las oficinas → Vista previa (no guarda) → Aplicar.
+     ADMINISTRADOR / SUPER USUARIO aplican directo; el resto deja una solicitud de
+     autorización. Sin VSIAF a la vista (localhost) solo se mira: Aplicar queda apagado.
+     Nunca toca bienes, oficinas ni códigos: solo persona, nombre, C.I. y cargo de cada fila.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="sm-pagina" id="modPersonasCargos">
+
+<style>
+    #modPersonasCargos .pc-cuerpo { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 14px; }
+    @media (max-width: 1100px) { #modPersonasCargos .pc-cuerpo { grid-template-columns: 1fr; } }
+    #modPersonasCargos .pc-col { min-width: 0; }
+    #modPersonasCargos .pc-scroll { max-height: calc(100vh - 300px); overflow: auto; }
+    #modPersonasCargos .pc-persona { display: flex; gap: 10px; align-items: center; }
+    #modPersonasCargos .pc-persona-nombre { font-weight: 700; font-size: 1.02rem; line-height: 1.2; }
+    #modPersonasCargos .pc-persona-sub { font-size: .82rem; opacity: .8; }
+    #modPersonasCargos .pc-suma { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+        border: 1px dashed var(--sm-borde, #d0d5dd); margin-top: 6px; font-size: .86rem; }
+    #modPersonasCargos .pc-suma .pc-suma-texto { flex: 1; min-width: 0; }
+    #modPersonasCargos .pc-grupo td { background: var(--sm-fondo-suave, rgba(115, 103, 240, .06)); font-weight: 600; }
+    #modPersonasCargos .pc-tabla td, #modPersonasCargos .pc-tabla th { padding: 5px 8px; font-size: .84rem; vertical-align: middle; }
+    #modPersonasCargos .pc-antes { text-decoration: line-through; opacity: .65; }
+    #modPersonasCargos .pc-despues { font-weight: 600; }
+    #modPersonasCargos .pc-flecha { opacity: .5; margin: 0 4px; }
+    #modPersonasCargos .pc-hist-item { border-left: 3px solid var(--sm-borde, #d0d5dd); padding: 4px 0 6px 10px; margin-bottom: 6px; font-size: .84rem; }
+    #modPersonasCargos .pc-hist-cab { opacity: .8; font-size: .78rem; }
+    #modPersonasCargos .pc-oculto { display: none !important; }
+    #modPersonasCargos .pc-acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    #modPersonasCargos .select2-container { width: 100% !important; }
+    #modPersonasCargos .pc-grupo-card { border: 1px solid var(--sm-borde, #d0d5dd); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+    #modPersonasCargos .pc-grupo-cab { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+    #modPersonasCargos .pc-grupo-cab .pc-grupo-titulo { font-weight: 700; flex: 1; min-width: 200px; }
+    #modPersonasCargos .pc-texto-final { max-width: 420px; }
+</style>
+
+<header class="sm-cabecera">
+    <div class="sm-cabecera-icono"><i class="ti ti-users-group"></i></div>
+    <div class="sm-cabecera-texto">
+        <nav class="sm-migas" aria-label="Ubicación">
+            <i class="ti ti-users"></i> Usuarios y Accesos <i class="ti ti-chevron-right"></i> Personas y cargos
+        </nav>
+        <h1 class="sm-titulo">Personas y cargos</h1>
+        <p class="sm-subtitulo" title="Elija a la persona, súmele sus otros registros si los tiene, y cambie el cargo en todas sus oficinas a la vez. Todo queda en el historial y se envía al VSIAF.">
+            Elija a la persona, súmele sus otros registros si los tiene, y cambie el cargo en todas sus oficinas a la vez.
+        </p>
+    </div>
+    <div class="sm-cabecera-acciones">
+        <span class="sm-dato"><strong class="js-n-oficinas">—</strong> oficinas</span>
+        <span class="sm-dato"><strong class="js-n-bienes">—</strong> bienes</span>
+    </div>
+</header>
+
+<div class="sm-aviso sm-aviso-aviso" th:if="${!vsiafDisponible}">
+    <i class="ti ti-eye"></i>
+    <div><b>Solo consulta.</b> <span th:text="${motivoSinVsiaf}"></span>
+        Aquí puede buscar, armar el cambio y ver la vista previa; para aplicarlo use el SCIAF del servidor.</div>
+</div>
+
+<div class="sm-segmento js-pestanas mb-2" role="tablist" aria-label="Secciones">
+    <button type="button" class="activo" data-panel="personas"><i class="ti ti-id"></i> Personas</button>
+    <button type="button" data-panel="cargos"><i class="ti ti-briefcase"></i> Cargos</button>
+    <button type="button" data-panel="historial"><i class="ti ti-history"></i> Historial</button>
+</div>
+
+<section class="sm-card js-panel" data-panel="personas">
+    <div class="sm-toolbar">
+        <div style="flex: 1 1 420px; min-width: 260px;">
+            <select class="js-principal" aria-label="Persona principal" data-placeholder="Busque a la persona por C.I. o nombre…">
+                <option value=""></option>
+            </select>
+        </div>
+        <div class="sm-toolbar-espacio"></div>
+        <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-recargar pc-oculto" title="Volver a leer la ficha">
+            <i class="ti ti-refresh"></i> Recargar
+        </button>
+    </div>
+
+    <div class="js-vacio sm-vacio">
+        <i class="ti ti-user-search"></i>
+        <h5 class="mb-1">Busque a una persona</h5>
+        <p class="mb-0">Por C.I. o por nombre. Verá todas sus oficinas tal como están en el VSIAF.</p>
+    </div>
+
+    <div class="js-ficha pc-oculto">
+        <div class="pc-cuerpo">
+            <!-- ── Izquierda: persona, registros que se suman, datos y cargo ── -->
+            <div class="pc-col pc-scroll">
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-id"></i> Persona principal</div>
+                    <div class="sm-seccion-cuerpo">
+                        <div class="pc-persona">
+                            <div class="sm-avatar"><i class="ti ti-user"></i></div>
+                            <div>
+                                <div class="pc-persona-nombre js-p-nombre"></div>
+                                <div class="pc-persona-sub js-p-sub"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-users-plus"></i> Otros registros de la misma persona</div>
+                    <div class="sm-seccion-cuerpo">
+                        <p class="sm-ayuda mb-2">Si la persona está registrada más de una vez (sin C.I., nombre escrito distinto,
+                            C.I. mal tipeado), súmela aquí: sus oficinas pasan a la principal y todas quedan con el mismo nombre,
+                            C.I. y cargo. El registro sumado no se borra (queda unificado).</p>
+                        <select class="js-sumar" aria-label="Sumar otro registro" data-placeholder="Buscar otro registro de esta persona…">
+                            <option value=""></option>
+                        </select>
+                        <div class="js-sumadas"></div>
+                    </div>
+                </div>
+
+                <div class="sm-seccion js-sec-datos pc-oculto">
+                    <div class="sm-seccion-cab"><i class="ti ti-writing"></i> Datos que quedan</div>
+                    <div class="sm-seccion-cuerpo">
+                        <p class="sm-ayuda mb-2">Así quedará la persona en el SCIAF y en <b>todas</b> sus filas del VSIAF
+                            (NOMRESP guarda 35 caracteres).</p>
+                        <div class="row g-2">
+                            <div class="col-12"><label class="sm-label">Nombre(s)</label>
+                                <input type="text" class="sm-input js-d-nombre" maxlength="60"></div>
+                            <div class="col-6"><label class="sm-label">Ap. paterno</label>
+                                <input type="text" class="sm-input js-d-paterno" maxlength="60"></div>
+                            <div class="col-6"><label class="sm-label">Ap. materno</label>
+                                <input type="text" class="sm-input js-d-materno" maxlength="60"></div>
+                            <div class="col-12"><label class="sm-label">C.I.</label>
+                                <input type="text" class="sm-input js-d-ci" maxlength="15"></div>
+                        </div>
+                        <div class="sm-ayuda mt-1 js-d-largo"></div>
+                        <div class="sm-ayuda mt-2">Usar los datos de: <span class="js-d-usar"></span></div>
+                    </div>
+                </div>
+
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-briefcase"></i> Cargo</div>
+                    <div class="sm-seccion-cuerpo">
+                        <select class="js-cargo" aria-label="Cargo" data-placeholder="Sin cambiar el cargo (o elija / escriba uno)">
+                            <option value=""></option>
+                        </select>
+                        <p class="sm-ayuda mt-1 mb-0">Se aplica a las oficinas marcadas a la derecha (todas, al empezar).
+                            Máximo 40 caracteres. Déjelo vacío para no cambiar cargos.</p>
+                    </div>
+                </div>
+
+                <div class="pc-acciones">
+                    <button type="button" class="sm-btn sm-btn-neutro js-previa"><i class="ti ti-eye-check"></i> Vista previa</button>
+                    <button type="button" class="sm-btn sm-btn-exito js-aplicar" disabled>
+                        <i class="ti ti-check"></i> <span class="js-aplicar-texto">Aplicar</span>
+                    </button>
+                </div>
+                <div class="sm-ayuda mt-1 js-estado-plan">Revise la vista previa antes de aplicar.</div>
+            </div>
+
+            <!-- ── Derecha: oficinas, vista previa, historial ── -->
+            <div class="pc-col pc-scroll">
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-building"></i> Oficinas (filas de RESP en el VSIAF)</div>
+                    <div class="sm-seccion-cuerpo">
+                        <div class="table-responsive">
+                            <table class="table sm-tabla pc-tabla mb-0">
+                                <thead><tr>
+                                    <th style="width: 28px;"><input type="checkbox" class="form-check-input js-todas" checked title="Marcar / desmarcar todas"></th>
+                                    <th>Oficina</th><th>Cód.</th><th>Registro</th><th class="text-end">Bienes</th><th>VSIAF</th>
+                                </tr></thead>
+                                <tbody class="js-filas"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sm-seccion js-sec-separar">
+                    <div class="sm-seccion-cab"><i class="ti ti-arrows-split"></i> Pasar oficinas a otra persona
+                        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave ms-auto js-sep-abrir">Abrir</button></div>
+                    <div class="sm-seccion-cuerpo js-sep-cuerpo pc-oculto">
+                        <p class="sm-ayuda mb-2">Para oficinas que NO son de esta persona (por ejemplo las de «SIN DATOS», o dos
+                            funcionarios registrados como uno). Marque cuáles pasan y a quién. Solo cambia de quién es cada oficina
+                            (y su nombre / C.I. en el VSIAF); el cargo, los bienes y el código quedan igual.</p>
+                        <div class="js-sep-aviso"></div>
+                        <div class="js-sep-filas mb-2"></div>
+                        <div class="d-flex gap-3 mb-2">
+                            <label><input type="radio" class="form-check-input js-sep-tipo" name="pc-sep-tipo" value="existe" checked> A una persona que ya existe</label>
+                            <label><input type="radio" class="form-check-input js-sep-tipo" name="pc-sep-tipo" value="nueva"> A una persona nueva</label>
+                        </div>
+                        <div class="js-sep-existe">
+                            <select class="js-sep-destino" aria-label="Persona destino" data-placeholder="Buscar la persona destino por C.I. o nombre…">
+                                <option value=""></option>
+                            </select>
+                        </div>
+                        <div class="js-sep-nueva pc-oculto">
+                            <div class="row g-2">
+                                <div class="col-12"><label class="sm-label">Nombre(s)</label><input type="text" class="sm-input js-sn-nombre" maxlength="60"></div>
+                                <div class="col-6"><label class="sm-label">Ap. paterno</label><input type="text" class="sm-input js-sn-paterno" maxlength="60"></div>
+                                <div class="col-6"><label class="sm-label">Ap. materno</label><input type="text" class="sm-input js-sn-materno" maxlength="60"></div>
+                                <div class="col-12"><label class="sm-label">C.I. (recomendado)</label><input type="text" class="sm-input js-sn-ci" maxlength="15"></div>
+                            </div>
+                        </div>
+                        <div class="pc-acciones">
+                            <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-sep-previa"><i class="ti ti-eye-check"></i> Vista previa</button>
+                            <button type="button" class="sm-btn sm-btn-exito sm-btn-sm js-sep-aplicar" disabled><i class="ti ti-check"></i> <span class="js-sep-aplicar-texto">Pasar oficinas</span></button>
+                        </div>
+                        <div class="js-sep-plan mt-2"></div>
+                    </div>
+                </div>
+
+                <div class="sm-seccion js-sec-plan pc-oculto">
+                    <div class="sm-seccion-cab"><i class="ti ti-list-check"></i> Vista previa (todavía no se guardó nada)</div>
+                    <div class="sm-seccion-cuerpo js-plan"></div>
+                </div>
+
+                <div class="sm-seccion">
+                    <div class="sm-seccion-cab"><i class="ti ti-history"></i> Historial de cambios</div>
+                    <div class="sm-seccion-cuerpo js-historial"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── Cargos: juntar los escritos de distintas formas (fase 3) ── -->
+<section class="sm-card js-panel pc-oculto" data-panel="cargos">
+    <div class="sm-toolbar">
+        <div class="sm-segmento js-niveles" role="group" aria-label="Nivel">
+            <button type="button" class="activo" data-nivel="">Todos <span class="sm-cuenta" data-cuenta="">0</span></button>
+            <button type="button" data-nivel="SEGURO" title="Solo cambian puntos, guiones o espacios">Seguros <span class="sm-cuenta" data-cuenta="SEGURO">0</span></button>
+            <button type="button" data-nivel="PROBABLE" title="Abreviatura o error de tipeo">Probables <span class="sm-cuenta" data-cuenta="PROBABLE">0</span></button>
+            <button type="button" data-nivel="REVISAR" title="Uno es el otro con palabras de más: suelen ser cargos distintos">Revisar <span class="sm-cuenta" data-cuenta="REVISAR">0</span></button>
+        </div>
+        <div class="sm-buscador" style="flex: 1 1 220px;">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-filtro-cargos" placeholder="Filtrar grupos por texto…" autocomplete="off">
+        </div>
+        <div style="flex: 1 1 280px; min-width: 220px;">
+            <select class="js-cargos-mano" multiple aria-label="Juntar a mano" data-placeholder="Juntar a mano: buscar cargos…"></select>
+        </div>
+        <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-grupo-mano" title="Armar un grupo con los cargos elegidos">
+            <i class="ti ti-arrow-merge"></i> Armar grupo
+        </button>
+    </div>
+    <p class="sm-ayuda px-1 mb-2">En cada grupo: elija con <i class="ti ti-circle-dot"></i> el cargo que queda (puede corregir
+        cómo queda escrito), marque los que se juntan con él, vea la vista previa y aplique. Los que se juntan no se
+        borran: quedan unidos al elegido. Los de género o número distinto (DIRECTOR / DIRECTORA) vienen sin marcar.</p>
+    <div class="js-grupos pc-scroll"></div>
+</section>
+
+<!-- ── Historial: cambios por lote y reversión (fase 5) ── -->
+<section class="sm-card js-panel pc-oculto" data-panel="historial">
+    <div class="sm-toolbar">
+        <div class="sm-buscador" style="flex: 1 1 260px;">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-h-q" placeholder="Persona, C.I., oficina o cargo…" autocomplete="off">
+        </div>
+        <input type="text" class="sm-input js-h-usuario" placeholder="Usuario" style="max-width: 150px;" autocomplete="off">
+        <label class="sm-label mb-0">Desde</label><input type="date" class="sm-input js-h-desde" style="max-width: 160px;">
+        <label class="sm-label mb-0">Hasta</label><input type="date" class="sm-input js-h-hasta" style="max-width: 160px;">
+        <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-h-buscar"><i class="ti ti-filter"></i> Filtrar</button>
+    </div>
+    <p class="sm-ayuda px-1 mb-2">Cada fila es un lote: todo lo que se aplicó de una vez. Se puede <b>revertir</b> un lote de
+        Personas y cargos solo si nada de lo que tocó cambió después; la vista previa dice qué vuelve y, si no se puede, por qué.</p>
+    <div class="js-lotes pc-scroll"></div>
+</section>
+
+</div>
+
+<script th:inline="javascript">
+    (function () {
+        const URL = '/administracion/personas-cargos';
+        const $raiz = $('#modPersonasCargos');
+        const esc = SciafModulo.escapar;
+        const INICIAL = /*[[${inicial}]]*/ {};
+        const VSIAF_OK = /*[[${vsiafDisponible}]]*/ true;
+        let aplicaDirecto = /*[[${aplicaDirecto}]]*/ false;
+
+        const $principal = $raiz.find('.js-principal'), $sumar = $raiz.find('.js-sumar'), $cargo = $raiz.find('.js-cargo');
+        const $ficha = $raiz.find('.js-ficha'), $vacio = $raiz.find('.js-vacio');
+        const $filas = $raiz.find('.js-filas'), $plan = $raiz.find('.js-plan'), $secPlan = $raiz.find('.js-sec-plan');
+        const $aplicar = $raiz.find('.js-aplicar'), $estadoPlan = $raiz.find('.js-estado-plan');
+
+        const estado = { principal: null, sumadas: [], ficha: null, plan: null, cargando: false };
+
+        const idioma = {
+            noResults: () => 'Sin resultados', searching: () => 'Buscando…',
+            errorLoading: () => 'No se pudo buscar', inputTooShort: () => 'Escriba al menos 2 letras'
+        };
+
+        /* ── Buscadores ─────────────────────────────────────────────────── */
+        function textoPersona(p) {
+            return p.nombre + (p.ci ? ' · C.I. ' + p.ci : ' · sin C.I.') + ' · ' + p.oficinas + ' oficina(s), ' + p.bienes + ' bienes';
+        }
+        function buscador($sel, excluir) {
+            $sel.select2({
+                dropdownParent: $raiz, width: '100%', placeholder: $sel.data('placeholder'), allowClear: true,
+                minimumInputLength: 2, language: idioma,
+                ajax: {
+                    url: URL + '/buscar', dataType: 'json', delay: 300,
+                    data: p => {
+                        const o = { q: p.term || '' };
+                        const ex = excluir();
+                        if (ex.length) o.excluir = ex.join(',');   // vacío no se manda: el servidor lo leería como null
+                        return o;
+                    },
+                    processResults: data => ({ results: (data || []).map(p => ({ id: p.id, text: textoPersona(p), p })) })
+                }
+            });
+        }
+        buscador($principal, () => []);
+        buscador($sumar, () => [estado.principal].concat(estado.sumadas).filter(Boolean));
+
+        $cargo.select2({
+            dropdownParent: $raiz, width: '100%', placeholder: $cargo.data('placeholder'), allowClear: true, tags: true,
+            language: idioma,
+            createTag: p => {
+                const t = (p.term || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('es');
+                return t ? { id: t, text: t, nuevo: true } : null;
+            },
+            templateResult: d => d.nuevo ? $('<span>').text('Nuevo cargo: ' + d.text) : d.text,
+            ajax: {
+                url: '/api/cargos/search', dataType: 'json', delay: 250,
+                data: p => ({ q: p.term || '' }),
+                processResults: data => ({ results: (data || []).map(c => ({ id: c.nombre, text: c.nombre })) })
+            }
+        });
+
+        $principal.on('select2:select', e => { estado.principal = Number(e.params.data.id); estado.sumadas = []; cargarFicha(); });
+        $principal.on('select2:clear', () => { estado.principal = null; estado.sumadas = []; estado.ficha = null; mostrarFicha(false); });
+        $sumar.on('select2:select', e => {
+            const id = Number(e.params.data.id);
+            if (!estado.sumadas.includes(id)) estado.sumadas.push(id);
+            $sumar.val(null).trigger('change');
+            cargarFicha();
+        });
+        $cargo.on('change', invalidarPlan);
+        $raiz.on('input', '.js-sec-datos input', () => { contarLargo(); invalidarPlan(); });
+        $raiz.on('click', '.js-recargar', cargarFicha);
+
+        /* ── Ficha ──────────────────────────────────────────────────────── */
+        function mostrarFicha(si) {
+            $ficha.toggleClass('pc-oculto', !si);
+            $vacio.toggleClass('pc-oculto', si);
+            $raiz.find('.js-recargar').toggleClass('pc-oculto', !si);
+            if (!si) { $raiz.find('.js-n-oficinas, .js-n-bienes').text('—'); }
+        }
+
+        async function cargarFicha() {
+            if (!estado.principal) return;
+            const carga = SciafPrecarga.montar($ficha.is(':visible') ? $ficha : $vacio, { compacta: true, texto: 'Leyendo la ficha…', demora: 0 });
+            try {
+                const qs = estado.sumadas.length ? '?con=' + estado.sumadas.join(',') : '';
+                const r = await SciafModulo.pedir(URL + '/ficha/' + estado.principal + qs, { metodo: 'GET' });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(j.msg || SciafPrecarga.motivo(r.status));
+                estado.ficha = j;
+                if (j.aplicaDirecto !== undefined) aplicaDirecto = j.aplicaDirecto;
+                carga.cerrar();
+                pintarFicha();
+            } catch (e) {
+                carga.cerrar();
+                SciafModulo.avisarError(e, 'No se pudo leer la ficha');
+            }
+        }
+
+        function pintarFicha() {
+            const f = estado.ficha;
+            const p = f.principal;
+            mostrarFicha(true);
+            $raiz.find('.js-p-nombre').text(p.nombreCompleto);
+            $raiz.find('.js-p-sub').html(
+                (p.ci ? 'C.I. ' + esc(p.ci) : '<span class="text-warning">sin C.I.</span>')
+                + (p.tieneUsuario ? ' · <i class="ti ti-user-shield"></i> tiene usuario del sistema' : '')
+                + (f.unificadas ? ' · ' + f.unificadas + ' registro(s) ya unificado(s) en ella' : ''));
+
+            // Registros que se suman
+            $raiz.find('.js-sumadas').html(f.secundarias.map(s =>
+                '<div class="pc-suma"><i class="ti ti-arrow-merge"></i><div class="pc-suma-texto"><b>' + esc(s.nombreCompleto) + '</b> · '
+                + (s.ci ? 'C.I. ' + esc(s.ci) : 'sin C.I.') + (s.tieneUsuario ? ' · tiene usuario' : '') + '</div>'
+                + '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-quitar" data-id="' + s.id + '" title="No sumar">'
+                + '<i class="ti ti-x"></i></button></div>').join(''));
+
+            // Datos que quedan (solo al unificar)
+            const hay = f.secundarias.length > 0;
+            $raiz.find('.js-sec-datos').toggleClass('pc-oculto', !hay);
+            if (hay) {
+                if (!estado.datosTocados) ponerDatos(p);
+                $raiz.find('.js-d-usar').html([p].concat(f.secundarias).map(x =>
+                    '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-usar" data-id="' + x.id + '">'
+                    + esc(x.nombreCompleto) + (x.ci ? ' · ' + esc(x.ci) : '') + '</button>').join(' '));
+                contarLargo();
+            } else {
+                estado.datosTocados = false;
+            }
+
+            // Oficinas agrupadas por su cargo actual
+            const grupos = new Map();
+            f.filas.forEach(x => {
+                const k = (x.cargo || '(sin cargo)').toUpperCase();
+                if (!grupos.has(k)) grupos.set(k, []);
+                grupos.get(k).push(x);
+            });
+            const nombreDe = id => {
+                if (id === p.id) return '<span class="sm-pastilla sm-pastilla-activo">principal</span>';
+                const s = f.secundarias.find(z => z.id === id);
+                return '<span class="sm-pastilla sm-pastilla-info" title="Pasa a la principal">se suma: ' + esc(s ? s.nombreCompleto : id) + '</span>';
+            };
+            // Oficina de un registro sumado: se puede dejar fuera si es de otro funcionario.
+            const casillaSuma = x => x.idPersona === p.id ? ''
+                : '<label class="d-block small mt-1"><input type="checkbox" class="form-check-input js-suma" value="'
+                    + x.idResponsable + '" checked> es de esta persona</label>';
+            let html = '';
+            let gi = 0;
+            for (const [cargo, lista] of grupos) {
+                gi++;
+                html += '<tr class="pc-grupo"><td><input type="checkbox" class="form-check-input js-grupo" data-g="' + gi + '" checked></td>'
+                    + '<td colspan="5">' + esc(cargo) + ' <span class="opacity-75">(' + lista.length + ')</span></td></tr>';
+                lista.forEach(x => {
+                    html += '<tr><td><input type="checkbox" class="form-check-input js-fila" data-g="' + gi + '" value="' + x.idResponsable + '" checked></td>'
+                        + '<td><b>' + esc(x.unidad) + ' ' + esc(x.codOfic) + '</b> · ' + esc(x.oficina || '')
+                        + (x.esCustodia ? ' <span class="sm-pastilla sm-pastilla-aviso">custodia</span>' : '') + '</td>'
+                        + '<td>' + esc(x.codResp) + '</td><td>' + nombreDe(x.idPersona) + casillaSuma(x) + '</td>'
+                        + '<td class="text-end">' + esc(x.bienes) + '</td><td>' + pastillaVsiaf(x.estadoVsiaf) + '</td></tr>';
+                });
+            }
+            $filas.html(html || '<tr><td colspan="6" class="text-center opacity-75">Sin oficinas vigentes.</td></tr>');
+            $raiz.find('.js-todas').prop('checked', true);
+            $raiz.find('.js-n-oficinas').text(f.filas.length);
+            $raiz.find('.js-n-bienes').text(f.filas.reduce((a, x) => a + (Number(x.bienes) || 0), 0));
+
+            pintarHistorial(f.historial || []);
+            pintarSeparar();
+            invalidarPlan();
+        }
+
+        function pastillaVsiaf(c) {
+            const m = {
+                VSIAF: ['sm-pastilla-activo', 'En VSIAF'], EN_COLA: ['sm-pastilla-info', 'En cola'],
+                ERROR: ['sm-pastilla-peligro', 'Error'], PENDIENTE: ['sm-pastilla-aviso', 'Pendiente']
+            }[c] || ['sm-pastilla-linea', c || '—'];
+            return '<span class="sm-pastilla ' + m[0] + '">' + esc(m[1]) + '</span>';
+        }
+
+        function ponerDatos(p) {
+            $raiz.find('.js-d-nombre').val(p.nombre || '');
+            $raiz.find('.js-d-paterno').val(p.paterno || '');
+            $raiz.find('.js-d-materno').val(p.materno || '');
+            $raiz.find('.js-d-ci').val(p.ci || '');
+        }
+        function contarLargo() {
+            const n = ['.js-d-nombre', '.js-d-paterno', '.js-d-materno'].map(s => ($raiz.find(s).val() || '').trim()).filter(Boolean).join(' ').length;
+            $raiz.find('.js-d-largo').html(n > 35
+                ? '<span class="text-warning"><i class="ti ti-alert-triangle"></i> ' + n + ' caracteres: el VSIAF recorta a 35.</span>'
+                : n + ' / 35 caracteres en el VSIAF.');
+        }
+
+        $raiz.on('click', '.js-quitar', function () {
+            const id = Number($(this).data('id'));
+            estado.sumadas = estado.sumadas.filter(x => x !== id);
+            cargarFicha();
+        });
+        $raiz.on('click', '.js-usar', function () {
+            const id = Number($(this).data('id'));
+            const f = estado.ficha;
+            const x = [f.principal].concat(f.secundarias).find(z => z.id === id);
+            if (x) { ponerDatos(x); estado.datosTocados = true; contarLargo(); invalidarPlan(); }
+        });
+        $raiz.on('input', '.js-sec-datos input', () => { estado.datosTocados = true; });
+        $raiz.on('change', '.js-todas', function () { $filas.find('.js-fila, .js-grupo').prop('checked', this.checked); invalidarPlan(); });
+        $raiz.on('change', '.js-grupo', function () { $filas.find('.js-fila[data-g="' + $(this).data('g') + '"]').prop('checked', this.checked); invalidarPlan(); });
+        $raiz.on('change', '.js-fila', invalidarPlan);
+        // «No es de esta persona»: esa oficina no se suma ni recibe el cargo.
+        $raiz.on('change', '.js-suma', function () {
+            $filas.find('.js-fila[value="' + this.value + '"]').prop('checked', this.checked).prop('disabled', !this.checked);
+            invalidarPlan();
+        });
+
+        /* ── Historial ──────────────────────────────────────────────────── */
+        const TIPOS = { CARGO: 'Cargo', NOMBRE_CI: 'Nombre / C.I.', FUSION_FILA: 'Pasó a esta persona', FUSION_PERSONA: 'Registro unificado',
+            CARGO_FUSION: 'Cargos juntados', REVERSION: 'Reversión', SEPARACION: 'Pasó a otra persona', PERSONA_NUEVA: 'Persona nueva' };
+        function pintarHistorial(h) {
+            if (!h.length) { $raiz.find('.js-historial').html('<div class="opacity-75">Sin cambios registrados todavía.</div>'); return; }
+            $raiz.find('.js-historial').html(h.map(c => {
+                const tipos = (c.tipo || '').split('+').map(t => TIPOS[t] || t).join(' · ');
+                return '<div class="pc-hist-item"><div class="pc-hist-cab">' + esc(c.fecha) + ' · ' + esc(c.usuario || '') + ' · ' + esc(tipos)
+                    + (c.origen && c.origen !== 'PERSONAS_CARGOS' ? ' · desde ' + esc(c.origen.toLowerCase()) : '')
+                    + (c.estadoVsiaf ? ' · ' + pastillaHist(c.estadoVsiaf) : '') + '</div>'
+                    + '<div><b>' + esc(c.referencia || '') + '</b> ' + diferencias(c.antes || {}, c.despues || {}) + '</div>'
+                    + (c.motivo ? '<div class="opacity-75">Motivo: ' + esc(c.motivo) + '</div>' : '') + '</div>';
+            }).join(''));
+        }
+        function pastillaHist(e) {
+            const m = { ENVIADO: ['sm-pastilla-activo', 'VSIAF: enviado'], FALLO: ['sm-pastilla-peligro', 'VSIAF: no llegó'],
+                PENDIENTE_ALTA: ['sm-pastilla-aviso', 'VSIAF: con su alta'], NO_APLICA: ['sm-pastilla-linea', 'solo SCIAF'] }[e]
+                || ['sm-pastilla-linea', e];
+            return '<span class="sm-pastilla ' + m[0] + '">' + esc(m[1]) + '</span>';
+        }
+        function diferencias(a, d) {
+            const campos = [ ['nomresp', 'nombre'], ['nombre', 'nombre'], ['paterno', 'paterno'], ['materno', 'materno'], ['ci', 'C.I.'], ['cargo', 'cargo'] ];
+            return campos.filter(([k]) => (k in a || k in d) && String(a[k] ?? '') !== String(d[k] ?? ''))
+                .map(([k, t]) => t + ': <span class="pc-antes">' + esc(a[k] ?? '—') + '</span><span class="pc-flecha">→</span>'
+                    + '<span class="pc-despues">' + esc(d[k] ?? '—') + '</span>').join(' · ');
+        }
+
+        /* ── Plan y aplicación ──────────────────────────────────────────── */
+        function decision() {
+            const f = estado.ficha;
+            const datos = f && f.secundarias.length > 0;
+            const v = s => ($raiz.find(s).val() || '').trim();
+            const cargo = ($cargo.val() || '').trim();
+            return {
+                idPrincipal: estado.principal,
+                idsSecundarias: estado.sumadas.slice(),
+                nombre: datos ? v('.js-d-nombre') : null,
+                paterno: datos ? v('.js-d-paterno') : null,
+                materno: datos ? v('.js-d-materno') : null,
+                ci: datos ? v('.js-d-ci') : null,
+                cargo: cargo || null,
+                idsFilasCargo: cargo ? $filas.find('.js-fila:checked:not(:disabled)').map((i, el) => Number(el.value)).get() : [],
+                idsFilasNoSumar: $filas.find('.js-suma:not(:checked)').map((i, el) => Number(el.value)).get()
+            };
+        }
+
+        function invalidarPlan() {
+            estado.plan = null;
+            $aplicar.prop('disabled', true);
+            $secPlan.addClass('pc-oculto');
+            $estadoPlan.text('Revise la vista previa antes de aplicar.');
+        }
+
+        $raiz.on('click', '.js-previa', async function () {
+            if (!estado.ficha) return;
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Calculando…');
+            try {
+                const j = await SciafModulo.pedirJson(URL + '/plan', { json: decision() });
+                if (!j.ok) throw new Error(j.msg || 'No se pudo calcular.');
+                estado.plan = j;
+                pintarPlan(j);
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo armar la vista previa');
+            } finally {
+                $b.prop('disabled', false).html(html);
+            }
+        });
+
+        function pintarPlan(j) {
+            let html = '';
+            if (j.errores.length) {
+                html += '<div class="sm-aviso sm-aviso-peligro"><i class="ti ti-ban"></i><div><b>No se puede aplicar:</b><ul class="mb-0">'
+                    + j.errores.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div></div>';
+            }
+            if (j.avisos.length) {
+                html += '<div class="sm-aviso sm-aviso-aviso"><i class="ti ti-alert-triangle"></i><div><ul class="mb-0">'
+                    + j.avisos.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div></div>';
+            }
+            html += '<p class="mb-2">' + esc(j.resumen) + '<br><span class="opacity-75">Cambian ' + j.filasQueCambian
+                + ' oficina(s); ' + j.filasAlVsiaf + ' se envían al VSIAF.</span></p>';
+            const cambian = j.filas.filter(x => x.hayCambio);
+            if (cambian.length) {
+                html += '<div class="table-responsive"><table class="table sm-tabla pc-tabla mb-0"><thead><tr>'
+                    + '<th>Oficina</th><th>Nombre en el VSIAF</th><th>C.I.</th><th>Cargo</th><th>VSIAF</th></tr></thead><tbody>'
+                    + cambian.map(x => '<tr><td><b>' + esc(x.referencia) + '</b>'
+                        + (x.cambiaPersona ? '<br><span class="sm-pastilla sm-pastilla-info">pasa a la principal</span>' : '') + '</td>'
+                        + '<td>' + cambio(x.nombreAntes, x.nombreDespues) + '</td>'
+                        + '<td>' + cambio(x.ciAntes, x.ciDespues) + '</td>'
+                        + '<td>' + cambio(x.cargoAntes, x.cargoDespues) + '</td>'
+                        + '<td>' + (x.enviaVsiaf ? '<span class="sm-pastilla sm-pastilla-activo">se envía</span>' : '<span class="sm-pastilla sm-pastilla-aviso">no</span>')
+                        + (x.nota ? '<div class="sm-ayuda">' + esc(x.nota) + '</div>' : '') + '</td></tr>').join('')
+                    + '</tbody></table></div>';
+            }
+            $plan.html(html);
+            $secPlan.removeClass('pc-oculto');
+
+            const puede = !j.errores.length && VSIAF_OK;
+            $aplicar.prop('disabled', !puede);
+            $raiz.find('.js-aplicar-texto').text(aplicaDirecto ? 'Aplicar' : 'Enviar solicitud');
+            $estadoPlan.text(!VSIAF_OK ? 'Solo consulta: aplíquelo desde el SCIAF del servidor.'
+                : j.errores.length ? 'Corrija lo indicado y vuelva a ver la vista previa.'
+                : aplicaDirecto ? 'Listo para aplicar.' : 'Se enviará como solicitud al revisor.');
+        }
+        function cambio(a, d) {
+            if (String(a ?? '') === String(d ?? '')) return esc(d ?? '—');
+            return '<span class="pc-antes">' + esc(a ?? '—') + '</span><span class="pc-flecha">→</span><span class="pc-despues">' + esc(d ?? '—') + '</span>';
+        }
+
+        $aplicar.on('click', async function () {
+            const j = estado.plan;
+            if (!j || j.errores.length || !VSIAF_OK) return;
+            const pideMotivo = !aplicaDirecto || j.unifica > 0 || j.ciEnConflicto;   // el servidor también lo exige
+            const si = await window.sciafConfirmar({
+                titulo: aplicaDirecto ? '¿Aplicar los cambios?' : '¿Enviar la solicitud?',
+                texto: '<b>' + esc(j.resumen) + '</b><br>' + j.filasQueCambian + ' oficina(s), ' + j.filasAlVsiaf + ' al VSIAF.'
+                    + '<br><small class="text-muted">' + (aplicaDirecto ? 'Se guarda en el SCIAF y se envía al VSIAF fila por fila. Queda en el historial.'
+                        : 'No se aplica nada hasta que el revisor lo apruebe.') + '</small>',
+                aceptar: aplicaDirecto ? 'Sí, aplicar' : 'Sí, enviar'
+            });
+            if (!si) return;
+            let motivo = null;
+            if (pideMotivo) {
+                const r = await Swal.fire({
+                    title: 'Motivo', input: 'textarea', inputPlaceholder: 'Por qué se hace este cambio (queda en el historial)',
+                    inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                    showCancelButton: true, confirmButtonText: 'Continuar', cancelButtonText: 'Cancelar'
+                });
+                if (!r.isConfirmed) return;
+                motivo = r.value.trim();
+            }
+            const $b = $aplicar, html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Guardando…');
+            try {
+                const res = await SciafModulo.pedirJson(URL + '/aplicar', { json: Object.assign(decision(), { firma: j.firma, motivo }) });
+                if (!res.ok) throw new Error(res.msg || 'No se pudo aplicar.');
+                if (res.solicitud) Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg });
+                else if (res.vsiafOk === false) Swal.fire('Guardado, pero no todo llegó al VSIAF', res.msg, 'warning');
+                else Swal.fire({ icon: 'success', title: 'Aplicado', text: res.msg });
+                estado.sumadas = [];
+                estado.datosTocados = false;
+                $cargo.val(null).trigger('change');
+                await cargarFicha();
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se aplicó');
+                invalidarPlan();
+            } finally {
+                $b.html(html);
+            }
+        });
+
+        /* ── Pasar oficinas a otra persona (fase 6) ─────────────────────── */
+        const $sep = $raiz.find('.js-sec-separar');
+        const $sepDestino = $raiz.find('.js-sep-destino');
+        buscador($sepDestino, () => [estado.principal].filter(Boolean));
+
+        function pintarSeparar() {
+            const f = estado.ficha;
+            const propias = f.filas.filter(x => x.idPersona === f.principal.id);
+            // Con registros sumados a la vista, primero se resuelve eso: no mezclar dos operaciones.
+            const conSumadas = f.secundarias.length > 0;
+            $sep.find('.js-sep-aviso').html(conSumadas
+                ? '<div class="sm-aviso sm-aviso-info"><i class="ti ti-info-circle"></i><div>Quite los registros sumados para pasar oficinas a otra persona.</div></div>' : '');
+            $sep.find('.js-sep-filas').html(conSumadas ? '' : propias.map(x =>
+                '<label class="d-block small"><input type="checkbox" class="form-check-input js-sep-fila" value="' + x.idResponsable + '"> <b>'
+                + esc(x.referencia) + '</b> · ' + esc(x.oficina || '') + ' · ' + esc(x.cargo || 'sin cargo') + ' · ' + esc(x.bienes) + ' bienes</label>').join(''));
+            $sep.find('.js-sep-previa').prop('disabled', conSumadas);
+            invalidarSep();
+        }
+        function invalidarSep() {
+            $sep.removeData('plan');
+            $sep.find('.js-sep-aplicar').prop('disabled', true);
+            $sep.find('.js-sep-plan').empty();
+            $sep.find('.js-sep-aplicar-texto').text(aplicaDirecto ? 'Pasar oficinas' : 'Enviar solicitud');
+        }
+        function decisionSep() {
+            const nueva = $sep.find('.js-sep-tipo:checked').val() === 'nueva';
+            const v = s => ($sep.find(s).val() || '').trim();
+            return {
+                idOrigen: estado.principal,
+                idsFilas: $sep.find('.js-sep-fila:checked').map((i, el) => Number(el.value)).get(),
+                idDestino: nueva ? null : (Number($sepDestino.val()) || null),
+                nueva: nueva ? { nombre: v('.js-sn-nombre'), paterno: v('.js-sn-paterno'), materno: v('.js-sn-materno'), ci: v('.js-sn-ci') } : null
+            };
+        }
+        $raiz.on('click', '.js-sep-abrir', function () {
+            const $c = $sep.find('.js-sep-cuerpo');
+            $c.toggleClass('pc-oculto');
+            $(this).text($c.hasClass('pc-oculto') ? 'Abrir' : 'Cerrar');
+        });
+        $raiz.on('change', '.js-sep-tipo', function () {
+            const nueva = this.value === 'nueva';
+            $sep.find('.js-sep-existe').toggleClass('pc-oculto', nueva);
+            $sep.find('.js-sep-nueva').toggleClass('pc-oculto', !nueva);
+            invalidarSep();
+        });
+        $raiz.on('change', '.js-sep-fila', invalidarSep);
+        $sepDestino.on('change', invalidarSep);
+        $raiz.on('input', '.js-sep-nueva input', invalidarSep);
+
+        $raiz.on('click', '.js-sep-previa', async function () {
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+            try {
+                const j = await SciafModulo.pedirJson(URL + '/separar/plan', { json: decisionSep() });
+                if (!j.ok) throw new Error(j.msg || 'No se pudo calcular.');
+                let h = '';
+                if (j.errores.length) h += '<div class="sm-aviso sm-aviso-peligro"><i class="ti ti-ban"></i><div><b>No se puede aplicar:</b><ul class="mb-0">'
+                    + j.errores.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div></div>';
+                if (j.avisos.length) h += '<div class="sm-aviso sm-aviso-aviso"><i class="ti ti-alert-triangle"></i><div><ul class="mb-0">'
+                    + j.avisos.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div></div>';
+                h += '<p class="mb-1">' + esc(j.resumen) + ' <span class="opacity-75">' + j.filasAlVsiaf + ' se envían al VSIAF.</span></p>';
+                if (j.filas.length) h += '<div class="table-responsive"><table class="table sm-tabla pc-tabla mb-0"><thead><tr><th>Oficina</th><th>Nombre en el VSIAF</th><th>C.I.</th><th>VSIAF</th></tr></thead><tbody>'
+                    + j.filas.map(x => '<tr><td><b>' + esc(x.referencia) + '</b></td><td>' + cambio(x.nombreAntes, x.nombreDespues) + '</td>'
+                        + '<td>' + cambio(x.ciAntes, x.ciDespues) + '</td><td>' + (x.enviaVsiaf ? '<span class="sm-pastilla sm-pastilla-activo">se envía</span>' : '<span class="sm-pastilla sm-pastilla-aviso">no</span>')
+                        + (x.nota ? '<div class="sm-ayuda">' + esc(x.nota) + '</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
+                $sep.find('.js-sep-plan').html(h);
+                $sep.data('plan', j);
+                $sep.find('.js-sep-aplicar').prop('disabled', !!j.errores.length || !VSIAF_OK)
+                    .attr('title', !VSIAF_OK ? 'Solo consulta: aplíquelo desde el SCIAF del servidor.' : '');
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo armar la vista previa');
+            } finally {
+                $b.prop('disabled', false).html(html);
+            }
+        });
+
+        $raiz.on('click', '.js-sep-aplicar', async function () {
+            const j = $sep.data('plan');
+            if (!j || j.errores.length || !VSIAF_OK) return;
+            const si = await window.sciafConfirmar({
+                titulo: aplicaDirecto ? '¿Pasar las oficinas?' : '¿Enviar la solicitud?',
+                texto: '<b>' + esc(j.resumen) + '</b><br>' + j.filasAlVsiaf + ' oficina(s) al VSIAF.<br><small class="text-muted">'
+                    + (aplicaDirecto ? 'Queda en el historial y se puede revertir desde la pestaña Historial.' : 'No se aplica nada hasta que el revisor lo apruebe.') + '</small>',
+                aceptar: aplicaDirecto ? 'Sí, pasar' : 'Sí, enviar'
+            });
+            if (!si) return;
+            const r = await Swal.fire({ title: 'Motivo', input: 'textarea', inputPlaceholder: 'Por qué estas oficinas son de otra persona',
+                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                showCancelButton: true, confirmButtonText: 'Continuar', cancelButtonText: 'Cancelar' });
+            if (!r.isConfirmed) return;
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Guardando…');
+            try {
+                const res = await SciafModulo.pedirJson(URL + '/separar/aplicar', { json: Object.assign(decisionSep(), { firma: j.firma, motivo: r.value.trim() }) });
+                if (!res.ok) throw new Error(res.msg || 'No se pudo aplicar.');
+                if (res.solicitud) Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg });
+                else if (res.vsiafOk === false) Swal.fire('Guardado, pero no todo llegó al VSIAF', res.msg, 'warning');
+                else Swal.fire({ icon: 'success', title: 'Oficinas pasadas', text: res.msg });
+                $sepDestino.val(null).trigger('change');
+                $sep.find('.js-sep-nueva input').val('');
+                await cargarFicha();
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se aplicó');
+                invalidarSep();
+            } finally {
+                $b.html(html);
+            }
+        });
+
+        /* ── Pestañas: Personas | Cargos ────────────────────────────────── */
+        let cargosCargados = false;
+        $raiz.on('click', '.js-pestanas button', function () {
+            const panel = $(this).data('panel');
+            $raiz.find('.js-pestanas button').removeClass('activo');
+            $(this).addClass('activo');
+            $raiz.find('.js-panel').each(function () { $(this).toggleClass('pc-oculto', $(this).data('panel') !== panel); });
+            if (panel === 'cargos' && !cargosCargados) { cargosCargados = true; cargarGrupos(); }
+            if (panel === 'historial' && !lotesCargados) { lotesCargados = true; cargarLotes(); }
+        });
+
+        /* ── Cargos ─────────────────────────────────────────────────────── */
+        const $grupos = $raiz.find('.js-grupos');
+        const NIVELES = { SEGURO: ['sm-pastilla-activo', 'Seguro'], PROBABLE: ['sm-pastilla-info', 'Probable'],
+            REVISAR: ['sm-pastilla-aviso', 'Revisar'], MANO: ['sm-pastilla-linea', 'A mano'] };
+        let grupos = [];
+        let nivelFiltro = '';
+
+        async function cargarGrupos() {
+            const carga = SciafPrecarga.montar($grupos, { compacta: true, texto: 'Buscando cargos parecidos…', demora: 0 });
+            try {
+                const r = await SciafModulo.pedir(URL + '/cargos/grupos', { metodo: 'GET' });
+                const j = await r.json().catch(() => null);
+                if (!r.ok || !Array.isArray(j)) throw new Error((j && j.msg) || SciafPrecarga.motivo(r.status));
+                carga.cerrar();
+                grupos = j.map((g, i) => Object.assign(g, { clave: 'g' + i }));
+                ['', 'SEGURO', 'PROBABLE', 'REVISAR'].forEach(n => $raiz.find('.js-niveles [data-cuenta="' + n + '"]')
+                    .text(n ? grupos.filter(g => g.nivel === n).length : grupos.length));
+                pintarGrupos();
+            } catch (e) {
+                carga.cerrar();
+                SciafModulo.avisarError(e, 'No se pudieron leer los cargos');
+            }
+        }
+
+        function pintarGrupos() {
+            const texto = ($raiz.find('.js-filtro-cargos').val() || '').trim().toUpperCase();
+            const visibles = grupos.filter(g => (!nivelFiltro || g.nivel === nivelFiltro)
+                && (!texto || g.cargos.some(c => (c.nombre || '').toUpperCase().includes(texto))));
+            if (!visibles.length) { $grupos.html('<div class="sm-vacio"><i class="ti ti-mood-smile"></i><p class="mb-0">No hay grupos para mostrar.</p></div>'); return; }
+            $grupos.html(visibles.slice(0, 80).map(tarjetaGrupo).join('')
+                + (visibles.length > 80 ? '<p class="sm-ayuda">Se muestran 80 de ' + visibles.length + ' grupos: use el filtro para ver otros.</p>' : ''));
+            // El texto va con .val(), no dentro del HTML: un nombre con comillas no rompe el atributo.
+            visibles.slice(0, 80).forEach(g => {
+                const $c = $grupos.find('.js-grupo-card').filter((i, el) => $(el).data('clave') === g.clave);
+                $c.find('.js-texto-final').val(g.cargos[0].nombre);
+                invalidarGrupo($c);
+            });
+        }
+
+        function tarjetaGrupo(g) {
+            const nv = NIVELES[g.nivel] || NIVELES.MANO;
+            const sin = new Set(g.sinMarcar || []);
+            const filas = g.cargos.map((c, i) => '<tr>'
+                + '<td><input type="radio" class="form-check-input js-elegido" name="el-' + g.clave + '" value="' + c.id + '"' + (i === 0 ? ' checked' : '') + ' title="Este es el que queda"></td>'
+                + '<td><input type="checkbox" class="form-check-input js-juntar" value="' + c.id + '"' + (i > 0 && !sin.has(c.id) ? ' checked' : '') + (i === 0 ? ' disabled' : '') + ' title="Juntar con el elegido"></td>'
+                + '<td>' + esc(c.nombre) + (sin.has(c.id) && g.nivel !== 'REVISAR' ? ' <span class="sm-pastilla sm-pastilla-aviso js-pastilla-genero" title="DIRECTOR / DIRECTORA, TECNICO / TECNICOS…">género / número distinto</span>' : '') + '</td>'
+                + '<td class="text-end">' + esc(c.filas) + '</td><td class="text-end">' + esc(c.personas) + '</td></tr>').join('');
+            return '<div class="pc-grupo-card js-grupo-card" data-clave="' + g.clave + '">'
+                + '<div class="pc-grupo-cab"><span class="sm-pastilla ' + nv[0] + '">' + esc(nv[1]) + '</span>'
+                + '<span class="pc-grupo-titulo">' + esc(g.cargos[0].nombre) + '</span>'
+                + '<span class="opacity-75 small">' + esc(g.filas) + ' oficinas</span></div>'
+                + '<div class="table-responsive"><table class="table sm-tabla pc-tabla mb-2"><thead><tr><th title="Queda">Queda</th><th title="Se junta">Junta</th>'
+                + '<th>Cargo</th><th class="text-end">Oficinas</th><th class="text-end">Personas</th></tr></thead><tbody>' + filas + '</tbody></table></div>'
+                + '<div class="d-flex gap-2 flex-wrap align-items-center"><label class="sm-label mb-0">Queda escrito:</label>'
+                + '<input type="text" class="sm-input pc-texto-final js-texto-final" maxlength="40">'
+                + '<span class="sm-ayuda js-largo-cargo"></span></div>'
+                + '<div class="pc-acciones">'
+                + '<button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-g-previa"><i class="ti ti-eye-check"></i> Vista previa</button>'
+                + '<button type="button" class="sm-btn sm-btn-exito sm-btn-sm js-g-aplicar" disabled><i class="ti ti-check"></i> ' + (aplicaDirecto ? 'Aplicar' : 'Enviar solicitud') + '</button>'
+                + (aplicaDirecto ? '<button type="button" class="sm-btn sm-btn-suave sm-btn-sm js-g-descartar" title="No volver a sugerir estos cargos juntos"><i class="ti ti-ban"></i> No son el mismo cargo</button>' : '')
+                + '</div><div class="js-g-plan mt-2"></div></div>';
+        }
+
+        function grupoDe(el) {
+            const $c = $(el).closest('.js-grupo-card');
+            return { $c, g: grupos.find(x => x.clave === $c.data('clave')) };
+        }
+        function decisionCargos($c) {
+            const elegido = Number($c.find('.js-elegido:checked').val());
+            return {
+                idElegido: elegido,
+                texto: ($c.find('.js-texto-final').val() || '').trim() || null,
+                idsJuntar: $c.find('.js-juntar:checked').map((i, el) => Number(el.value)).get().filter(id => id !== elegido)
+            };
+        }
+        function invalidarGrupo($c) {
+            $c.removeData('plan');
+            $c.find('.js-g-aplicar').prop('disabled', true);
+            $c.find('.js-g-plan').empty();
+            const n = ($c.find('.js-texto-final').val() || '').trim().length;
+            $c.find('.js-largo-cargo').html(n > 40 ? '<span class="text-danger">' + n + ' / 40</span>' : n + ' / 40');
+        }
+
+        $raiz.on('click', '.js-niveles button', function () {
+            $raiz.find('.js-niveles button').removeClass('activo');
+            $(this).addClass('activo');
+            nivelFiltro = $(this).data('nivel') || '';
+            pintarGrupos();
+        });
+        $raiz.on('input', '.js-filtro-cargos', () => pintarGrupos());
+        // Cambiar el elegido: ese no se «junta» consigo mismo, su texto pasa a la casilla y se
+        // desmarcan los de género o número distinto al NUEVO elegido (DIRECTORA si queda DIRECTOR).
+        $raiz.on('change', '.js-elegido', function () {
+            const { $c, g } = grupoDe(this);
+            const id = Number(this.value);
+            const choca = new Set(((g && g.conflictos) || {})[String(id)] || []);
+            $c.find('.js-juntar').each(function () {
+                const v = Number(this.value);
+                $(this).prop('disabled', v === id);
+                if (v === id || choca.has(v)) $(this).prop('checked', false);
+            });
+            $c.find('.js-pastilla-genero').remove();
+            choca.forEach(v => $c.find('.js-juntar[value="' + v + '"]').closest('tr').children().eq(2)
+                .append(' <span class="sm-pastilla sm-pastilla-aviso js-pastilla-genero">género / número distinto</span>'));
+            const c = g && g.cargos.find(x => x.id === id);
+            if (c) $c.find('.js-texto-final').val(c.nombre);
+            invalidarGrupo($c);
+        });
+        $raiz.on('change', '.js-juntar', function () { invalidarGrupo(grupoDe(this).$c); });
+        $raiz.on('input', '.js-texto-final', function () { invalidarGrupo(grupoDe(this).$c); });
+
+        $raiz.on('click', '.js-g-previa', async function () {
+            const { $c } = grupoDe(this);
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+            try {
+                const j = await SciafModulo.pedirJson(URL + '/cargos/plan', { json: decisionCargos($c) });
+                if (!j.ok) throw new Error(j.msg || 'No se pudo calcular.');
+                $c.data('plan', j);
+                pintarPlanCargos($c, j);
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo armar la vista previa');
+            } finally {
+                $b.prop('disabled', false).html(html);
+            }
+        });
+
+        function pintarPlanCargos($c, j) {
+            let html = '';
+            if (j.errores.length) html += '<div class="sm-aviso sm-aviso-peligro"><i class="ti ti-ban"></i><div><b>No se puede aplicar:</b><ul class="mb-0">'
+                + j.errores.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div></div>';
+            if (j.avisos.length) html += '<div class="sm-aviso sm-aviso-aviso"><i class="ti ti-alert-triangle"></i><div><ul class="mb-0">'
+                + j.avisos.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div></div>';
+            html += '<p class="mb-1">' + esc(j.resumen) + ' <span class="opacity-75">' + j.filasAlVsiaf + ' se envían al VSIAF.</span></p>';
+            const muestra = j.filas.slice(0, 40);
+            if (muestra.length) {
+                html += '<div class="table-responsive"><table class="table sm-tabla pc-tabla mb-0"><thead><tr><th>Oficina</th><th>Persona</th><th>Cargo</th><th>VSIAF</th></tr></thead><tbody>'
+                    + muestra.map(x => '<tr><td><b>' + esc(x.referencia) + '</b></td><td>' + esc(x.persona || '') + '</td>'
+                        + '<td>' + cambio(x.cargoAntes, x.cargoDespues) + '</td>'
+                        + '<td>' + (x.enviaVsiaf ? '<span class="sm-pastilla sm-pastilla-activo">se envía</span>' : '<span class="sm-pastilla sm-pastilla-aviso">no</span>')
+                        + (x.nota ? '<div class="sm-ayuda">' + esc(x.nota) + '</div>' : '') + '</td></tr>').join('')
+                    + '</tbody></table></div>'
+                    + (j.filas.length > muestra.length ? '<p class="sm-ayuda">… y ' + (j.filas.length - muestra.length) + ' oficina(s) más.</p>' : '');
+            }
+            $c.find('.js-g-plan').html(html);
+            $c.find('.js-g-aplicar').prop('disabled', !!j.errores.length || !VSIAF_OK)
+                .attr('title', !VSIAF_OK ? 'Solo consulta: aplíquelo desde el SCIAF del servidor.' : '');
+        }
+
+        $raiz.on('click', '.js-g-aplicar', async function () {
+            const { $c } = grupoDe(this);
+            const j = $c.data('plan');
+            if (!j || j.errores.length || !VSIAF_OK) return;
+            const si = await window.sciafConfirmar({
+                titulo: aplicaDirecto ? '¿Juntar los cargos?' : '¿Enviar la solicitud?',
+                texto: '<b>' + esc(j.resumen) + '</b><br>' + j.filasAlVsiaf + ' oficina(s) al VSIAF.<br><small class="text-muted">'
+                    + (aplicaDirecto ? 'Los cargos juntados no se borran: quedan unidos al elegido. Queda en el historial de cada persona.'
+                        : 'No se aplica nada hasta que el revisor lo apruebe.') + '</small>',
+                aceptar: aplicaDirecto ? 'Sí, juntar' : 'Sí, enviar'
+            });
+            if (!si) return;
+            if (j.confirmacionExtra) {
+                const r2 = await window.sciafConfirmar({
+                    titulo: 'Es un cambio grande',
+                    texto: 'Cambia el cargo en <b>' + j.filasQueCambian + '</b> oficinas y manda ' + j.filasAlVsiaf
+                        + ' órdenes al VSIAF. ¿Está seguro?',
+                    aceptar: 'Sí, estoy seguro', peligrosa: true
+                });
+                if (!r2) return;
+            }
+            let motivo = null;
+            if (!aplicaDirecto) {
+                const r = await Swal.fire({ title: 'Motivo', input: 'textarea', inputPlaceholder: 'Por qué se juntan estos cargos',
+                    inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                    showCancelButton: true, confirmButtonText: 'Enviar', cancelButtonText: 'Cancelar' });
+                if (!r.isConfirmed) return;
+                motivo = r.value.trim();
+            }
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Guardando…');
+            try {
+                const res = await SciafModulo.pedirJson(URL + '/cargos/aplicar', { json: Object.assign(decisionCargos($c), { firma: j.firma, motivo }) });
+                if (!res.ok) throw new Error(res.msg || 'No se pudo aplicar.');
+                if (res.solicitud) Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg });
+                else if (res.vsiafOk === false) Swal.fire('Guardado, pero no todo llegó al VSIAF', res.msg, 'warning');
+                else Swal.fire({ icon: 'success', title: 'Cargos juntados', text: res.msg });
+                await cargarGrupos();
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se aplicó');
+                invalidarGrupo($c);
+            } finally {
+                $b.html(html);
+            }
+        });
+
+        $raiz.on('click', '.js-g-descartar', async function () {
+            const { $c, g } = grupoDe(this);
+            const ids = $c.find('.js-elegido').map((i, el) => Number(el.value)).get();
+            const si = await window.sciafConfirmar({
+                titulo: '¿No son el mismo cargo?',
+                texto: 'Este grupo no se volverá a sugerir. No cambia ningún dato: solo deja de proponerlos juntos.',
+                aceptar: 'Sí, son distintos'
+            });
+            if (!si) return;
+            try {
+                const res = await SciafModulo.pedirJson(URL + '/cargos/descartar', { json: { ids } });
+                if (!res.ok) throw new Error(res.msg);
+                grupos = grupos.filter(x => x !== g);
+                pintarGrupos();
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo marcar');
+            }
+        });
+
+        // Juntar a mano: cualquier par de cargos que el agrupador no sugirió.
+        const $mano = $raiz.find('.js-cargos-mano');
+        $mano.select2({
+            dropdownParent: $raiz, width: '100%', placeholder: $mano.data('placeholder'), minimumInputLength: 2, language: idioma,
+            ajax: {
+                url: URL + '/cargos/buscar', dataType: 'json', delay: 300,
+                data: p => ({ q: p.term || '' }),
+                processResults: data => ({ results: (data || []).map(c => ({ id: c.id, text: c.nombre + ' (' + c.filas + ')', c })) })
+            }
+        });
+        $raiz.on('click', '.js-grupo-mano', function () {
+            const elegidos = $mano.select2('data').map(d => d.c).filter(Boolean);
+            if (elegidos.length < 2) { Swal.fire('Elija al menos dos cargos', 'Busque y elija los cargos que quiere juntar.', 'info'); return; }
+            elegidos.sort((a, b) => b.filas - a.filas);
+            const g = { nivel: 'MANO', filas: elegidos.reduce((a, c) => a + (c.filas || 0), 0), cargos: elegidos, sinMarcar: [], clave: 'm' + Date.now() };
+            grupos.unshift(g);
+            $mano.val(null).trigger('change');
+            nivelFiltro = '';
+            $raiz.find('.js-niveles button').removeClass('activo').first().addClass('activo');
+            $raiz.find('.js-filtro-cargos').val('');
+            pintarGrupos();
+        });
+
+        /* ── Historial: lotes y reversión ───────────────────────────────── */
+        let lotesCargados = false;
+        const $lotes = $raiz.find('.js-lotes');
+        const ORIGENES = { PERSONAS_CARGOS: 'Personas y cargos', CARGOS: 'Cargos', HISTORIAL: 'Reversión',
+            PERSONA: 'pantalla Persona', RESPONSABLE: 'pantalla Responsables' };
+
+        async function cargarLotes() {
+            const qs = new URLSearchParams();
+            const v = s => ($raiz.find(s).val() || '').trim();
+            if (v('.js-h-q')) qs.set('q', v('.js-h-q'));
+            if (v('.js-h-usuario')) qs.set('usuario', v('.js-h-usuario'));
+            if (v('.js-h-desde')) qs.set('desde', v('.js-h-desde'));
+            if (v('.js-h-hasta')) qs.set('hasta', v('.js-h-hasta'));
+            const carga = SciafPrecarga.montar($lotes, { compacta: true, texto: 'Leyendo el historial…', demora: 0 });
+            try {
+                const r = await SciafModulo.pedir(URL + '/historial/lotes?' + qs.toString(), { metodo: 'GET' });
+                const j = await r.json().catch(() => null);
+                if (!r.ok || !Array.isArray(j)) throw new Error((j && j.msg) || SciafPrecarga.motivo(r.status));
+                carga.cerrar();
+                pintarLotes(j);
+            } catch (e) {
+                carga.cerrar();
+                SciafModulo.avisarError(e, 'No se pudo leer el historial');
+            }
+        }
+        $raiz.on('click', '.js-h-buscar', cargarLotes);
+        $raiz.on('keydown', '.js-h-q, .js-h-usuario', e => { if (e.key === 'Enter') cargarLotes(); });
+
+        function pintarLotes(l) {
+            if (!l.length) { $lotes.html('<div class="sm-vacio"><i class="ti ti-history-off"></i><p class="mb-0">Sin cambios registrados con esos filtros.</p></div>'); return; }
+            $lotes.html(l.map(x => {
+                const tipos = (x.tipos || '').split(',').map(t => t.split('+').map(y => TIPOS[y] || y).join(' + ')).join(' · ');
+                const estado = x.revertidoPor ? '<span class="sm-pastilla sm-pastilla-linea">revertido</span>'
+                    : x.loteRevertido ? '<span class="sm-pastilla sm-pastilla-info">reversión</span>' : '';
+                return '<div class="pc-grupo-card js-lote" data-lote="' + esc(x.lote) + '">'
+                    + '<div class="pc-grupo-cab"><span class="pc-grupo-titulo">' + esc(x.fecha) + ' · ' + esc(x.usuario || '') + ' · '
+                    + esc(ORIGENES[x.origen] || x.origen || '') + '</span>' + estado
+                    + (x.fallos ? ' <span class="sm-pastilla sm-pastilla-peligro">' + esc(x.fallos) + ' sin llegar al VSIAF</span>' : '') + '</div>'
+                    + '<div>' + esc(tipos) + ' · <b>' + esc(x.oficinas) + '</b> oficina(s)'
+                    + (x.personas ? ' · ' + esc(x.personas) : '') + (x.cargo ? ' · ' + esc(x.cargo) : '') + '</div>'
+                    + (x.motivo ? '<div class="opacity-75 small">Motivo: ' + esc(x.motivo) + '</div>' : '')
+                    + '<div class="pc-acciones">'
+                    + '<button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-l-ver"><i class="ti ti-list-details"></i> Ver detalle</button>'
+                    + (x.revertible ? '<button type="button" class="sm-btn sm-btn-suave sm-btn-sm js-l-previa"><i class="ti ti-arrow-back-up"></i> Revertir…</button>' : '')
+                    + '</div><div class="js-l-detalle mt-2"></div><div class="js-l-plan mt-2"></div></div>';
+            }).join(''));
+        }
+
+        $raiz.on('click', '.js-l-ver', async function () {
+            const $c = $(this).closest('.js-lote');
+            const $d = $c.find('.js-l-detalle');
+            if ($d.children().length) { $d.empty(); return; }
+            try {
+                const r = await SciafModulo.pedir(URL + '/historial/lote?lote=' + encodeURIComponent($c.data('lote')), { metodo: 'GET' });
+                const j = await r.json();
+                if (!r.ok) throw new Error((j && j.msg) || SciafPrecarga.motivo(r.status));
+                $d.html(j.map(c => {
+                    const tipos = (c.tipo || '').split('+').map(t => TIPOS[t] || t).join(' · ');
+                    return '<div class="pc-hist-item"><div class="pc-hist-cab">' + esc(tipos)
+                        + (c.estadoVsiaf ? ' · ' + pastillaHist(c.estadoVsiaf) : '') + '</div>'
+                        + '<div><b>' + esc(c.referencia || '') + '</b> ' + diferencias(c.antes || {}, c.despues || {}) + '</div>'
+                        + (c.detalleVsiaf && c.estadoVsiaf === 'FALLO' ? '<div class="text-danger small">' + esc(c.detalleVsiaf) + '</div>' : '')
+                        + '</div>';
+                }).join('') || '<div class="opacity-75">Sin detalle.</div>');
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo leer el lote');
+            }
+        });
+
+        $raiz.on('click', '.js-l-previa', async function () {
+            const $c = $(this).closest('.js-lote');
+            const lote = $c.data('lote');
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+            try {
+                const j = await SciafModulo.pedirJson(URL + '/historial/revertir/plan', { json: { lote } });
+                if (!j.ok) throw new Error(j.msg || 'No se pudo calcular.');
+                let h = '<div class="sm-seccion"><div class="sm-seccion-cab"><i class="ti ti-arrow-back-up"></i> Vista previa de la reversión (todavía no se guardó nada)</div><div class="sm-seccion-cuerpo">';
+                if (j.errores.length) h += '<div class="sm-aviso sm-aviso-peligro"><i class="ti ti-ban"></i><div><b>No se puede revertir:</b><ul class="mb-0">'
+                    + j.errores.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div></div>';
+                h += '<p class="mb-1">' + esc(j.resumen) + ' <span class="opacity-75">' + j.filasAlVsiaf + ' se envían al VSIAF.</span></p>';
+                j.personas.forEach(p => { h += '<div class="small">↩ ' + esc(p.nombre) + ' vuelve a estar vigente'
+                    + (p.actas ? ', con ' + p.actas + ' acta(s) de faltantes' : '') + (p.usuario ? ' y su usuario' : '') + '.</div>'; });
+                j.cargos.forEach(c => { h += '<div class="small">↩ ' + (c.reactivar ? c.reactivar + ' cargo(s) juntado(s) vuelven a estar vigentes. ' : '')
+                    + (c.nombreAntes ? '«' + esc(c.nombreHoy) + '» vuelve a llamarse «' + esc(c.nombreAntes) + '».' : '') + '</div>'; });
+                if (j.filas.length) {
+                    h += '<div class="table-responsive mt-1"><table class="table sm-tabla pc-tabla mb-0"><thead><tr><th>Oficina</th><th>Persona</th><th>Cargo</th><th>VSIAF</th></tr></thead><tbody>'
+                        + j.filas.slice(0, 50).map(f => '<tr><td><b>' + esc(f.referencia) + '</b></td>'
+                            + '<td>' + (f.cambiaPersona ? cambio('id ' + f.idPersonaHoy, 'id ' + f.idPersona) : '<span class="opacity-75">igual</span>') + '</td>'
+                            + '<td>' + cambio(f.cargoHoy, f.cargo) + '</td>'
+                            + '<td>' + (f.enviaVsiaf ? '<span class="sm-pastilla sm-pastilla-activo">se envía</span>' : '<span class="sm-pastilla sm-pastilla-aviso">no</span>') + '</td></tr>').join('')
+                        + '</tbody></table></div>';
+                }
+                h += '<div class="pc-acciones"><button type="button" class="sm-btn sm-btn-peligro sm-btn-sm js-l-revertir"' + (j.errores.length || !VSIAF_OK ? ' disabled' : '')
+                    + (!VSIAF_OK ? ' title="Solo consulta: revierta desde el SCIAF del servidor."' : '') + '><i class="ti ti-arrow-back-up"></i> '
+                    + (j.aplicaDirecto ? 'Revertir' : 'Enviar solicitud') + '</button></div></div></div>';
+                $c.find('.js-l-plan').html(h);
+                $c.data('plan', j);
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo armar la vista previa');
+            } finally {
+                $b.prop('disabled', false).html(html);
+            }
+        });
+
+        $raiz.on('click', '.js-l-revertir', async function () {
+            const $c = $(this).closest('.js-lote');
+            const j = $c.data('plan');
+            if (!j || j.errores.length || !VSIAF_OK) return;
+            const si = await window.sciafConfirmar({
+                titulo: j.aplicaDirecto ? '¿Revertir el lote?' : '¿Enviar la solicitud?',
+                texto: '<b>' + esc(j.resumen) + '</b><br><small class="text-muted">' + (j.aplicaDirecto
+                    ? 'Todo vuelve a como estaba antes del lote y se envía al VSIAF. Queda como un lote de «Reversión».'
+                    : 'No se revierte nada hasta que el revisor lo apruebe.') + '</small>',
+                aceptar: j.aplicaDirecto ? 'Sí, revertir' : 'Sí, enviar', peligrosa: true
+            });
+            if (!si) return;
+            const r = await Swal.fire({ title: 'Motivo', input: 'textarea', inputPlaceholder: 'Por qué se revierte (queda en el historial)',
+                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                showCancelButton: true, confirmButtonText: 'Continuar', cancelButtonText: 'Cancelar' });
+            if (!r.isConfirmed) return;
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Revirtiendo…');
+            try {
+                const res = await SciafModulo.pedirJson(URL + '/historial/revertir/aplicar',
+                    { json: { lote: $c.data('lote'), firma: j.firma, motivo: r.value.trim() } });
+                if (!res.ok) throw new Error(res.msg || 'No se pudo revertir.');
+                if (res.solicitud) Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg });
+                else if (res.vsiafOk === false) Swal.fire('Revertido, pero no todo llegó al VSIAF', res.msg, 'warning');
+                else Swal.fire({ icon: 'success', title: 'Revertido', text: res.msg });
+                await cargarLotes();
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se revirtió');
+                $b.prop('disabled', false).html(html);
+            }
+        });
+
+        /* ── Llegada desde Responsables: persona y cargo ya elegidos ───── */
+        if (INICIAL && INICIAL.cargo) {
+            $cargo.append(new Option(INICIAL.cargo, INICIAL.cargo, true, true)).trigger('change');
+        }
+        if (INICIAL && INICIAL.persona) {
+            estado.principal = Number(INICIAL.persona);
+            cargarFicha().then(() => {
+                const p = estado.ficha && estado.ficha.principal;
+                if (p) $principal.append(new Option(p.nombreCompleto + (p.ci ? ' · C.I. ' + p.ci : ''), p.id, true, true)).trigger('change');
+            });
+        }
+    })();
+</script>

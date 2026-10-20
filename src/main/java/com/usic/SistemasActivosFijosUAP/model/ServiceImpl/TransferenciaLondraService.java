@@ -191,7 +191,7 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
         for (SolTransferenciaDbf f : grupo) {
             activoService.findByCodigo(f.getCodigoO()).ifPresent(a -> {
                 if (Boolean.TRUE.equals(a.getBloqueado())) bloqueados.add(a.getCodigo());
-                else if (a.enCustodia()) enCustodia.add(a.getCodigo());
+                else if (a.enCustodiaODuplicados()) enCustodia.add(a.getCodigo());
             });
         }
         if (!bloqueados.isEmpty()) {
@@ -199,8 +199,8 @@ public class TransferenciaLondraService implements ITransferenciaLondraService {
                 + String.join(", ", bloqueados) + ". Un administrador debe desbloquearlos primero.");
         }
         if (!enCustodia.isEmpty()) {
-            throw new IllegalStateException("No se puede aprobar: estos activos están en la oficina de faltantes — "
-                + String.join(", ", enCustodia) + ". Salen de ahí resolviendo su faltante en Control de Activos.");
+            throw new IllegalStateException("No se puede aprobar: estos activos están en la oficina de faltantes o en la de duplicados — "
+                + String.join(", ", enCustodia) + ". Salen de ahí solo desde su módulo (Faltantes / Activos duplicados).");
         }
 
         // ── 5. Resolver contexto destino (predio → oficina → responsable) ─────

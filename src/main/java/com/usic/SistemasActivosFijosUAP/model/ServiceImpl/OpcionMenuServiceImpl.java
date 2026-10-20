@@ -106,6 +106,14 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         "opcion_actividad", "opcion_autorizaciones", "opcion_conectados"
     );
 
+    /**
+     * Personas y cargos: SUPER USUARIO la ve siempre (como ADMINISTRADOR), aunque tenga
+     * permisos asignados a mano. A otros roles (APOYO) se les asigna desde Permisos.
+     */
+    private static final Set<String> CODIGOS_SIEMPRE_SUPER_USUARIO = Set.of(
+        "opcion_personas_cargos"
+    );
+
     /** Opciones que ve RESPONSABLE por defecto (módulo de comunicados). */
     private static final Set<String> CODIGOS_RESPONSABLE = Set.of(
         "opcion_comunicados"
@@ -289,7 +297,10 @@ public class OpcionMenuServiceImpl implements IOpcionMenuService {
         if (usuario != null && usuario.getIdUsuario() != null) {
             Set<String> asignados = codigosPorUsuario(usuario.getIdUsuario());
             if (!asignados.isEmpty()) {
-                if ("SUPER USUARIO".equals(rol)) asignados.addAll(CODIGOS_SUPERVISION);
+                if ("SUPER USUARIO".equals(rol)) {
+                    asignados.addAll(CODIGOS_SUPERVISION);
+                    asignados.addAll(CODIGOS_SIEMPRE_SUPER_USUARIO);
+                }
                 if (asignados.stream().anyMatch(CODIGOS_TRANSFERENCIA_VIEJOS::contains)) {
                     asignados.add("opcion_transferencia");
                 }

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.usic.SistemasActivosFijosUAP.componet.SseEmitterRegistry;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.TextoVsiaf;
 import com.usic.SistemasActivosFijosUAP.model.IService.IActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
@@ -211,7 +212,8 @@ public class ActivoSyncService {
                 }
 
                 if (f.getDescrip() != null && !f.getDescrip().isBlank()) {
-                    String desc = f.getDescrip().trim();
+                    // La Ñ tecleada en el VSIAF llega como «¥» (ver TextoVsiaf). Solo cambia el texto.
+                    String desc = TextoVsiaf.repararEnieDos(f.getDescrip()).trim();
                     activo.setDescripcion(desc.length() > 1024 ? desc.substring(0, 1024) : desc);
                 } else if (esNuevo) {
                     activo.setDescripcion("SIN DESCRIPCION"); // @NotBlank en entidad
@@ -259,7 +261,7 @@ public class ActivoSyncService {
                     activo.setBanderas(f.getBanderas().trim());
 
                 if (f.getObserv() != null)
-                    activo.setObserv(f.getObserv());
+                    activo.setObserv(TextoVsiaf.repararEnieDos(f.getObserv()));
 
                 if (f.getFechaUlt() != null) activo.setFechaUlt(f.getFechaUlt());
 

@@ -101,6 +101,47 @@ En Brave el botón «Nuevo adicional» no abría nada (en incógnito sí): EasyL
 (el recuadro del formulario) y `.ad-a` (la A del código). El prefijo del módulo pasó de `ad-` a
 `adi-`; ninguna clase del sistema queda en EasyList (comparado contra EasyList + EasyList Spanish).
 
+## Responsive (15-oct)
+
+Había scroll de página (fuera del formulario) en laptops: la cabecera se partía en 3 filas y la
+tabla tenía filas altísimas. Ahora no hay scroll de página en 1920×1080, 1600×900, 1440×900,
+1366×768, 1280×720 ni 1024×768 (medido con el marco real: barra superior, pestañas, menú
+lateral), ni en el listado ni en el formulario. Celular: tabla en tarjetas, pie del formulario
+pegado abajo en una línea. Detalle en `docs/PLANTILLA_MODULOS.md` («Que la pantalla entre…»).
+Solo cambió `templates/adicional/vista.html`.
+
+## Acta por oficina / responsable (19-oct)
+
+Pedido de Activos Fijos: «imprimir un reporte por oficina y responsable, así como los reportes de
+asignaciones del VSIAF». Botón «Reporte por oficina / responsable» → modal (oficina obligatoria,
+responsable opcional, **fecha y hora del acta**, por defecto ahora) →
+`GET /administracion/adicional/api/reportes/asignacion.pdf?oficinaId=&responsableId=&fecha=`.
+`model/service/adicional/ReporteAdicionalService` copia el acta en papel «ACTA DE ASIGNACION
+INDIVIDUAL DE BIENES - ADICIONAL <año>» (ejemplo: C06-04-26 SALA DE INFORMATICA ACSYH):
+membrete `fondo/0.jpg` en cada hoja, firmantes de `configuracion_gestion` de ese año +
+responsable de entrega seleccionado (como `PdfAsignacionActivoCompleto`; sin visto bueno
+configurado, la frase se omite), tabla Ítem/Descripción/Código/Observación, recuadro «Al:» (nombre,
+C.I. + extensión, cargo + « – U.A.P.»), párrafo SABS/D.S. 0181, firmas con Vo. Bo. y
+«C.c./Arch. <iniciales>/A-F». Toda la oficina → un acta por responsable, cada una en hoja nueva.
+Código: `148-` + código sin la A (igual que el acta del VSIAF), el antiguo debajo; sin ninguno,
+`S/CD`. Observación: estado de conservación y, debajo, la observación del registro.
+Pruebas: `ReporteAdicionalServiceTest` (3). **Sin probar contra la base ni en vivo.**
+
+## Formulario reordenado (19-oct)
+
+Queja de Activos Fijos: «arriba pone descripción y abajo pone las características… la idea es que
+sea intuitivo». El nombre estaba en «Identificación» y marca/modelo/color/material/medidas/
+características en «Datos», al final, con la vista previa de la descripción al fondo. Ahora:
+1. **Descripción del bien**: nombre, marca, modelo, color, material, medidas → recuadro «Así
+   quedará la descripción» → características (aclarado que no entran en la descripción).
+2. **Unidades y códigos**: cantidad, código antiguo, N° de serie (aclarado que va en la descripción).
+3. Clasificación · 4. Ubicación (sin cambios) · 5. **Adquisición y observación** (fecha, valor,
+   vida útil, financiador, observación) · 6. Fotos.
+El detalle (ventana) sigue el mismo orden: tarjeta ancha «Descripción del bien» arriba con todo lo
+que la forma y las características; el financiador pasó a «Adquisición». Solo cambió el HTML/CSS
+de `templates/adicional/vista.html`; el JS no se tocó (todo va por clases `js-*`). Visto en una
+captura estática a 1366 px; **sin probar en vivo** ni medir otra vez el «sin scroll de página».
+
 ## Pendiente / ofrecer
 
 1. En Consulta, un adicional sin código no lleva la pastilla «ADICIONAL» (se reconoce por el

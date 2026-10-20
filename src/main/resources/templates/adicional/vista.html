@@ -54,9 +54,15 @@
     .adi-info { display: flex; gap: .7rem; align-items: center; border-radius: 10px; padding: .6rem .8rem; margin-top: .8rem;
         background: var(--ad-suave); border: 1px solid rgba(var(--ad-rgb), .25); }
     .adi-info > i { font-size: 1.4rem; color: var(--ad); }
+    .adi-previa { display: flex; gap: .7rem; align-items: flex-start; border-radius: 10px; padding: .6rem .8rem; margin-top: .2rem;
+        background: var(--ad-suave); border: 1px dashed rgba(var(--ad-rgb), .45); }
+    .adi-previa > i { font-size: 1.3rem; color: var(--ad); margin-top: .1rem; }
+    .adi-previa-tit { display: block; font-size: .75rem; color: var(--sm-texto-2); margin-bottom: .1rem; }
+    .adi-previa b { display: block; color: var(--sm-texto); font-size: .9rem; overflow-wrap: anywhere; }
     .adi-pie { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: .75rem 1.1rem;
         border-top: 1px solid var(--sm-borde); background: linear-gradient(var(--sm-superficie-2), var(--sm-superficie-2)), var(--sm-superficie);
         position: sticky; bottom: 0; z-index: 3; }
+    .adi-l-corto { display: none; }
     .adi-pie .adi-nota { margin-right: auto; font-size: .78rem; color: var(--sm-texto-2); }
     .adi-cantidad { display: flex; align-items: stretch; }
     .adi-cantidad .sm-input { text-align: center; border-radius: 0; font-weight: 700; }
@@ -73,6 +79,13 @@
     .adi-pantalla .select2-dropdown { border-color: var(--sm-borde-fuerte); background: var(--sm-superficie); color: var(--sm-texto); }
     .adi-pantalla .select2-results__option--highlighted { background: var(--ad) !important; }
     .adi-pantalla .sm-input:focus, .adi-pantalla .sm-select:focus { border-color: var(--ad); box-shadow: var(--sm-sombra-campo), 0 0 0 4px rgba(var(--ad-rgb), .16); outline: 0; }
+    .adi-reporte-modal .select2-search__field { background: var(--sm-superficie); color: var(--sm-texto); border: 1px solid var(--sm-borde-fuerte); border-radius: 8px; padding: .45rem .6rem; }
+    .adi-reporte-modal .select2-search__field:focus { border-color: var(--ad); outline: 0; box-shadow: 0 0 0 3px rgba(var(--ad-rgb), .16); }
+    .adi-reporte-modal .select2-results__option { color: var(--sm-texto); }
+    .adi-reporte-modal .select2-results__option--highlighted { color: #fff !important; }
+    .adi-reporte-modal .select2-container--disabled .select2-selection--single { opacity: .55; background: var(--sm-superficie-2); }
+    .adi-reporte-modal .sm-modal-cuerpo { padding-bottom: 1.2rem; }
+    .adi-reporte-modal .js-reporte-error:not(:empty) { color: var(--sm-peligro); font-weight: 600; }
     .adi-sin-mayus { text-transform: none !important; }
 
     /* Altas rápidas de oficina / responsable */
@@ -107,6 +120,85 @@
     .adi-campo { margin-bottom: .35rem; }
     .adi-campo small { display: block; font-size: .72rem; color: var(--sm-texto-2); }
     .adi-campo span { font-weight: 600; color: var(--sm-texto); word-break: break-word; }
+    .adi-desc-detalle { font-weight: 700; font-size: .95rem; color: var(--sm-texto); overflow-wrap: anywhere; margin-bottom: .6rem; }
+    .adi-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); column-gap: .9rem; }
+    /* ── Responsive: el módulo entra en la ventana sin scroll de página (solo se desplazan
+          las filas de la tabla o los campos del formulario) ── */
+    .adi-pantalla .sm-cabecera { row-gap: .55rem; }
+    /* El texto se encoge al lado del ícono (antes el ícono quedaba solo en una fila) */
+    .adi-pantalla .sm-cabecera-texto { flex: 1 1 280px; }
+    .adi-pantalla .sm-subtitulo { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    /* Con el formulario abierto, los totales y «Nuevo» no sirven: la cabecera queda en una línea */
+    .adi-pantalla.adi-en-form .sm-cabecera-acciones, .adi-pantalla.adi-en-form .sm-subtitulo { display: none; }
+    .adi-pantalla.adi-en-form .sm-cabecera { margin-bottom: .6rem; }
+    .adi-pantalla .js-panel-form .sm-detalle-head { padding: .7rem 1.1rem; }
+    .adi-pantalla .js-panel-form .sm-detalle-head .sm-modal-titulo { font-size: 1.2rem; }
+
+    /* Tabla: filas de alto parejo (la descripción en 2 líneas, la ubicación en 1 + responsable) */
+    .adi-pantalla .js-tabla td { vertical-align: middle; }
+    .adi-col-marca { width: 44px; }
+    .adi-pantalla .js-tabla .adi-nowrap { white-space: nowrap; }
+    .adi-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 180px; }
+    .adi-ubic { display: block; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .adi-ubic small { display: block; overflow: hidden; text-overflow: ellipsis; }
+    /* Columnas según el ancho REAL del listado (no de la ventana: el menú lateral le quita
+       260 px). Va en la tarjeta del listado y no en la raíz: el contenedor de consulta encierra
+       a los elementos «fixed» y la ventana de detalle vive en la raíz. */
+    .adi-pantalla .js-listado { container-type: inline-size; container-name: adilista; }
+    @media (min-width: 768px) {
+        @container adilista (max-width: 1150px) { .adi-col-fotos { display: none; } }
+        @container adilista (max-width: 1000px) { .adi-col-grupo { display: none; } .adi-ubic { max-width: 200px; } }
+        @container adilista (max-width: 820px) { .adi-ubic { max-width: 150px; } .adi-desc { min-width: 140px; } }
+    }
+
+    /* Ventanas muy bajas (1280×720, ventana achicada): modo compacto */
+    @media (max-height: 660px) {
+        .adi-pantalla .sm-migas { display: none; }
+        .adi-pantalla .sm-cabecera > .sm-cabecera-icono { width: 38px; height: 38px; font-size: 1.15rem; }
+        .adi-pantalla .sm-titulo { font-size: 1.2rem; }
+        .adi-pantalla .sm-dato { padding: .3rem .7rem; }
+        .adi-pantalla .sm-toolbar { padding: .5rem .9rem; }
+        .adi-pantalla .sm-tabla.table > tbody > tr > td { padding-top: .35rem; padding-bottom: .35rem; }
+        .adi-pantalla .js-panel-form .sm-detalle-head { padding: .4rem .9rem; }
+        .adi-pantalla.adi-en-form .sm-cabecera { margin-bottom: .4rem; }
+    }
+
+    /* Pantallas bajas: menos aire alrededor del formulario */
+    @media (max-height: 820px) {
+        .adi-pantalla .sm-subtitulo { display: none; }
+        .adi-pantalla .sm-cabecera { margin-bottom: .6rem; }
+        .adi-pantalla .js-panel-form .sm-detalle-head { padding: .5rem 1rem; }
+        .adi-pantalla .js-panel-form .sm-detalle-head small { display: none; }
+        .adi-pantalla .js-panel-form .sm-detalle-head .sm-cabecera-icono { width: 36px; height: 36px; font-size: 1.1rem; }
+        .adi-pantalla .adi-panel-cuerpo { padding: .7rem .9rem; }
+        .adi-pantalla .adi-seccion { margin-bottom: .6rem; }
+        .adi-pantalla .adi-seccion-cab { padding: .45rem .8rem; }
+        .adi-pantalla .adi-seccion-cuerpo { padding: .65rem .8rem; }
+        .adi-pantalla .adi-pie { padding: .5rem 1rem; }
+    }
+
+    /* Celular: la página se desplaza entera y el pie con los botones queda pegado abajo */
+    @media (max-width: 767.98px) {
+        .adi-pantalla .adi-panel { overflow: visible; }
+        .adi-pantalla .adi-pie { bottom: 0; border-radius: 0 0 12px 12px; box-shadow: 0 -6px 14px -8px rgba(15, 23, 42, .25); }
+        .adi-pantalla .adi-pie .adi-nota { display: none; }
+        .adi-pantalla .adi-pie { flex-wrap: nowrap; gap: .4rem; padding: .5rem .6rem; }
+        .adi-pantalla .adi-pie .sm-btn { flex: 1 1 auto; justify-content: center; padding-left: .55rem; padding-right: .55rem; white-space: nowrap; }
+        .adi-pantalla .adi-pie .js-cancelar { flex: 0 0 auto; }
+        .adi-pantalla .adi-l-largo { display: none; }
+        .adi-pantalla .adi-l-corto { display: inline; }
+        .adi-pantalla .js-panel-form .sm-detalle-head small { display: none; }
+        /* Cabecera: los tres totales en una fila y «Nuevo» debajo, a lo ancho */
+        .adi-pantalla .sm-cabecera-acciones { gap: .4rem; }
+        .adi-pantalla .sm-cabecera-acciones .sm-dato { flex: 1 1 0; justify-content: center; padding: .3rem .4rem; font-size: .7rem; }
+        .adi-pantalla .sm-cabecera-acciones .sm-dato strong { font-size: .95rem; }
+        .adi-pantalla .sm-cabecera-acciones .js-nuevo { flex: 1 1 100%; justify-content: center; }
+        /* Barra: buscador arriba; etiquetas y filas en la misma línea */
+        .adi-pantalla .sm-toolbar { gap: .5rem; }
+        .adi-pantalla .sm-toolbar-espacio { display: none; }
+        .adi-pantalla .sm-toolbar .js-etiquetas-sel { flex: 1 1 auto; justify-content: center; }
+    }
+
     @keyframes adi-aparecer { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) { .adi-pantalla * { animation: none !important; transition: none !important; } }
 </style>
@@ -118,7 +210,7 @@
             <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Activos adicionales
         </nav>
         <h1 class="sm-titulo">Activos adicionales <span class="adi-sello"><i class="ti ti-shield-check"></i> SOLO SCIAF</span></h1>
-        <p class="sm-subtitulo">Bienes que no estaban registrados. Nada es obligatorio: registre lo que sepa y su <b>código antiguo</b>.
+        <p class="sm-subtitulo" title="Bienes que no estaban registrados. Nada es obligatorio: registre lo que sepa y su código antiguo. Con predio y grupo contable reciben código propio (01-04-06-00001A); no van al VSIAF.">Bienes que no estaban registrados. Nada es obligatorio: registre lo que sepa y su <b>código antiguo</b>.
             Con predio y grupo contable reciben código propio <span class="adi-codigo">01-04-06-00001<span class="adi-a">A</span></span>; no van al VSIAF.</p>
     </div>
     <div class="sm-cabecera-acciones">
@@ -139,6 +231,8 @@
             <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
         </div>
         <div class="sm-toolbar-espacio"></div>
+        <button type="button" class="sm-btn sm-btn-suave js-reporte" title="Acta de bienes adicionales por oficina y responsable">
+            <i class="ti ti-file-type-pdf"></i> Reporte por oficina / responsable</button>
         <button type="button" class="sm-btn sm-btn-suave js-etiquetas-sel" disabled
                 title="Marque en la tabla los activos con código (los recién registrados se marcan solos)">
             <i class="ti ti-qrcode"></i> Etiquetas <span class="js-n-sel">(0)</span></button>
@@ -157,14 +251,14 @@
     <table class="table sm-tabla align-middle js-tabla">
         <thead>
             <tr>
-                <th class="text-center" style="width:44px;" title="Marcar para imprimir etiquetas"><i class="ti ti-qrcode"></i></th>
-                <th style="width:170px;">Código</th>
-                <th style="width:140px;">Código antiguo</th>
+                <th class="text-center adi-col-marca" title="Marcar para imprimir etiquetas"><i class="ti ti-qrcode"></i></th>
+                <th class="adi-nowrap">Código</th>
+                <th class="adi-nowrap">Código antiguo</th>
                 <th>Descripción</th>
-                <th>Grupo contable</th>
+                <th class="adi-col-grupo">Grupo contable</th>
                 <th>Ubicación</th>
-                <th class="text-center" style="width:70px;">Fotos</th>
-                <th class="text-end" style="width:120px;">Valor</th>
+                <th class="text-center adi-col-fotos">Fotos</th>
+                <th class="text-end adi-nowrap">Valor</th>
             </tr>
         </thead>
     </table>
@@ -181,14 +275,38 @@
         </div>
         <div class="adi-panel-cuerpo js-panel-cuerpo">
 
+            <!-- 1. Qué es el bien: todo lo que forma la descripción, con la vista previa debajo -->
             <div class="adi-seccion">
-                <div class="adi-seccion-cab"><i class="ti ti-tag"></i> Identificación</div>
+                <div class="adi-seccion-cab"><i class="ti ti-file-description"></i> Descripción del bien <small>estos datos forman la descripción</small></div>
                 <div class="adi-seccion-cuerpo row g-2">
-                    <div class="col-lg-9">
-                        <label class="sm-label">Nombre o descripción</label>
+                    <div class="col-12">
+                        <label class="sm-label">Nombre del bien</label>
                         <textarea class="sm-input js-desc" rows="2" maxlength="600" style="min-height:60px" placeholder="Ej: SILLA DE ESCRITORIO GIRATORIA"></textarea>
                     </div>
-                    <div class="col-lg-3 js-bloque-cantidad">
+                    <div class="col-lg-4 col-md-6"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" placeholder="Ej: TP-LINK" /></div>
+                    <div class="col-lg-4 col-md-6"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" placeholder="Ej: ARCHER C20" /></div>
+                    <div class="col-lg-4 col-md-6"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" placeholder="Ej: PLOMO" /></div>
+                    <div class="col-lg-6 col-md-6"><label class="sm-label">Material</label><input type="text" class="sm-input js-material" maxlength="80" placeholder="Ej: METAL Y TELA" /></div>
+                    <div class="col-lg-6"><label class="sm-label">Medidas</label><input type="text" class="sm-input js-medidas" maxlength="80" placeholder="Ej: 1.20 X 0.60 M" /></div>
+                    <div class="col-12">
+                        <div class="adi-previa">
+                            <i class="ti ti-eye"></i>
+                            <div><span class="adi-previa-tit">Así quedará la descripción <span class="js-largo"></span></span>
+                                <b class="js-previa">—</b></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="sm-label">Características <small class="text-muted">(detalle extra; no entra en la descripción)</small></label>
+                        <textarea class="sm-input js-caract" rows="2" style="min-height:60px" maxlength="4000" placeholder="Ej: 4 PUERTOS LAN, ANTENAS EXTERNAS, CON CARGADOR"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Cuántos y cómo se reconocen: una línea por unidad -->
+            <div class="adi-seccion">
+                <div class="adi-seccion-cab"><i class="ti ti-hash"></i> Unidades y códigos</div>
+                <div class="adi-seccion-cuerpo row g-2">
+                    <div class="col-lg-3 col-md-4 js-bloque-cantidad">
                         <label class="sm-label">Cantidad</label>
                         <div class="adi-cantidad">
                             <button type="button" class="js-menos" aria-label="Uno menos">−</button>
@@ -197,14 +315,14 @@
                         </div>
                         <div class="adi-ayuda">Varios iguales: un activo por unidad.</div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-lg col-md-4">
                         <label class="sm-label">Código antiguo <small class="text-muted js-ayuda-antiguo">(el que usaba Activos Fijos)</small></label>
                         <textarea class="sm-input js-antiguos" rows="1" style="min-height:44px" placeholder="Ej: AF-2015-0231"></textarea>
                         <div class="adi-ayuda js-info-antiguos"></div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="sm-label">Serie(s)</label>
-                        <textarea class="sm-input js-series" rows="1" style="min-height:44px"></textarea>
+                    <div class="col-lg col-md-4">
+                        <label class="sm-label">N° de serie <small class="text-muted">(va en la descripción)</small></label>
+                        <textarea class="sm-input js-series" rows="1" style="min-height:44px" placeholder="Ej: 218B096002420"></textarea>
                         <div class="adi-ayuda js-info-series"></div>
                     </div>
                 </div>
@@ -290,24 +408,17 @@
                 </div>
             </div>
 
+            <!-- 5. Datos contables y nota libre -->
             <div class="adi-seccion">
-                <div class="adi-seccion-cab"><i class="ti ti-list-details"></i> Datos</div>
+                <div class="adi-seccion-cab"><i class="ti ti-receipt"></i> Adquisición y observación</div>
                 <div class="adi-seccion-cuerpo row g-2">
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Fecha de adquisición</label><input type="date" class="sm-input js-fecha" /></div>
                     <div class="col-lg-3 col-md-6"><label class="sm-label">Valor unitario (Bs)</label><input type="number" class="sm-input js-valor text-end" min="0" step="0.01" placeholder="0.00" /></div>
                     <div class="col-lg-2 col-md-6"><label class="sm-label">Vida útil (años)</label><input type="number" class="sm-input js-vida text-center" min="0" max="100" /></div>
                     <div class="col-lg-4 col-md-6"><label class="sm-label">Financiador</label><select class="js-financiador"><option value=""></option></select></div>
-                    <div class="col-lg-4 col-md-6"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" /></div>
-                    <div class="col-lg-4 col-md-6"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" /></div>
-                    <div class="col-lg-4 col-md-6"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" /></div>
-                    <div class="col-md-6"><label class="sm-label">Material</label><input type="text" class="sm-input js-material" maxlength="80" /></div>
-                    <div class="col-md-6"><label class="sm-label">Medidas</label><input type="text" class="sm-input js-medidas" maxlength="80" /></div>
-                    <div class="col-md-6"><label class="sm-label">Características</label>
-                        <textarea class="sm-input js-caract" rows="2" style="min-height:60px" maxlength="4000"></textarea></div>
-                    <div class="col-md-6"><label class="sm-label">Observación</label>
+                    <div class="col-12"><label class="sm-label">Observación</label>
                         <textarea class="sm-input adi-sin-mayus js-obs" data-sm-mayus="no" rows="2" style="min-height:60px" maxlength="4000"
                                   placeholder="Dónde se encontró, estado, quién lo informó…"></textarea></div>
-                    <div class="col-12"><div class="adi-ayuda">Así quedará la descripción: <b class="js-previa">—</b> <span class="js-largo"></span></div></div>
                 </div>
             </div>
 
@@ -325,8 +436,8 @@
         </div>
         <div class="adi-pie">
             <span class="adi-nota js-pie-nota">Nada es obligatorio.</span>
-            <button type="button" class="sm-btn sm-btn-neutro js-cancelar"><i class="ti ti-x"></i> Cancelar</button>
-            <button type="button" class="sm-btn sm-btn-suave js-guardar-otro" title="Guarda y deja la clasificación y la ubicación para cargar el siguiente"><i class="ti ti-repeat"></i> Guardar y registrar otro</button>
+            <button type="button" class="sm-btn sm-btn-neutro js-cancelar" aria-label="Cancelar"><i class="ti ti-x"></i><span class="adi-l-largo"> Cancelar</span></button>
+            <button type="button" class="sm-btn sm-btn-suave js-guardar-otro" title="Guarda y deja la clasificación y la ubicación para cargar el siguiente"><i class="ti ti-repeat"></i><span class="adi-l-largo"> Guardar y registrar otro</span><span class="adi-l-corto"> Guardar y otro</span></button>
             <button type="button" class="sm-btn sm-btn-exito js-guardar"><i class="ti ti-device-floppy"></i> Guardar</button>
         </div>
     </form>
@@ -336,6 +447,46 @@
 <div class="modal fade js-modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered sm-detalle-dialog">
         <div class="modal-content sm-modal sm-detalle-content js-detalle"></div>
+    </div>
+</div>
+
+<!-- Impresión de actas de adicionales: controles iguales a los del formulario -->
+<div class="modal fade js-reporte-modal adi-reporte-modal" tabindex="-1" aria-hidden="true" aria-labelledby="adiReporteTitulo">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content sm-modal">
+            <div class="sm-modal-cab">
+                <div class="sm-cabecera-icono"><i class="ti ti-file-type-pdf"></i></div>
+                <div>
+                    <h5 class="sm-modal-titulo" id="adiReporteTitulo">Reporte de adicionales</h5>
+                    <p class="sm-modal-sub">Acta de bienes por oficina y responsable</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form class="js-reporte-form">
+                <div class="sm-modal-cuerpo">
+                    <div class="adi-seccion">
+                        <div class="adi-seccion-cab"><i class="ti ti-map-pin"></i> Selección para imprimir</div>
+                        <div class="adi-seccion-cuerpo">
+                            <label class="sm-label" for="adiReporteOficina">Oficina <span class="sm-req">*</span></label>
+                            <select id="adiReporteOficina" class="js-reporte-oficina" style="width:100%"><option value=""></option></select>
+                            <div class="adi-ayuda">Escriba para buscar la oficina.</div>
+                            <label class="sm-label mt-3" for="adiReporteResponsable">Responsable</label>
+                            <select id="adiReporteResponsable" class="js-reporte-responsable" style="width:100%" disabled><option value=""></option></select>
+                            <div class="adi-ayuda">Puede buscar uno o dejar este campo vacío para imprimir todos los responsables de la oficina.</div>
+                            <label class="sm-label mt-3" for="adiReporteFecha">Fecha y hora del acta</label>
+                            <input type="datetime-local" id="adiReporteFecha" class="sm-input js-reporte-fecha" />
+                            <div class="adi-ayuda">La que figura en el texto del acta («a 06 días del mes de ABRIL…»). Por defecto, ahora.</div>
+                        </div>
+                    </div>
+                    <div class="adi-info mt-0"><i class="ti ti-info-circle"></i><span>Se incluyen únicamente los bienes adicionales vigentes. El reporte de toda la oficina sale en un acta por responsable, con el membrete institucional.</span></div>
+                </div>
+                <div class="sm-modal-pie">
+                    <span class="sm-nota js-reporte-error" role="alert"></span>
+                    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cancelar</button>
+                    <button type="submit" class="sm-btn sm-btn-exito"><i class="ti ti-file-type-pdf"></i> Abrir PDF</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -408,7 +559,7 @@
     let tabla = null;
     function iniciarTabla() {
         tabla = SciafModulo.tabla({
-            tabla: $tabla, buscador: $raiz.find('.js-buscar'), largo: $raiz.find('.js-largo'),
+            tabla: $tabla, minFilas: 3, buscador: $raiz.find('.js-buscar'), largo: $raiz.find('.js-largo'),
             dt: {
                 serverSide: true, ordering: false, deferRender: true,
                 ajax: { url: URL + '/api/datatables', type: 'POST' },
@@ -420,16 +571,18 @@
                         return a.codigo && a.estado === 'ACTIVO'
                             ? '<input type="checkbox" class="adi-marca" aria-label="Marcar para etiqueta"' + (elegidos.has(a.idActivo) ? ' checked' : '') + '>' : '';
                     } },
-                    { data: 'codigo', render: function (v) { return codigoHtml(v); } },
-                    { data: 'codigoAntiguo', render: function (v) { return v ? '<span class="adi-antiguo">' + esc(v) + '</span>' : '<span class="text-muted">—</span>'; } },
-                    { data: 'descripcion', render: function (v) { return '<span class="sm-mayus">' + esc(v) + '</span>'; } },
-                    { data: 'grupo', render: function (v) { return v ? esc(v) : '<span class="text-muted">—</span>'; } },
+                    { data: 'codigo', className: 'adi-nowrap', render: function (v) { return codigoHtml(v); } },
+                    { data: 'codigoAntiguo', className: 'adi-nowrap', render: function (v) { return v ? '<span class="adi-antiguo">' + esc(v) + '</span>' : '<span class="text-muted">—</span>'; } },
+                    { data: 'descripcion', render: function (v) { return '<span class="sm-mayus adi-desc" title="' + esc(v) + '">' + esc(v) + '</span>'; } },
+                    { data: 'grupo', className: 'adi-col-grupo', render: function (v) { return v ? esc(v) : '<span class="text-muted">—</span>'; } },
                     { data: null, render: function (d, t, a) {
                         if (!a.oficina && !a.predio) return '<span class="text-muted">—</span>';
-                        return esc(a.oficina || a.predio) + (a.responsable ? '<br><small class="text-muted">' + esc(a.responsable) + '</small>' : (a.oficina && a.predio ? '<br><small class="text-muted">' + esc(a.predio) + '</small>' : ''));
+                        const lugar = a.oficina || a.predio, abajo = a.responsable || (a.oficina && a.predio ? a.predio : '');
+                        return '<span class="adi-ubic" title="' + esc(lugar + (abajo ? ' · ' + abajo : '')) + '">' + esc(lugar)
+                            + (abajo ? '<small class="text-muted">' + esc(abajo) + '</small>' : '') + '</span>';
                     } },
-                    { data: 'fotos', className: 'text-center', render: function (v) { return v ? '<i class="ti ti-photo"></i> ' + esc(v) : '<span class="text-muted">—</span>'; } },
-                    { data: 'valor', className: 'text-end', render: function (v) { return v ? esc(bs(v)) : '<span class="text-muted">—</span>'; } }
+                    { data: 'fotos', className: 'text-center adi-col-fotos', render: function (v) { return v ? '<i class="ti ti-photo"></i> ' + esc(v) : '<span class="text-muted">—</span>'; } },
+                    { data: 'valor', className: 'text-end adi-nowrap', render: function (v) { return v ? esc(bs(v)) : '<span class="text-muted">—</span>'; } }
                 ]
             }
         });
@@ -466,6 +619,7 @@
     $raiz.on('click', '.js-etiquetas-sel', function () { if (elegidos.size) imprimirEtiquetas(Array.from(elegidos.keys())); });
 
     function mostrar(cual) {
+        $raiz.toggleClass('adi-en-form', cual === 'form');
         $listado.toggleClass('d-none', cual !== 'listado');
         $panel.toggleClass('d-none', cual !== 'form');
         const $v = cual === 'form' ? $panel : $listado;
@@ -475,8 +629,12 @@
         // módulo) tomaba toda la ventana y los botones quedaban fuera de la vista hasta que
         // la ventana cambiaba de tamaño (p. ej. al pulsar Alt).
         if (cual === 'form') ajustarCuerpo();
+        else reajustarTabla();
     }
     let ajustarCuerpo = function () {};
+    // La tabla («Ajustar a pantalla») se mide al cambiar el tamaño de la ventana; al volver del
+    // formulario la cabecera cambió de alto sin que la ventana cambie: se le avisa igual.
+    function reajustarTabla() { try { window.dispatchEvent(new Event('resize')); } catch (e) { /* navegador viejo */ } }
 
     // ════════════════════════════════════════════════════════════
     //  Formulario
@@ -961,20 +1119,22 @@
             + (INICIAL.esAdmin && d.eliminable ? '<button type="button" class="sm-btn sm-btn-peligro js-eliminar"><i class="ti ti-trash"></i> Eliminar</button>' : '')
             + '</div><button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>'
             + '<div class="sm-detalle-scroll">'
+            // Mismo orden que el formulario: primero qué es el bien (descripción y lo que la forma).
+            + '<div class="adi-tarjeta mb-3"><div class="adi-tarjeta-cab"><i class="ti ti-file-description"></i> Descripción del bien</div>'
+            + '<div class="adi-desc-detalle">' + esc(d.descripcion || '—') + '</div>'
+            + '<div class="adi-campos">' + campo('Marca', d.marca) + campo('Modelo', d.modelo) + campo('Color', d.color)
+            + campo('Material', d.material) + campo('Medidas', d.dimensiones) + campo('N° de serie', d.serie) + campo('Código antiguo', d.codigoAntiguo) + '</div>'
+            + (d.caracteristicas ? '<div class="adi-campo mt-1"><small>Características</small><span style="white-space:pre-line">' + esc(d.caracteristicas) + '</span></div>' : '')
+            + '</div>'
             + '<div class="adi-tarjetas">'
-            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-tag"></i> Identificación</div>'
-            + campo('Descripción', d.descripcion) + campo('Código antiguo', d.codigoAntiguo)
-            + campo('Marca / modelo', [d.marca, d.modelo].filter(Boolean).join(' · ')) + campo('Serie', d.serie) + '</div>'
             + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-layers-subtract"></i> Clasificación</div>'
-            + campo('Grupo contable', d.grupo) + campo('Auxiliar', d.auxiliar) + campo('Conservación', d.conservacion) + campo('Financiador', d.financiador) + '</div>'
+            + campo('Grupo contable', d.grupo) + campo('Auxiliar', d.auxiliar) + campo('Conservación', d.conservacion) + '</div>'
             + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-map-pin"></i> Ubicación</div>'
             + campo('Predio', d.predio) + campo('Oficina', d.oficina) + campo('Responsable', d.responsable) + '</div>'
-            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-list-details"></i> Datos</div>'
+            + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-receipt"></i> Adquisición</div>'
             + campo('Fecha de adquisición', d.fechaAdquisicion ? fechaBonita(d.fechaAdquisicion) : null) + campo('Valor', d.valor ? bs(d.valor) : null)
-            + campo('Vida útil', d.vidaUtil ? d.vidaUtil + ' año(s)' : null)
-            + campo('Color / material / medidas', [d.color, d.material, d.dimensiones].filter(Boolean).join(' · ')) + '</div>'
+            + campo('Vida útil', d.vidaUtil ? d.vidaUtil + ' año(s)' : null) + campo('Financiador', d.financiador) + '</div>'
             + '</div>'
-            + (d.caracteristicas ? '<div class="adi-tarjeta mb-3"><div class="adi-tarjeta-cab">Características</div><div style="white-space:pre-line">' + esc(d.caracteristicas) + '</div></div>' : '')
             + (d.observacion ? '<div class="adi-tarjeta mb-3"><div class="adi-tarjeta-cab">Observación</div><div style="white-space:pre-line">' + esc(d.observacion) + '</div></div>' : '')
             + '<div class="adi-tarjeta"><div class="adi-tarjeta-cab"><i class="ti ti-photo"></i> Fotos <small class="text-muted text-lowercase fw-normal">(hasta ' + MAX_FOTOS + ')</small></div>'
             + '<div class="adi-fotos">' + (fotos || '<span class="text-muted small">Sin fotos.</span>') + '</div></div>'
@@ -1009,6 +1169,55 @@
     });
 
     $raiz.on('click', '.js-etiqueta-una', function () { const d = $detalle.data('activo'); if (d) imprimirEtiquetas([d.idActivo]); });
+
+    const $reporteModal = $raiz.find('.js-reporte-modal');
+    const $reporteOficina = $reporteModal.find('.js-reporte-oficina');
+    const $reporteResponsable = $reporteModal.find('.js-reporte-responsable');
+    const $reporteError = $reporteModal.find('.js-reporte-error');
+    const $reporteFecha = $reporteModal.find('.js-reporte-fecha');
+    let oficinasReporte = [];
+    const configReporte = { dropdownParent: $reporteModal, width: '100%', minimumResultsForSearch: 0,
+        allowClear: true, language: { noResults: () => 'Sin resultados', searching: () => 'Buscando…' } };
+    $reporteOficina.select2(Object.assign({ placeholder: 'Seleccione una oficina' }, configReporte));
+    $reporteResponsable.select2(Object.assign({ placeholder: 'Todos los responsables' }, configReporte));
+    $reporteOficina.on('change', function () {
+        const oficina = oficinasReporte.find(o => String(o.id) === this.value);
+        $reporteResponsable.empty().append(new Option('', ''));
+        (oficina ? oficina.responsables : []).forEach(p => $reporteResponsable.append(new Option(p.nombre, p.id)));
+        $reporteResponsable.prop('disabled', !oficina || !oficina.responsables.length).val(null).trigger('change.select2');
+        $reporteError.text('');
+        $reporteOficina.removeClass('is-invalid');
+    });
+    $raiz.on('click', '.js-reporte', async function () {
+        try {
+            const r = await SciafModulo.pedir(URL + '/api/reportes/opciones', { metodo: 'GET' });
+            oficinasReporte = await r.json();
+            if (!oficinasReporte.length) { aviso('No hay adicionales vigentes con oficina para reportar.'); return; }
+            $reporteOficina.empty().append(new Option('', ''));
+            oficinasReporte.forEach(o => $reporteOficina.append(new Option(o.nombre, o.id)));
+            $reporteOficina.val(null).trigger('change');
+            const ahora = new Date();
+            ahora.setMinutes(ahora.getMinutes() - ahora.getTimezoneOffset());
+            $reporteFecha.val(ahora.toISOString().slice(0, 16)).attr('max', ahora.toISOString().slice(0, 10) + 'T23:59');
+            $reporteError.text('');
+            bootstrap.Modal.getOrCreateInstance($reporteModal[0]).show();
+        } catch (e) { if (!e.sesionPerdida) aviso('No se pudieron cargar las oficinas del reporte.'); }
+    });
+    $reporteModal.find('.js-reporte-form').on('submit', function (event) {
+        event.preventDefault();
+        const oficina = $reporteOficina.val(), responsable = $reporteResponsable.val();
+        if (!oficina) {
+            $reporteOficina.addClass('is-invalid');
+            $reporteError.text('Seleccione una oficina.');
+            $reporteOficina.select2('open');
+            return;
+        }
+        const url = URL + '/api/reportes/asignacion.pdf?oficinaId=' + encodeURIComponent(oficina)
+            + (responsable ? '&responsableId=' + encodeURIComponent(responsable) : '')
+            + ($reporteFecha.val() ? '&fecha=' + encodeURIComponent($reporteFecha.val()) : '');
+        window.open(url, '_blank', 'noopener');
+        bootstrap.Modal.getOrCreateInstance($reporteModal[0]).hide();
+    });
 
     // Corregir: el mismo formulario, con el activo cargado
     $raiz.on('click', '.js-editar', async function () {
@@ -1071,6 +1280,18 @@
     iniciarTabla();
     mostrar('listado');
     // Solo los campos se desplazan; el pie con los botones queda siempre a la vista.
-    ajustarCuerpo = SciafModulo.ajustarAlto($form.find('.js-panel-cuerpo'), 12);
+    ajustarCuerpo = SciafModulo.ajustarAlto($form.find('.js-panel-cuerpo'), 16);
+    // Si la cabecera cambia de alto sin que cambie la ventana (se abre o cierra el menú lateral,
+    // carga la fuente, se parte en otra línea), se vuelve a medir lo que se ve.
+    if (window.ResizeObserver) {
+        let altoCab = 0, espera = null;
+        new ResizeObserver(function (e) {
+            const h = Math.round(e[0].contentRect.height);
+            if (h === altoCab) return;
+            altoCab = h;
+            clearTimeout(espera);
+            espera = setTimeout(function () { if ($panel.hasClass('d-none')) reajustarTabla(); else ajustarCuerpo(); }, 120);
+        }).observe($raiz.find('.sm-cabecera')[0]);
+    }
 })();
 </script>

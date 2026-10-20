@@ -198,6 +198,22 @@ public interface IOficinaDao extends JpaRepository<Oficina, Long> {
             """)
     List<Oficina> candidatasCustodia(@Param("idPredio") Long idPredio);
 
+    /** Oficina de duplicados vigente del predio (a lo sumo una: índice uk_oficina_duplicados_predio). */
+    @Query("select o from Oficina o where o.predio.idPredio = :idPredio and o.esDuplicados = true and o.estado = 'ACTIVO'")
+    List<Oficina> duplicadosDelPredio(@Param("idPredio") Long idPredio);
+
+    /**
+     * Oficinas vigentes del predio que se llaman "DUPLICADOS…" pero todavía no están marcadas:
+     * las que alguien creó a mano en el VSIAF. Se adoptan antes de crear otra.
+     */
+    @Query("""
+            select o from Oficina o
+            where o.predio.idPredio = :idPredio and o.esDuplicados = false and o.esCustodia = false
+              and o.estado = 'ACTIVO' and upper(trim(o.nombre)) like 'DUPLICADOS%'
+            order by o.codOfi
+            """)
+    List<Oficina> candidatasDuplicados(@Param("idPredio") Long idPredio);
+
     /** Activos (no eliminados) ubicados en la oficina; mismo motivo que los responsables. */
     @Query("select count(a) from Activo a where a.oficina.idOficina = :idOficina and (a.estado is null or a.estado <> 'ELIMINADO')")
     long contarActivos(@Param("idOficina") Long idOficina);

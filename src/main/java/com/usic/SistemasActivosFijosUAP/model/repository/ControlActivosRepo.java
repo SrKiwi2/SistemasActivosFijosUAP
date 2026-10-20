@@ -314,7 +314,7 @@ public class ControlActivosRepo {
         return jdbc.query("""
             select o.id_oficina, o.cod_ofi, o.nombre
             from oficina o
-            where o.id_predio = ? and o._estado = ? and not o.es_custodia
+            where o.id_predio = ? and o._estado = ? and not o.es_custodia and not o.es_duplicados
             order by o.cod_ofi
             """, (rs, n) -> new Object[] {
                 rs.getLong("id_oficina"), rs.getObject("cod_ofi", Short.class), rs.getString("nombre") },

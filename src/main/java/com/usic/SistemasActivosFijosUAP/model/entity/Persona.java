@@ -21,6 +21,10 @@ public class Persona extends AuditoriaConfig{
     private String extension;
     private String correo;
 
+    /** Persona en la que se unificó esta (estado {@code FUSIONADA}); null si no. No se borra. */
+    @Column(name = "fusionada_en")
+    private Long fusionadaEn;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_nacionalidad")
     private Nacionalidad nacionalidad;

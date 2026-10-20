@@ -819,7 +819,7 @@
         }
         if ((d.enCustodia || []).length) {
             aviso.className = 'tf-aviso error';
-            partes.push(`<div>📦 En la oficina de faltantes (salen solo resolviendo su faltante): <code>${x(d.enCustodia.join(', '))}</code></div>`);
+            partes.push(`<div>📦 En la oficina de faltantes o de duplicados (salen solo desde su módulo): <code>${x(d.enCustodia.join(', '))}</code></div>`);
         }
         if ((d.noEncontrados || []).length) {
             partes.push(`<div>❓ No encontrados: <code>${x(d.noEncontrados.join(', '))}</code></div>`);

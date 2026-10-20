@@ -17,4 +17,8 @@ public class Cargo extends AuditoriaConfig{
 
     private String nombre;
     private String descripcion;
+
+    /** Cargo al que se normalizó este (estado {@code FUSIONADO}); null si no. No se borra. */
+    @Column(name = "fusionado_en")
+    private Long fusionadoEn;
 }

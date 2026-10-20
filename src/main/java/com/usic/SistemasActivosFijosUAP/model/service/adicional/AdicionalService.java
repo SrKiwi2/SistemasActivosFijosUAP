@@ -193,6 +193,7 @@ public class AdicionalService {
                 throw new IllegalArgumentException("La oficina elegida no existe o está dada de baja.");
             }
             if (!mismaOficina && d.oficina.isEsCustodia()) throw new IllegalArgumentException("La oficina elegida es de faltantes (custodia).");
+            if (!mismaOficina && d.oficina.isEsDuplicados()) throw new IllegalArgumentException("La oficina elegida es de duplicados.");
             d.predio = d.oficina.getPredio();
             if (r.getIdPredio() != null && d.predio != null && !d.predio.getIdPredio().equals(r.getIdPredio())) {
                 throw new IllegalArgumentException("La oficina elegida no es del predio elegido.");
@@ -212,6 +213,7 @@ public class AdicionalService {
                 throw new IllegalArgumentException("El responsable elegido no pertenece a la oficina elegida.");
             }
             if (!mismoResp && d.responsable.isEsCustodia()) throw new IllegalArgumentException("El responsable elegido es de custodia de faltantes.");
+            if (!mismoResp && d.responsable.isEsDuplicados()) throw new IllegalArgumentException("El responsable elegido es de la oficina de duplicados.");
         }
 
         // Clasificación
@@ -406,7 +408,7 @@ public class AdicionalService {
         Activo a = x.getActivo();
         if (!Activo.ESTADO_ACTIVO.equals(a.getEstado())) throw new IllegalArgumentException("El activo ya no está vigente (" + a.getEstado() + ").");
         Datos d = validar(req, a);
-        boolean conVida = adicionalDao.contarVida(idActivo) > 0 || a.enCustodia() || Boolean.TRUE.equals(a.getBloqueado());
+        boolean conVida = adicionalDao.contarVida(idActivo) > 0 || a.enCustodiaODuplicados() || Boolean.TRUE.equals(a.getBloqueado());
 
         boolean cambiaUbicacion = !mismoId(a.getOficina() == null ? null : a.getOficina().getIdOficina(), d.oficina == null ? null : d.oficina.getIdOficina())
                 || !mismoId(a.getResponsable() == null ? null : a.getResponsable().getIdResponsable(), d.responsable == null ? null : d.responsable.getIdResponsable());
@@ -458,7 +460,7 @@ public class AdicionalService {
         ActivoAdicional x = adicionalDao.buscarCompleto(idActivo)
                 .orElseThrow(() -> new IllegalArgumentException("El activo adicional no existe."));
         Activo a = x.getActivo();
-        if (adicionalDao.contarVida(idActivo) > 0 || a.enCustodia() || Boolean.TRUE.equals(a.getBloqueado())) {
+        if (adicionalDao.contarVida(idActivo) > 0 || a.enCustodiaODuplicados() || Boolean.TRUE.equals(a.getBloqueado())) {
             throw new IllegalArgumentException("El activo ya tiene movimientos (asignación, transferencia, levantamiento, faltante o baja): no se puede eliminar.");
         }
         String ref = a.getCodigo() != null ? a.getCodigo() : (a.getCodigoAntiguo() != null ? "cód. antiguo " + a.getCodigoAntiguo() : "id " + idActivo);
@@ -560,7 +562,7 @@ public class AdicionalService {
         m.put("estado", a.getEstado());
         m.put("registradoPor", x.getUsuario());
         m.put("registro", x.getRegistro());
-        boolean conVida = adicionalDao.contarVida(idActivo) > 0 || a.enCustodia() || Boolean.TRUE.equals(a.getBloqueado());
+        boolean conVida = adicionalDao.contarVida(idActivo) > 0 || a.enCustodiaODuplicados() || Boolean.TRUE.equals(a.getBloqueado());
         m.put("conVida", conVida);
         m.put("eliminable", !conVida && Activo.ESTADO_ACTIVO.equals(a.getEstado()));
         List<Map<String, Object>> fotos = new ArrayList<>();

@@ -390,6 +390,9 @@ public class EnvioCustodiaService {
         if (actual.isEsCustodia() || (a.getOficina() != null && a.getOficina().isEsCustodia())) {
             return "El bien ya está en una oficina de faltantes.";
         }
+        if (a.enDuplicados()) {
+            return "El bien está en la oficina de duplicados (es un registro duplicado, no un faltante).";
+        }
         Long idPredioBien = (a.getOficina() != null && a.getOficina().getPredio() != null)
                 ? a.getOficina().getPredio().getIdPredio() : null;
         if (!Objects.equals(idPredioBien, predioCustodia.getIdPredio())) {

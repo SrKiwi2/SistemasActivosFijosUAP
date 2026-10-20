@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.usic.SistemasActivosFijosUAP.anotacion.ValidarUsuarioAutenticado;
 import com.usic.SistemasActivosFijosUAP.config.Encriptar;
 import com.usic.SistemasActivosFijosUAP.interoperabilidad.JavaDbfService;
+import com.usic.SistemasActivosFijosUAP.interoperabilidad.TextoVsiaf;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEntidadService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
@@ -596,14 +597,15 @@ public class OficinaController {
                     oficina = oficinaExistente;
                 }
 
+                // La Ñ tecleada en el VSIAF llega como «¥» (ver TextoVsiaf). Solo cambia el texto.
                 String nombreFinal = (f.getNomOfic() != null && !f.getNomOfic().isBlank())
-                        ? f.getNomOfic().trim()
+                        ? TextoVsiaf.repararEnieDos(f.getNomOfic()).trim()
                         : ("OFICINA " + f.getCodOfi());
                 if (nombreFinal.length() > 255) {
                     nombreFinal = nombreFinal.substring(0, 255);
                 }
 
-                String observ = f.getObserv();
+                String observ = TextoVsiaf.repararEnieDos(f.getObserv());
                 if (observ != null && "(memo)".equalsIgnoreCase(observ.trim())) {
                     observ = null;
                 }
