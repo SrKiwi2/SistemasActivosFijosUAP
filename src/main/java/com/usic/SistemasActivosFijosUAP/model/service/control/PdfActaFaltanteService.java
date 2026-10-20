@@ -95,7 +95,15 @@ public class PdfActaFaltanteService {
     }
 
     public byte[] generar(ActaFaltanteDTO acta) throws Exception {
-        if (acta.esNotificacion()) return notificacion(acta, false);
+        return generar(acta, false);
+    }
+
+    /**
+     * @param adjuntos solo para notificaciones: se elige al imprimir (no se guarda) y agrega
+     *                 "Se adjunta documentación de respaldo" sobre la línea de copia (C.c.).
+     */
+    public byte[] generar(ActaFaltanteDTO acta, boolean adjuntos) throws Exception {
+        if (acta.esNotificacion()) return notificacion(acta, false, adjuntos);
         Rectangle hoja = PageSize.LETTER;
         Document doc = new Document(hoja, MARGEN_LADO, MARGEN_LADO, MARGEN_ARRIBA, MARGEN_ABAJO);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -162,7 +170,7 @@ public class PdfActaFaltanteService {
         if (!acta.esNotificacion()) {
             throw new IllegalArgumentException("La vista previa es solo para notificaciones de faltantes.");
         }
-        return notificacion(acta, true);
+        return notificacion(acta, true, false);
     }
 
     /**
@@ -170,7 +178,7 @@ public class PdfActaFaltanteService {
      * días hábiles para informar y la firma del Responsable de Activos Fijos. Todo sale de la
      * foto guardada al emitir.
      */
-    private byte[] notificacion(ActaFaltanteDTO acta, boolean vistaPrevia) throws Exception {
+    private byte[] notificacion(ActaFaltanteDTO acta, boolean vistaPrevia, boolean adjuntos) throws Exception {
         Document doc = new Document(PageSize.LETTER, MARGEN_LADO, MARGEN_LADO, MARGEN_ARRIBA, MARGEN_ABAJO);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(doc, out);
@@ -198,16 +206,16 @@ public class PdfActaFaltanteService {
             doc.add(p);
         }
 
-        Paragraph numero = new Paragraph(acta.numeroImpreso(), N_NEGRITA);
-        numero.setAlignment(Element.ALIGN_RIGHT);
-        numero.setSpacingBefore(12);
-        doc.add(numero);
         // La fecha del papel es desde cuándo corre el plazo: la emisión o, si se cambió el plazo, ese día.
         Paragraph fecha = new Paragraph(nvl(acta.ciudad(), "Cobija") + ", "
                 + (acta.fechaDelDocumento() != null ? acta.fechaDelDocumento().format(FECHA_LARGA) : ""), N_NEGRITA);
         fecha.setAlignment(Element.ALIGN_RIGHT);
-        fecha.setSpacingAfter(10);
+        fecha.setSpacingBefore(12);
         doc.add(fecha);
+        Paragraph numero = new Paragraph(acta.numeroImpreso(), N_NEGRITA);
+        numero.setAlignment(Element.ALIGN_RIGHT);
+        numero.setSpacingAfter(10);
+        doc.add(numero);
 
         if (vistaPrevia) {
             Paragraph aviso = new Paragraph("VISTA PREVIA — no registrada: sin número y sin validez", N_VISTA_PREVIA);
@@ -293,7 +301,7 @@ public class PdfActaFaltanteService {
                 + "levantamiento físico realizado, los bienes detallados precedentemente se encuentran registrados bajo "
                 + "su responsabilidad y, a la fecha consignada en el presente documento, **no fueron ubicados "
                 + "físicamente en las dependencias y ubicaciones registradas**."));
-        doc.add(parrafo("En consecuencia, **se solicita a usted informar a la Sección de Activos Fijos sobre la situación "
+        doc.add(parrafo("En ese sentido, **se solicita a usted informar a la Sección de Activos Fijos sobre la situación "
                 + "y paradero de cada uno de los bienes señalados**, proporcionando la información y/o documentación "
                 + "que permita establecer su ubicación actual y las circunstancias relacionadas con su ausencia."));
         doc.add(parrafo("La información solicitada deberá ser presentada dentro del plazo de **"
@@ -301,14 +309,22 @@ public class PdfActaFaltanteService {
                 + "**, computables a partir de la recepción de la "
                 + "presente notificación, a efectos de realizar el correspondiente seguimiento y actualización de los "
                 + "registros patrimoniales."));
-        doc.add(parrafo("La presente comunicación queda registrada en el **Sistema de Control Interno de Activos Fijos "
-                + "(SCIAF)** para fines de control y seguimiento."));
+        doc.add(parrafo("En caso de **incumplimiento del plazo establecido o de no proporcionarse información que permita "
+                + "esclarecer la situación de los bienes señalados**, la Sección de Activos Fijos procederá a **remitir los "
+                + "antecedentes a las instancias competentes de la Universidad Amazónica de Pando**, para que, conforme a "
+                + "sus atribuciones y a la normativa vigente, se determinen y ejecuten las acciones administrativas que "
+                + "correspondan, incluyendo, cuando proceda, la intervención de la **Unidad de Asesoría Jurídica** y las "
+                + "demás instancias competentes, de acuerdo con el régimen de **Responsabilidad por la Función Pública** "
+                + "establecido en la normativa aplicable."));
+        doc.add(parrafo("La presente notificación y los antecedentes relacionados con los activos señalados quedarán "
+                + "registrados en el **Sistema de Control Interno de Activos Fijos (SCIAF)** para fines de control, "
+                + "seguimiento y las acciones que correspondan."));
         doc.add(parrafo("Sin otro particular, saludo a usted con las consideraciones más distinguidas."));
         Paragraph atte = new Paragraph("Atentamente,", N_NEGRITA);
         atte.setSpacingBefore(4);
         doc.add(atte);
 
-        firmaNotificacion(doc, writer, acta, vistaPrevia);
+        firmaNotificacion(doc, writer, acta, vistaPrevia, adjuntos);
         doc.close();
         return out.toByteArray();
     }
@@ -368,8 +384,8 @@ public class PdfActaFaltanteService {
      * Firma del Responsable de Activos Fijos (al centro) y, debajo, copia y código de
      * verificación. Nunca queda partida entre dos hojas.
      */
-    private void firmaNotificacion(Document doc, PdfWriter writer, ActaFaltanteDTO acta, boolean vistaPrevia)
-            throws Exception {
+    private void firmaNotificacion(Document doc, PdfWriter writer, ActaFaltanteDTO acta, boolean vistaPrevia,
+            boolean adjuntos) throws Exception {
         if (writer.getVerticalPosition(true) - doc.bottom() < ALTO_FIRMA_NOTIFICACION) {
             doc.newPage();
         }
@@ -392,6 +408,7 @@ public class PdfActaFaltanteService {
         Paragraph pie = new Paragraph();
         // 1. setLeading define el alto de línea (interlineado). Disminuye este valor para apegar más el texto (ej. 8f o 9f).
         pie.setLeading(9f); 
+        if (adjuntos) pie.add(new Chunk("Se adjunta documentación de respaldo\n", N_PIE_B));
         pie.add(new Chunk("C.c.: ", N_PIE_B));
         pie.add(new Chunk("Archivo – Sección de Activos Fijos\n", N_PIE));
         pie.add(new Chunk("Documento generado por: ", N_PIE_B));

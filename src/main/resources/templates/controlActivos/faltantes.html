@@ -627,6 +627,15 @@
                 : Promise.resolve(window.confirm(o.titulo + '\n\n' + String(o.texto || '').replace(/<[^>]*>/g, '')));
         }
         function pdfActa(idActa) { return CUS + '/actas/' + idActa + '/pdf'; }
+        /*
+         * Casilla "Adjuntar documentos" de los avisos que abren una notificación para imprimir.
+         * Se elige en cada impresión (no se guarda): marcada, el documento dice "Se adjunta
+         * documentación de respaldo" sobre la línea de copia (C.c.).
+         */
+        var CASILLA_ADJUNTOS = { input: 'checkbox', inputValue: 0, inputPlaceholder: 'Adjuntar documentos' };
+        function abrirNotificacion(idActa, adjuntos) {
+            window.open(pdfActa(idActa) + (adjuntos ? '?adjuntos=true' : ''), '_blank');
+        }
         /** NOT-AF-001/2026 → "NOT:SCIAF:AF N° 001/2026", como va en el papel. Las actas, tal cual. */
         function numDoc(n) { return n && n.indexOf('NOT-AF-') === 0 ? 'NOT:SCIAF:AF N° ' + n.substring(7) : (n || ''); }
 
@@ -2092,11 +2101,11 @@
                     modalRegistro().hide();
                     cargar();
                     if (window.Swal) {
-                        Swal.fire({
+                        Swal.fire($.extend({
                             title: 'Notificación ' + r.numero, icon: 'success', html: esc(r.message),
                             showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación para imprimir',
                             cancelButtonText: 'Cerrar'
-                        }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
+                        }, CASILLA_ADJUNTOS)).then(function (x) { if (x.isConfirmed) abrirNotificacion(r.idActa, x.value === 1); });
                     } else {
                         window.open(pdfActa(r.idActa), '_blank');
                     }
@@ -2282,11 +2291,11 @@
                 bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
                 cargar();
                 if ($('#cf-tab-actas').hasClass('active')) cargarActas();
-                Swal.fire({
+                Swal.fire($.extend({
                     title: tituloOk, icon: 'success', html: esc(r.message),
                     showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir para imprimir',
                     cancelButtonText: 'Cerrar'
-                }).then(function (x) { if (x.isConfirmed) window.open(pdfActa(r.idActa), '_blank'); });
+                }, CASILLA_ADJUNTOS)).then(function (x) { if (x.isConfirmed) abrirNotificacion(r.idActa, x.value === 1); });
             })
             .fail(function (xhr) {
                 aviso('No se completó', '<div style="text-align:left; white-space:pre-line;">' +
@@ -2298,7 +2307,15 @@
         // Imprimir: abre el documento VIGENTE (si hubo reiterativa, la reiterativa).
         $(document).on('click.cf', '#cf-wrap .cf-n-imprimir', function () {
             var n = notifDe(this);
-            if (n) window.open(pdfActa(n.idActa), '_blank');
+            if (!n) return;
+            // Las actas (sin plazo) no llevan la opción de adjuntos.
+            if (n.plazoDias == null || !window.Swal) { window.open(pdfActa(n.idActa), '_blank'); return; }
+            Swal.fire($.extend({
+                title: 'Imprimir ' + esc(numDoc(n.numeroActa)), icon: 'question',
+                html: 'Marque <b>Adjuntar documentos</b> si la notificación se entrega con documentación de respaldo.',
+                showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir para imprimir',
+                cancelButtonText: 'Cancelar'
+            }, CASILLA_ADJUNTOS)).then(function (x) { if (x.isConfirmed) abrirNotificacion(n.idActa, x.value === 1); });
         });
 
         // ── Cambiar el plazo ──

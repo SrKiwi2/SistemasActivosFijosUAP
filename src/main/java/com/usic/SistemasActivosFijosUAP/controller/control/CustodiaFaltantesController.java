@@ -97,9 +97,10 @@ public class CustodiaFaltantesController {
 
     @ValidarUsuarioAutenticado
     @GetMapping("/actas/{idActa}/pdf")
-    public ResponseEntity<?> pdf(@PathVariable Long idActa) throws Exception {
+    public ResponseEntity<?> pdf(@PathVariable Long idActa,
+                                 @RequestParam(defaultValue = "false") boolean adjuntos) throws Exception {
         ActaFaltanteDTO acta = actaService.porId(idActa);
-        byte[] pdf = pdfService.generar(acta);
+        byte[] pdf = pdfService.generar(acta, adjuntos);
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_PDF);
         h.setContentDisposition(ContentDisposition.inline()
