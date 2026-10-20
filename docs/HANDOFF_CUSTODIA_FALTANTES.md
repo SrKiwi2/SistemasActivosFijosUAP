@@ -405,6 +405,70 @@ Botón **Vista previa** en el modal "Registrar faltantes" (pide el plazo, igual 
 que además se deshace; no toma el turno de numeración ni llama a `EnvioCustodiaService`.
 Mismo permiso que registrar (`exigirPermiso`).
 
+### Texto según el modelo de Activos Fijos y "Adjuntar documentos" (2026-10-20) — sin commitear, sin probar en vivo
+
+Activos Fijos mandó el modelo de la notificación (NOT:SCIAF:AF N° 002/2026). El usuario pidió
+igualarlo todo: sin las tres líneas de cabecera (UAP / DAF / Sección de Activos Fijos); la fecha va **antes** del número; "En ese sentido, se solicita…"; párrafo nuevo
+"En caso de incumplimiento del plazo…" (Asesoría Jurídica, Responsabilidad por la Función
+Pública); cierre "La presente notificación y los antecedentes… quedarán registrados en el
+SCIAF para fines de control, seguimiento y las acciones que correspondan". Afecta también a
+las reimpresiones de notificaciones ya emitidas (el texto no está en la foto guardada).
+
+**Adjuntar documentos**: casilla en el aviso de impresión (botón "Imprimir notificación" y los
+"Abrir para imprimir" tras registrar, cambiar plazo, corregir y reiterar). Decisión del
+usuario: se elige **en cada impresión, no se guarda**. Marcada, el PDF lleva "Se adjunta
+documentación de respaldo" debajo de la línea "C.c.". `GET actas/{id}/pdf?adjuntos=true`; solo
+aplica a notificaciones. Los enlaces sueltos al PDF (historial, pestaña de actas) y la vista
+previa salen sin la línea.
+
+### Unir notificaciones de la misma persona (2026-10-20) — sin commitear, sin probar en vivo
+
+Caso real: RICHARD ROJAS LOPEZ tiene NOT-AF-001/2026 (registro sin C.I., persona 189) y
+NOT-AF-002/2026 (C.I. 1769812, persona 275), emitidas por separado. Igualar los registros en el
+VSIAF y "volver a crear" no sirve: anular se niega con bienes ya en custodia, y la sync no toca
+`acta_faltante.id_persona`. Unificar a la persona (Personas y cargos → Unificar) sí pasa las
+notificaciones a la persona que queda, pero siguen siendo dos documentos.
+
+**Qué se hizo** (sin cambio de esquema): menú `⋯` de la notificación → "Unir con otra
+notificación de esta persona" (modal `#cf-unir`, plantilla `sm-modal`).
+- `GET custodia/actas/{id}/unibles`: vigentes con pendientes de la misma persona o de un registro
+  suyo (`mismaPersona`: mismo id, o C.I. que no choca y ≥ 2 palabras del nombre en común).
+- `POST custodia/actas/unir` y `/unir/vista-previa`: `UnirNotificacionesRequest(idsActas, modo,
+  plazoDias, documentoRespaldo, fechaDocumento, observacion)`. Modo `NUEVA` (plazo nuevo, como
+  primera notificación) o `REITERATIVA` (la siguiente de la cadena de la más avanzada; no si alguna
+  ya es la 2ª). Decisiones del usuario: **número nuevo** y **observación automática** "Producto de
+  la unión de las notificaciones de faltantes …" (la observación no sale en el papel); el modo se
+  elige al unir.
+- Sale a nombre del registro con C.I. (nombre, cargo y unidad del papel de esa notificación).
+  Los pendientes pasan a la nueva (`hallazgo.id_acta`); las unidas quedan `estado_acta =
+  UNIFICADA`. El contenido de la nueva lleva `notificacion.unificaA` = [{idActa, número, fecha,
+  plazo, hallazgos[]}]. No toca el VSIAF ni `id_responsable_custodia`.
+- Anular la unión devuelve cada faltante a su notificación y esas vuelven a VIGENTE. Una unida no
+  se anula sola ("anule primero la que la unió": `IActaFaltanteDao.queUnio`, búsqueda jsonb).
+- PDF: si la unión sale como reiterativa, "En atención a las notificaciones A y B … se le reitera
+  dichas notificaciones". Verificación pública: estado "unida" y "Une a". Pestaña de actas: "Unida".
+
+**Probado:** compila; la consulta `queUnio` corre en `bd_a3` (EXPLAIN dentro de una transacción
+de solo lectura). **No probado:** nada en el navegador ni contra la base (unir escribe en bd_a3).
+Para probar: vista previa primero (no registra); si se une de verdad, se revierte anulando la unión.
+
+### Lista de faltantes sin acordeón: detalle en modal (2026-10-20) — sin commitear, sin probar en vivo
+
+Pedido del usuario: el acordeón con la tabla "no es intuitivo", el menú `⋯` quedaba recortado
+dentro de la tarjeta y el menú de Reportes también (`.sm-card` tiene `overflow: hidden`).
+- **Tarjeta por persona** (`tarjetaGrupo`): nombre, C.I., códigos, contadores; una línea por
+  notificación vigente (número, tipo, contador del plazo, Imprimir) y "Ver bienes y opciones".
+  Clic en la tarjeta o Enter/Espacio abre el detalle. Aviso de ayuda arriba de la lista.
+- **Modal `#cf-detalle`** (`sm-detalle-*`): pestañas *Bienes* (tabla por predio/oficina con
+  Resolver / Notificar falta), *Notificación y opciones* (cada acción es un botón `.cf-accion`
+  con una frase de qué hace; "Emitir reiterativa" se resalta si el plazo venció) e *Historial de
+  documentos* (`GET custodia/actas?idPersona=`). Se repinta solo al recargar los datos.
+- Las acciones siguen siendo las clases `cf-n-*` / `cf-resolver` de antes (mismos manejadores).
+  Un solo modal a la vez: si desde el detalle se abre otro (plazo, reiterativa, registrar…), el
+  detalle se cierra y vuelve al cerrarse ese (`show.bs.modal` con `preventDefault`, Bootstrap 5.3.2).
+  `data-bs-focus="false"` en el detalle: si no, no se podía escribir en el diálogo de Resolver (Swal).
+- Filtros: `#cf-wrap .js-cf-tarjeta { overflow: visible }` para que Reportes se vea.
+
 ## Arreglo temporal: misma persona en dos registros (06-oct-2026)
 
 **Problema.** La sincronización de RESP.DBF crea dos `persona` para el mismo funcionario

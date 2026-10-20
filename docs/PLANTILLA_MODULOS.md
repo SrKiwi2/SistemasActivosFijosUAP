@@ -59,6 +59,12 @@ usan ~145) es la cabecera cuando se parte en varias líneas. Lo aplicado en Acti
   `ResizeObserver` sobre la cabecera (menú lateral que se abre o cierra).
 - Para probarlo, el marco real importa (barra superior fija, pestañas, `#contenido`): en una
   página suelta no aparece el scroll.
+- **Asistentes por pasos sin scroll** (Registro de donaciones, 20-oct): columna con pasos arriba, la
+  etapa al medio (`ajustarAlto` sobre la etapa, no sobre el panel) y el pie fijo abajo. Una lista
+  larga de ítems va en **carrusel**: uno a la vista, fichas arriba para pasar de uno a otro (en rojo
+  si tienen errores) y la tarjeta partida en secciones; al validar se muestra el ítem y la sección del
+  primer error. Las altas rápidas ocupan el lugar de los campos mientras están abiertas. Objetivo:
+  0 px de scroll a 1366×657 (laptop 1366×768 con las barras del navegador) y 1280×600.
 
 ## Estructura de un módulo
 

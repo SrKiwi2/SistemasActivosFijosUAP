@@ -22,7 +22,7 @@ public record ActaFaltanteDTO(
         LocalDate     fechaDocumento,
         String        observacion,
         int           totalBienes,
-        /** VIGENTE | ANULADA | RESUELTA | REITERADA */
+        /** VIGENTE | ANULADA | RESUELTA | REITERADA | UNIFICADA */
         String        estado,
         String        motivoAnulacion,
         LocalDateTime fechaAnulacion,
@@ -47,8 +47,17 @@ public record ActaFaltanteDTO(
         String        reiteraA,
         LocalDateTime reiteraAFecha,
         /** Solo si el estado es REITERADA: la reiterativa que la reemplazó. */
-        String        reiteradaPor
+        String        reiteradaPor,
+        /** Las notificaciones que esta unió, como van en el papel (vacía si no unió ninguna). */
+        List<String>  unificaA,
+        /** Solo si el estado es UNIFICADA: la notificación que la unió y es la vigente. */
+        String        unificadaEn
 ) {
+
+    /** Producto de unir varias notificaciones de la misma persona. */
+    public boolean esUnion() {
+        return unificaA != null && !unificaA.isEmpty();
+    }
 
     public boolean esRegularizacion() {
         return "REGULARIZACION".equals(tipo);

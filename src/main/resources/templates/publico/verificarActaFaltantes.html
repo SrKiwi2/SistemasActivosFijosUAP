@@ -83,6 +83,12 @@
             <div><b th:text="${doc} + ' auténtica · reiterada'">Notificación auténtica · reiterada</b>
                 <span th:text="'Sus faltantes pendientes pasaron a la ' + ${acta.reiteradaPor} + ', que es la notificación vigente.'"></span></div>
         </div>
+        <div th:if="${acta.integro and acta.estado == 'UNIFICADA'}" class="estado aviso">
+            <div class="ico">⇉</div>
+            <div><b th:text="${doc} + ' auténtica · unida'">Notificación auténtica · unida</b>
+                <span th:text="'Se unió con otra(s) notificación(es) de la misma persona: sus faltantes pendientes pasaron a la '
+                               + (${acta.unificadaEn} ?: 'notificación que la unió') + ', que es la notificación vigente.'"></span></div>
+        </div>
         <div th:if="${acta.integro and acta.estado == 'ANULADA'}" class="estado aviso">
             <div class="ico">⚠</div>
             <div><b th:text="${doc} + ' anulada'">Acta anulada</b>
@@ -97,6 +103,9 @@
                 <dt>Responsable</dt>       <dd th:text="${acta.personaNombre}"></dd>
                 <dt>C.I.</dt>              <dd th:text="${ciOculto} ?: '—'"></dd>
                 <dt>Cargo</dt>             <dd th:text="${acta.personaCargo} ?: '—'"></dd>
+                <th:block th:if="${acta.esUnion()}">
+                <dt>Une a</dt>             <dd th:text="${#strings.listJoin(acta.unificaA, ', ')}"></dd>
+                </th:block>
                 <th:block th:if="${acta.esReiterativa()}">
                 <dt>Tipo</dt>              <dd th:text="${acta.titulo()}"></dd>
                 <dt>Reitera a</dt>         <dd th:text="${acta.reiteraA} ?: '—'"></dd>

@@ -253,6 +253,43 @@ public class CustodiaFaltantesController {
 
     public record AnularRequest(String motivo) {}
 
+    /** Otras notificaciones vigentes de la misma persona (o de un registro suyo) para unir con esta. */
+    @ValidarUsuarioAutenticado
+    @GetMapping("/actas/{idActa}/unibles")
+    public ResponseEntity<?> unibles(@PathVariable Long idActa, HttpServletRequest http) {
+        exigirPermiso(http);
+        return ResponseEntity.ok(actaService.unibles(idActa));
+    }
+
+    /** Une notificaciones de la misma persona en una nueva (número nuevo). No toca el VSIAF. */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/unir")
+    public ResponseEntity<?> unir(@RequestBody CustodiaDTOs.UnirNotificacionesRequest req, HttpServletRequest http) {
+        exigirPermiso(http);
+        ActaFaltanteService.Registro r = actaService.unirNotificaciones(req, usuarioDe(http));
+        Map<String, Object> cuerpo = new LinkedHashMap<>();
+        cuerpo.put("ok", true);
+        cuerpo.put("idActa", r.idActa());
+        cuerpo.put("numero", r.numero());
+        cuerpo.put("total", r.total());
+        cuerpo.put("message", r.mensaje());
+        return ResponseEntity.ok(cuerpo);
+    }
+
+    /** Cómo saldría la unión. No registra nada. */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/actas/unir/vista-previa")
+    public ResponseEntity<?> unirVistaPrevia(@RequestBody CustodiaDTOs.UnirNotificacionesRequest req, HttpServletRequest http)
+            throws Exception {
+        exigirPermiso(http);
+        byte[] pdf = pdfService.generarVistaPrevia(actaService.unirNotificacionesVistaPrevia(req, usuarioDe(http)));
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_PDF);
+        h.setCacheControl(CacheControl.noStore());
+        h.setContentDisposition(ContentDisposition.inline().filename("vista_previa_union.pdf").build());
+        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+    }
+
     @ValidarUsuarioAutenticado
     @PostMapping("/actas/{idActa}/anular")
     public ResponseEntity<?> anular(@PathVariable Long idActa, @RequestBody AnularRequest req, HttpServletRequest http) {

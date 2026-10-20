@@ -19,16 +19,26 @@
     #cf-wrap .cf-pestanas button.active .sm-cuenta { color: #fff; background: var(--sm-peligro); border-color: var(--sm-peligro); }
     #cf-wrap .cf-filtro-lbl { font-size: .72rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--sm-texto-2); }
 
-    #cf-wrap .cf-grupo { margin-bottom: .75rem; }
-    #cf-wrap .cf-grupo-head {
-        display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
-        gap:8px; cursor:pointer; padding:.75rem 1rem; border-left:5px solid var(--sm-peligro);
-    }
-    #cf-wrap .cf-grupo-head:hover { background: var(--sm-brillo); }
-    #cf-wrap .cf-grupo-head.todo-resuelto { border-left-color: var(--sm-exito); }
-    #cf-wrap .cf-grupo-head.en-custodia   { border-left-color:#7e57c2; }
-    #cf-wrap .cf-grupo-head .cf-chevron { transition: transform .2s ease; color: var(--sm-texto-2); }
-    #cf-wrap .cf-grupo-head:not(.collapsed) .cf-chevron { transform: rotate(90deg); }
+    /* La tarjeta de filtros no recorta sus menús (Reportes): .sm-card tiene overflow hidden. */
+    #cf-wrap .js-cf-tarjeta { overflow: visible; }
+
+    /* Una tarjeta por persona: resumen y su notificación. El detalle se abre en un modal (#cf-detalle). */
+    #cf-wrap .cf-grupo { margin-bottom:.75rem; overflow:visible; cursor:pointer; padding:.8rem 1rem;
+        display:flex; flex-direction:column; gap:.65rem; border-left:5px solid var(--sm-peligro);
+        transition: box-shadow .15s ease, border-color .15s ease; }
+    #cf-wrap .cf-grupo:hover, #cf-wrap .cf-grupo:focus-visible { outline:none;
+        box-shadow: 0 0 0 2px rgba(var(--sm-primario-rgb), .35), var(--sm-sombra-card); }
+    #cf-wrap .cf-grupo.todo-resuelto { border-left-color: var(--sm-exito); }
+    #cf-wrap .cf-grupo.en-custodia   { border-left-color:#7e57c2; }
+    #cf-wrap .cf-grupo-fila { display:flex; justify-content:space-between; align-items:center; gap:.6rem 1rem; flex-wrap:wrap; }
+    #cf-wrap .cf-grupo-badges { display:flex; gap:.4rem; align-items:center; flex-wrap:wrap; }
+    #cf-wrap .cf-grupo-notifs { display:flex; flex-direction:column; gap:.45rem; flex:1 1 520px; min-width:0; }
+    #cf-wrap .cf-grupo-acciones { display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; align-items:center; }
+    #cf-wrap .cf-notif-linea { display:flex; align-items:center; gap:.6rem 1rem; flex-wrap:wrap; border:1px solid var(--sm-borde);
+        border-radius:10px; padding:.45rem .7rem; background: var(--sm-superficie-2); }
+    #cf-wrap .cf-notif-linea .cf-notif-doc { flex:1 1 220px; min-width:0; }
+    #cf-wrap .cf-sin-notif { font-size:.84rem; font-weight:600; color: var(--sm-peligro); }
+    #cf-wrap .cf-sin-notif.text-muted { font-weight:400; }
     #cf-wrap .cf-nom { font-weight:700; font-size:.98rem; text-transform: uppercase; }
     #cf-wrap .cf-sub { font-size:.78rem; color: var(--sm-texto-2); }
     #cf-wrap .cf-cod { font-variant-numeric: tabular-nums; font-weight:700; color: var(--sm-primario); font-size:.85rem; white-space: nowrap; }
@@ -65,27 +75,40 @@
     #cf-reg .cf-tarjeta.cf-info    { border-left:4px solid var(--sm-primario); }
     #cf-reg .cf-tarjeta.cf-atencion{ border-left:4px solid #f59e0b; background: rgba(245, 158, 11, .06); }
     #cf-reg .cf-tarjeta.cf-falta   { border-left:4px solid var(--sm-peligro); background: rgba(var(--sm-peligro-rgb), .05); }
+    #cf-unir .cf-opcion,
     #cf-reg .cf-opcion { display:flex; gap:.55rem; align-items:flex-start; padding:.45rem .55rem; border:1px solid var(--sm-borde);
                          border-radius:8px; margin-top:.4rem; cursor:pointer; font-size:.84rem; background: var(--sm-superficie); }
+    #cf-unir .cf-opcion:hover,
     #cf-reg .cf-opcion:hover { border-color: var(--sm-primario); }
+    #cf-unir .cf-opcion.cf-marcada,
     #cf-reg .cf-opcion.cf-marcada { border-color: var(--sm-primario); background: rgba(var(--sm-primario-rgb), .07); }
+    #cf-unir .cf-opcion.cf-deshabilitada,
     #cf-reg .cf-opcion.cf-deshabilitada { opacity:.55; cursor:not-allowed; }
+    #cf-unir .cf-opcion input,
     #cf-reg .cf-opcion input { margin-top:.2rem; }
     #cf-reg .cf-opcion small { display:block; color: var(--sm-texto-2); }
     /* Código del responsable (una persona tiene uno por oficina) */
     #cf-wrap .cf-resp-cod { display:inline-flex; align-items:center; gap:.2rem; font-weight:700; color: var(--sm-primario);
         background: rgba(var(--sm-primario-rgb), .08); border-radius:6px; padding:0 .4rem; font-variant-numeric: tabular-nums; }
 
-    /* Notificación vigente de la persona: siempre a la vista, con su contador y sus botones */
-    #cf-wrap .cf-notifs { padding: 0 1rem .75rem 2.6rem; display:flex; flex-direction:column; gap:.5rem; }
-    #cf-wrap .cf-notif {
-        display:grid; grid-template-columns: minmax(200px, 1fr) minmax(240px, auto) auto; align-items:center; gap:.75rem 1rem;
-        border:1px solid var(--sm-borde); border-radius:12px; padding:.6rem .85rem; background: var(--sm-superficie-2);
-    }
     #cf-wrap .cf-notif-doc { display:flex; align-items:center; gap:.6rem; }
     #cf-wrap .cf-notif-doc > i { font-size:1.5rem; color: var(--sm-primario); }
     #cf-wrap .cf-notif-num { font-weight:700; }
-    #cf-wrap .cf-notif-acciones { display:flex; gap:.4rem; flex-wrap:wrap; justify-content:flex-end; }
+
+    /* Modal de detalle: cada notificación con sus acciones como botones explicados */
+    #cf-wrap .cf-notif-panel { border:1px solid var(--sm-borde); border-radius:12px; background: var(--sm-superficie); overflow:hidden; }
+    #cf-wrap .cf-notif-panel-cab { display:flex; align-items:center; justify-content:space-between; gap:.6rem 1rem; flex-wrap:wrap;
+        padding:.7rem 1rem; background: var(--sm-superficie-2); border-bottom:1px solid var(--sm-borde); }
+    #cf-wrap .cf-acciones-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:.6rem; padding:.85rem 1rem; }
+    #cf-wrap .cf-accion { display:flex; align-items:flex-start; gap:.6rem; text-align:left; padding:.65rem .75rem; border:1px solid var(--sm-borde);
+        border-radius:10px; background: var(--sm-superficie); color: var(--sm-texto); transition: border-color .15s ease, background .15s ease; }
+    #cf-wrap .cf-accion:hover:not(:disabled) { border-color: var(--sm-primario); background: rgba(var(--sm-primario-rgb), .06); }
+    #cf-wrap .cf-accion > i { font-size:1.35rem; color: var(--sm-primario); margin-top:.05rem; }
+    #cf-wrap .cf-accion b { display:block; font-size:.88rem; }
+    #cf-wrap .cf-accion small { display:block; font-size:.76rem; color: var(--sm-texto-2); line-height:1.3; }
+    #cf-wrap .cf-accion:disabled { opacity:.55; cursor:not-allowed; }
+    #cf-wrap .cf-accion.cf-accion-sugerida { border-color: var(--sm-peligro); background: rgba(var(--sm-peligro-rgb), .06); }
+    #cf-wrap .cf-accion.cf-accion-sugerida > i { color: var(--sm-peligro); }
 
     /* Contador del plazo */
     .cf-contador { display:inline-flex; align-items:center; gap:.55rem; border-radius:12px; padding:.4rem .75rem;
@@ -100,9 +123,7 @@
     html.dark-style #cf-wrap .est-camino, html.dark-style #cf-wrap .badge-OBSERVADO,
     html.dark-style .cf-plazo-alerta { color:#fbbf24; }
     @media (max-width: 991.98px) {
-        #cf-wrap .cf-notifs { padding-left: 1rem; }
-        #cf-wrap .cf-notif { grid-template-columns: 1fr; }
-        #cf-wrap .cf-notif-acciones { justify-content:flex-start; }
+        #cf-wrap .cf-grupo-acciones { justify-content:flex-start; }
     }
 </style>
 
@@ -199,6 +220,12 @@
                 <h6 class="mt-1">Sin hallazgos con estos filtros</h6>
                 <p class="mb-0">No hay nada pendiente de revisar en este alcance.</p>
             </div>
+        </div>
+        <div class="sm-aviso sm-aviso-info small mb-3" id="cf-ayuda-lista" style="display:none;">
+            <i class="ti ti-hand-click"></i>
+            <div>Cada tarjeta es una persona con su notificación. <b>Haga clic en la tarjeta</b> (o en «Ver bienes y opciones»)
+                para ver sus bienes y todo lo que se puede hacer: <b>resolver</b> un bien, <b>imprimir</b>, emitir la
+                <b>reiterativa</b>, <b>cambiar el plazo</b>, <b>corregir</b> datos o <b>unir</b> notificaciones.</div>
         </div>
         <div id="cf-grupos"></div>
     </div>
@@ -596,6 +623,134 @@
         </div>
     </div>
 
+    <!-- ── Unir notificaciones de la misma persona (documento nuevo, número nuevo) ── -->
+    <div class="modal fade" id="cf-unir" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content sm-modal">
+                <div class="sm-modal-cab">
+                    <div class="sm-cabecera-icono"><i class="ti ti-arrows-join"></i></div>
+                    <div>
+                        <h5 class="sm-modal-titulo">Unir notificaciones de la misma persona</h5>
+                        <p class="sm-modal-sub" id="un-sub">—</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="sm-modal-cuerpo">
+                    <span class="cf-filtro-lbl">1. Notificaciones que se unen</span>
+                    <div id="un-lista" class="d-flex flex-column gap-2 mt-1 mb-3"></div>
+
+                    <span class="cf-filtro-lbl">2. Cómo sale la notificación unida</span>
+                    <div class="row g-2 mt-0 mb-3">
+                        <div class="col-md-6">
+                            <label class="cf-opcion h-100">
+                                <input type="radio" class="form-check-input" name="un-modo" value="NUEVA" checked>
+                                <div><b>Notificación nueva</b>
+                                    <div class="cf-sub">El plazo vuelve a empezar, como una primera notificación.</div></div>
+                            </label>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="cf-opcion h-100">
+                                <input type="radio" class="form-check-input" name="un-modo" value="REITERATIVA">
+                                <div><b>Continuar como reiterativa</b>
+                                    <div class="cf-sub" id="un-rei-txt">—</div></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <span class="cf-filtro-lbl">3. Datos del documento</span>
+                    <div class="row g-2 mt-0">
+                        <div class="col-md-4">
+                            <label class="sm-label" for="un-plazo">Plazo <span class="sm-req">*</span></label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control" id="un-plazo" min="1" max="90" step="1"
+                                       inputmode="numeric" placeholder="Ej. 5">
+                                <span class="input-group-text">días hábiles</span>
+                            </div>
+                            <div class="invalid-feedback">Ingrese un plazo entre 1 y 90 días hábiles.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="un-doc">Documento de respaldo</label>
+                            <input type="text" class="form-control form-control-sm" id="un-doc" maxlength="120"
+                                   placeholder="Informe, nota o memorándum (opcional)">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="sm-label" for="un-fecha-doc">Fecha del documento</label>
+                            <input type="date" class="form-control form-control-sm" id="un-fecha-doc">
+                        </div>
+                        <div class="col-12">
+                            <label class="sm-label" for="un-obs">Observación adicional</label>
+                            <input type="text" class="form-control form-control-sm" id="un-obs" maxlength="400"
+                                   placeholder="Opcional: se agrega después de la nota automática">
+                        </div>
+                    </div>
+                    <div class="sm-aviso sm-aviso-info small mt-3 mb-0" id="un-nota" style="display:none;"></div>
+                </div>
+                <div class="sm-modal-pie">
+                    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="sm-btn sm-btn-suave" id="un-previa" disabled
+                            title="Ver cómo saldrá la notificación unida. No registra nada.">
+                        <i class="ti ti-eye"></i> Vista previa
+                    </button>
+                    <button type="button" class="sm-btn sm-btn-peligro" id="un-guardar" disabled>
+                        <i class="ti ti-arrows-join"></i> Unir y emitir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Detalle de una persona: sus bienes, su notificación y lo que se puede hacer ──
+         data-bs-focus="false": el diálogo de Resolver (SweetAlert) va fuera del modal y, con la
+         trampa de foco de Bootstrap, no se podía escribir en él. -->
+    <div class="modal fade" id="cf-detalle" tabindex="-1" aria-hidden="true" aria-labelledby="cd-nombre" data-bs-focus="false">
+        <div class="modal-dialog modal-dialog-centered sm-detalle-dialog">
+            <div class="modal-content sm-modal sm-detalle-content">
+                <div class="sm-detalle-head">
+                    <div class="sm-cabecera-icono"><i class="ti ti-user-exclamation"></i></div>
+                    <div class="flex-grow-1"><span class="sm-detalle-kicker">Faltantes de la persona</span>
+                        <h5 class="sm-modal-titulo" id="cd-nombre">—</h5><small id="cd-sub"></small></div>
+                    <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center" id="cd-badges"></div>
+                    <button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="sm-detalle-body">
+                    <ul class="nav sm-detalle-tabs" role="tablist">
+                        <li class="nav-item"><button type="button" class="nav-link active" data-bs-toggle="tab" data-bs-target="#cd-tab-bienes" role="tab">
+                            <i class="ti ti-box"></i> Bienes <span class="badge bg-label-secondary" id="cd-n-bienes"></span></button></li>
+                        <li class="nav-item"><button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#cd-tab-notif" role="tab">
+                            <i class="ti ti-file-certificate"></i> Notificación y opciones <span class="badge bg-label-secondary" id="cd-n-notifs"></span></button></li>
+                        <li class="nav-item"><button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#cd-tab-hist" role="tab">
+                            <i class="ti ti-history"></i> Historial de documentos</button></li>
+                    </ul>
+                    <div class="tab-content sm-detalle-scroll">
+                        <div class="tab-pane fade show active" id="cd-tab-bienes" role="tabpanel">
+                            <div class="sm-aviso sm-aviso-info small mb-3"><i class="ti ti-info-circle"></i>
+                                <div>Cada fila es un bien. <b>Resolver</b> cierra el faltante: el bien apareció, se justificó o pasa a
+                                    baja. <b>Notificar falta</b> aparece cuando el bien todavía no tiene notificación.</div></div>
+                            <div class="table-responsive">
+                                <table class="table sm-tabla align-middle mb-0"><thead><tr>
+                                    <th>Código</th><th>Descripción</th><th>Tipo</th><th>Estado</th><th>Notificación / origen</th>
+                                    <th class="text-end">Qué hacer</th>
+                                </tr></thead><tbody id="cd-bienes"></tbody></table>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="cd-tab-notif" role="tabpanel">
+                            <div id="cd-notifs" class="d-flex flex-column gap-3"></div>
+                        </div>
+                        <div class="tab-pane fade" id="cd-tab-hist" role="tabpanel">
+                            <p class="cf-sub mb-2">Todos los documentos emitidos a esta persona, del más nuevo al más antiguo.</p>
+                            <div id="cd-hist"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sm-detalle-footer">
+                    <span class="sm-detalle-hint">Esta ventana se actualiza sola cuando cambia algo.</span>
+                    <span id="cd-notificar"></span>
+                    <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 <script th:inline="none">
     (function () {
         var BASE = '/administracion/control-activos';
@@ -776,36 +931,207 @@
         // ── Lista agrupada por persona ───────────────────────────────────
         var notifs = {};   // idActa → notificación vigente (para los botones de su tarjeta)
 
-        /** Tarjeta de una notificación vigente: documento, contador y lo que se puede hacer con ella. */
-        function tarjetaNotif(n) {
-            var esNot = n.plazoDias != null;
-            var acciones = '<button type="button" class="sm-btn sm-btn-sm cf-n-imprimir" title="Abrir el documento vigente para imprimirlo">' +
-                           '<i class="ti ti-printer"></i> Imprimir ' + (esNot ? 'notificación' : 'acta') + '</button>';
-            if (esNot) {
-                var ultima = n.numeroReiterativa >= 2;
-                acciones +=
-                    '<button type="button" class="sm-btn sm-btn-sm sm-btn-peligro cf-n-reiterativa"' + (ultima ? ' disabled' : '') +
-                        ' title="' + (ultima ? 'Ya se emitió la segunda y última reiterativa'
-                                             : 'Documento nuevo que reitera esta notificación, con un plazo nuevo') + '">' +
-                        '<i class="ti ti-repeat"></i> ' + (n.numeroReiterativa === 0 ? 'Emitir reiterativa'
-                            : (n.numeroReiterativa === 1 ? 'Emitir última reiterativa' : 'Sin más reiterativas')) + '</button>' +
-                    '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave cf-n-plazo" title="Cambiar el plazo de esta notificación (corre desde hoy)">' +
-                        '<i class="ti ti-clock-edit"></i> Cambiar plazo</button>' +
-                    '<div class="btn-group"><button type="button" class="sm-btn sm-btn-sm sm-btn-neutro dropdown-toggle" ' +
-                        'data-bs-toggle="dropdown" aria-expanded="false" title="Más acciones"><i class="ti ti-dots"></i></button>' +
-                        '<ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item cf-n-corregir" href="#">' +
-                        '<i class="ti ti-edit me-1"></i> Corregir datos del documento</a></li></ul></div>';
-            }
-            var tipo = !esNot ? 'Acta' : (n.numeroReiterativa === 1 ? '1ª reiterativa'
+        function badgeTipo(n) {
+            var tipo = n.plazoDias == null ? 'Acta' : (n.numeroReiterativa === 1 ? '1ª reiterativa'
                      : n.numeroReiterativa === 2 ? '2ª y última reiterativa' : 'Notificación');
-            return '<div class="cf-notif" data-acta="' + Number(n.idActa) + '">' +
-                '<div class="cf-notif-doc"><i class="ti ti-file-certificate"></i><div>' +
-                    '<div class="cf-notif-num">' + esc(numDoc(n.numeroActa)) +
-                    ' <span class="badge ' + (n.numeroReiterativa ? 'est-error' : 'bg-label-primary') + '">' + tipo + '</span></div>' +
-                    '<div class="cf-sub">' + n.pendientes + ' bien(es) pendiente(s)' +
-                    (n.enTraslado ? ' · ' + n.enTraslado + ' en traslado a custodia' : '') + '</div></div></div>' +
-                (esNot ? '<div class="cf-notif-plazo">' + contadorHtml(n) + '</div>' : '') +
-                '<div class="cf-notif-acciones">' + acciones + '</div></div>';
+            return '<span class="badge ' + (n.numeroReiterativa ? 'est-error' : 'bg-label-primary') + '">' + tipo + '</span>';
+        }
+
+        function docNotif(n) {
+            return '<div class="cf-notif-doc"><i class="ti ti-file-certificate"></i><div>' +
+                '<div class="cf-notif-num">' + esc(numDoc(n.numeroActa)) + ' ' + badgeTipo(n) + '</div>' +
+                '<div class="cf-sub">' + n.pendientes + ' bien(es) pendiente(s)' +
+                (n.enTraslado ? ' · ' + n.enTraslado + ' en traslado a custodia' : '') + '</div></div></div>';
+        }
+
+        /** Línea de la notificación en la tarjeta de la persona: qué documento es, cómo va el plazo e imprimir. */
+        function lineaNotif(n) {
+            return '<div class="cf-notif-linea" data-acta="' + Number(n.idActa) + '">' + docNotif(n) +
+                (n.plazoDias != null ? contadorHtml(n) : '') +
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro cf-n-imprimir" title="Abrir el documento vigente para imprimirlo">' +
+                '<i class="ti ti-printer"></i> Imprimir</button></div>';
+        }
+
+        /**
+         * La notificación en el modal de detalle, con cada acción como un botón que dice qué hace.
+         * Las clases cf-n-* son las de siempre: los manejadores de abajo las atienden.
+         */
+        function panelNotif(n) {
+            var esNot = n.plazoDias != null, ultima = n.numeroReiterativa >= 2;
+            var e = esNot ? estadoPlazo(n.plazoDias, n.inicioPlazo) : null;
+            var vencido = !!e && e.clase === 'cf-plazo-vencido';
+            function op(clase, icono, titulo, texto, deshabilitada) {
+                return '<button type="button" class="cf-accion ' + clase + '"' + (deshabilitada ? ' disabled' : '') + '>' +
+                       '<i class="ti ti-' + icono + '"></i><span><b>' + titulo + '</b><small>' + texto + '</small></span></button>';
+            }
+            var ops = op('cf-n-imprimir', 'printer', 'Imprimir ' + (esNot ? 'notificación' : 'acta'),
+                         'Abre el documento vigente para imprimirlo y entregarlo.');
+            if (esNot) {
+                ops += op('cf-n-reiterativa' + (vencido && !ultima ? ' cf-accion-sugerida' : ''), 'repeat',
+                          ultima ? 'Sin más reiterativas' : (n.numeroReiterativa === 0 ? 'Emitir reiterativa' : 'Emitir la última reiterativa'),
+                          ultima ? 'Ya se emitió la segunda y última reiterativa.'
+                                 : 'Documento nuevo que reitera esta notificación, con plazo nuevo.' + (vencido ? ' <b>El plazo ya venció.</b>' : ''),
+                          ultima) +
+                       op('cf-n-plazo', 'clock-edit', 'Cambiar plazo',
+                          'Mismo número; el plazo nuevo corre desde hoy. Hay que volver a imprimirla y entregarla.') +
+                       op('cf-n-corregir', 'edit', 'Corregir datos',
+                          'Documento de respaldo, observación, nombre, cargo o unidad del papel. El plazo no cambia.') +
+                       op('cf-n-unir', 'arrows-join', 'Unir con otra notificación',
+                          'Si la persona tiene otra notificación vigente (por ejemplo, su registro con y sin C.I.), júntelas en una.');
+            }
+            return '<div class="cf-notif-panel" data-acta="' + Number(n.idActa) + '">' +
+                '<div class="cf-notif-panel-cab">' + docNotif(n) + (esNot ? contadorHtml(n) : '') + '</div>' +
+                '<div class="cf-acciones-grid">' + ops + '</div></div>';
+        }
+
+        /** Lo que se cuenta de una persona en su tarjeta y en su detalle. */
+        function resumenGrupo(g) {
+            var r = { pendientes: 0, sinRegistrar: 0, enCustodia: 0, predios: {}, oficinas: {}, codigos: [] };
+            g.filas.forEach(function (f) {
+                if (f.estadoHallazgo !== 'RESUELTO') r.pendientes++;
+                if (f.estadoHallazgo === 'EN_CUSTODIA') r.enCustodia++;
+                if (f.estadoHallazgo === 'ABIERTO' && !f.estadoEnvio && !f.idActa && f.tipoHallazgo === 'FALTANTE') r.sinRegistrar++;
+                r.predios[f.idPredio] = 1; r.oficinas[f.idOficina] = 1;
+                if (f.codigoFuncionario && r.codigos.indexOf(f.codigoFuncionario) === -1) r.codigos.push(f.codigoFuncionario);
+            });
+            return r;
+        }
+
+        function subPersona(g, r) {
+            return 'C.I. ' + esc(g.ci || 's/d') +
+                (r.codigos.length ? ' · <span class="cf-resp-cod" title="Código(s) de responsable de esta persona">' +
+                    '<i class="ti ti-id-badge-2"></i> Cód. resp. ' + r.codigos.map(esc).join(' · ') + '</span>' : '') +
+                ' · ' + Object.keys(r.predios).length + ' predio(s) · ' + Object.keys(r.oficinas).length + ' oficina(s)';
+        }
+
+        function badgesGrupo(g, r) {
+            return (r.pendientes > 0 ? '<span class="badge bg-danger">' + r.pendientes + ' pendiente(s)</span>'
+                                     : '<span class="badge bg-success">Todo resuelto</span>') +
+                (r.enCustodia > 0 ? '<span class="badge est-custodia">' + r.enCustodia + ' en custodia</span>' : '') +
+                '<span class="badge bg-label-secondary">' + g.filas.length + ' total</span>';
+        }
+
+        function botonNotificar(g, r) {
+            return (g.idPersona && r.sinRegistrar > 0)
+                ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-peligro cf-registrar-persona" data-id="' + g.idPersona +
+                  '" data-nombre="' + esc(g.nombre) + '" data-ci="' + esc(g.ci || '') + '">' +
+                  '<i class="ti ti-file-alert me-1"></i>Notificar ' + r.sinRegistrar + '</button>' : '';
+        }
+
+        /** Filas de bienes agrupadas por predio y oficina de origen (en el modal de detalle). */
+        function filasBienes(g) {
+            var filas = '', predioAct = null, oficinaAct = null;
+            g.filas.forEach(function (h) {
+                if (h.idPredio !== predioAct) {
+                    predioAct = h.idPredio; oficinaAct = null;
+                    var nP = g.filas.filter(function (f) { return f.idPredio === h.idPredio; }).length;
+                    filas += '<tr class="cf-fila-predio"><td colspan="6"><i class="ti ti-building me-1"></i>Predio ' +
+                             esc(h.unidad) + ' — ' + esc(h.predio) + ' · ' + nP + '</td></tr>';
+                }
+                if (h.idOficina !== oficinaAct) {
+                    oficinaAct = h.idOficina;
+                    var nO = g.filas.filter(function (f) { return f.idOficina === h.idOficina; }).length;
+                    filas += '<tr class="cf-fila-oficina"><td colspan="6"><i class="ti ti-door me-1"></i>' +
+                             (h.origenNoRegistrado
+                                ? 'Oficina de origen no registrada <span class="fw-normal text-muted">(ya estaban en ' +
+                                  esc(h.oficina) + ')</span>'
+                                : 'Oficina ' + esc(h.codOfi) + ' — ' + esc(h.oficina)) +
+                             ' · ' + nO +
+                             (h.codigoFuncionario ? ' <span class="cf-resp-cod" title="Código del responsable en esta oficina">' +
+                                '<i class="ti ti-id-badge-2"></i> ' + esc(h.codigoFuncionario) + '</span>' : '') +
+                             '</td></tr>';
+                }
+                filas += filaHallazgo(h);
+            });
+            return filas;
+        }
+
+        /** Tarjeta de una persona: quién es, cómo va su notificación y la entrada a su detalle. */
+        function tarjetaGrupo(k, g) {
+            var r = resumenGrupo(g);
+            var clase = r.pendientes === 0 ? 'todo-resuelto' : (r.enCustodia === r.pendientes ? 'en-custodia' : '');
+            var notifsHtml = g.notifs.length ? g.notifs.map(lineaNotif).join('')
+                : '<div class="cf-sin-notif' + (r.sinRegistrar ? '' : ' text-muted') + '"><i class="ti ti-' +
+                  (r.sinRegistrar ? 'file-alert' : 'file-off') + ' me-1"></i>' +
+                  (r.sinRegistrar ? r.sinRegistrar + ' bien(es) todavía sin notificar' : 'Sin notificación vigente') + '</div>';
+            return '<div class="sm-card cf-grupo ' + clase + '" data-grupo="' + esc(k) + '" tabindex="0" role="button" ' +
+                       'aria-label="Ver los bienes y opciones de ' + esc(g.nombre) + '">' +
+                '<div class="cf-grupo-fila"><div><div class="cf-nom">' + esc(g.nombre) + '</div>' +
+                    '<div class="cf-sub">' + subPersona(g, r) + '</div></div>' +
+                    '<div class="cf-grupo-badges">' + badgesGrupo(g, r) + '</div></div>' +
+                '<div class="cf-grupo-fila"><div class="cf-grupo-notifs">' + notifsHtml + '</div>' +
+                    '<div class="cf-grupo-acciones">' + botonNotificar(g, r) +
+                    '<button type="button" class="sm-btn sm-btn-sm cf-ver-detalle"><i class="ti ti-list-search"></i> Ver bienes y opciones</button>' +
+                    '</div></div></div>';
+        }
+
+        // ── Detalle de una persona (modal) ───────────────────────────────
+        var gruposVista = {};       // clave de la persona → sus filas y notificaciones (de la última carga)
+        var detalleAbierto = null;  // clave de la persona cuyo detalle está abierto
+        var reabrirDetalle = false; // se cerró para abrir otro modal: vuelve al cerrarse ese
+
+        function modalDetalle() { return bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-detalle')); }
+
+        function abrirDetalle(k) {
+            if (!gruposVista[k]) return;
+            detalleAbierto = k;
+            pintarDetalle(k);
+            bootstrap.Tab.getOrCreateInstance(document.querySelector('#cf-detalle [data-bs-target="#cd-tab-bienes"]')).show();
+            cargarHistorialDetalle(gruposVista[k]);
+            modalDetalle().show();
+        }
+
+        function pintarDetalle(k) {
+            var g = gruposVista[k];
+            if (!g) {
+                // Con los filtros de ahora la persona ya no aparece (por ejemplo, se resolvió todo).
+                detalleAbierto = null;
+                modalDetalle().hide();
+                return;
+            }
+            var r = resumenGrupo(g);
+            $('#cd-nombre').text(g.nombre);
+            $('#cd-sub').html(subPersona(g, r));
+            $('#cd-badges').html(badgesGrupo(g, r));
+            $('#cd-n-bienes').text(g.filas.length);
+            $('#cd-n-notifs').text(g.notifs.length);
+            $('#cd-bienes').html(filasBienes(g));
+            $('#cd-notifs').html(g.notifs.length ? g.notifs.map(panelNotif).join('')
+                : '<div class="sm-aviso small mb-0"><i class="ti ti-info-circle"></i><div>Esta persona no tiene una notificación ' +
+                  'vigente.' + (r.sinRegistrar ? ' Tiene <b>' + r.sinRegistrar + ' bien(es) sin notificar</b>: use «Notificar» abajo.' : '') +
+                  '</div></div>');
+            $('#cd-notificar').html(botonNotificar(g, r));
+            actualizarContadoresPlazo();
+        }
+
+        function cargarHistorialDetalle(g) {
+            if (!g.idPersona) { $('#cd-hist').html('<p class="text-muted small mb-0">Sin persona asociada.</p>'); return; }
+            $('#cd-hist').html('<div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-1"></span>Cargando…</div>');
+            $.get(CUS + '/actas', { idPersona: g.idPersona }).done(function (lista) {
+                if (!lista || !lista.length) { $('#cd-hist').html('<p class="text-muted small mb-0">Todavía no se le emitió ningún documento.</p>'); return; }
+                $('#cd-hist').html('<div class="table-responsive"><table class="table sm-tabla align-middle mb-0"><thead><tr>' +
+                    '<th>N° de documento</th><th>Fecha</th><th class="text-center">Bienes</th><th>Estado</th><th class="text-end"></th>' +
+                    '</tr></thead><tbody>' + lista.map(function (a) {
+                        return '<tr><td><b>' + esc(numDoc(a.numero)) + '</b></td><td>' + fmtFecha(a.fechaEmision) + '</td>' +
+                               '<td class="text-center">' + Number(a.totalBienes) + '</td><td>' + estadoActaBadge(a) + '</td>' +
+                               '<td class="text-end"><a class="sm-btn sm-btn-sm sm-btn-neutro" href="' + pdfActa(a.idActa) +
+                               '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> Ver</a></td></tr>';
+                    }).join('') + '</tbody></table></div>');
+            }).fail(function (xhr) {
+                $('#cd-hist').html('<p class="text-danger small mb-0">' + esc(errorDe(xhr, 'No se pudo cargar el historial.')) + '</p>');
+            });
+        }
+
+        /** Estado de un documento en las listas (pestaña de actas e historial de la persona). */
+        function estadoActaBadge(a) {
+            var resuelta = a.estadoActa === 'VIGENTE' && a.totalBienes > 0 && a.resueltos === a.totalBienes;
+            // Tiene una reiterativa no anulada (lo dice el servidor): ya no es la vigente ni se anula.
+            var reiterada = a.estadoActa === 'VIGENTE' && a.reiterada;
+            return a.estadoActa === 'ANULADA' ? '<span class="badge est-gris">Anulada</span>'
+                 : a.estadoActa === 'UNIFICADA' ? '<span class="badge est-camino" title="Sus faltantes pasaron a la notificación que la unió">Unida</span>'
+                 : reiterada ? '<span class="badge est-camino">Reiterada</span>'
+                 : resuelta ? '<span class="badge est-ok">Resuelta</span>'
+                 : '<span class="badge bg-label-primary">Vigente</span>';
         }
 
         function pintar() {
@@ -850,87 +1176,18 @@
                 return personas[k].filas.some(function (f) { return f.estadoHallazgo !== 'RESUELTO'; });
             }).length);
 
-            if (!datos.length) { $('#cf-grupos').empty(); $('#cf-vacio').show(); return; }
+            if (!datos.length) {
+                gruposVista = {};
+                $('#cf-ayuda-lista').hide();
+                $('#cf-grupos').empty(); $('#cf-vacio').show();
+                if (detalleAbierto) pintarDetalle(detalleAbierto);
+                return;
+            }
 
-            var html = orden.map(function (k) {
-                var g = personas[k];
-                var pendientes = g.filas.filter(function (f) { return f.estadoHallazgo !== 'RESUELTO'; }).length;
-                var sinRegistrar = g.filas.filter(function (f) {
-                    return f.estadoHallazgo === 'ABIERTO' && !f.estadoEnvio && !f.idActa && f.tipoHallazgo === 'FALTANTE';
-                }).length;
-                var enCustodia = g.filas.filter(function (f) { return f.estadoHallazgo === 'EN_CUSTODIA'; }).length;
-                var predios = {}, oficinas = {}, codigos = [];
-                g.filas.forEach(function (f) {
-                    predios[f.idPredio] = 1; oficinas[f.idOficina] = 1;
-                    if (f.codigoFuncionario && codigos.indexOf(f.codigoFuncionario) === -1) codigos.push(f.codigoFuncionario);
-                });
-                var id = 'cf-g-' + k;   // por persona (no por posición): sobrevive a la recarga
-
-                var filas = '', predioAct = null, oficinaAct = null;
-                g.filas.forEach(function (h) {
-                    if (h.idPredio !== predioAct) {
-                        predioAct = h.idPredio; oficinaAct = null;
-                        var nP = g.filas.filter(function (f) { return f.idPredio === h.idPredio; }).length;
-                        filas += '<tr class="cf-fila-predio"><td colspan="6"><i class="ti ti-building me-1"></i>Predio ' +
-                                 esc(h.unidad) + ' — ' + esc(h.predio) + ' · ' + nP + '</td></tr>';
-                    }
-                    if (h.idOficina !== oficinaAct) {
-                        oficinaAct = h.idOficina;
-                        var nO = g.filas.filter(function (f) { return f.idOficina === h.idOficina; }).length;
-                        filas += '<tr class="cf-fila-oficina"><td colspan="6"><i class="ti ti-door me-1"></i>' +
-                                 (h.origenNoRegistrado
-                                    ? 'Oficina de origen no registrada <span class="fw-normal text-muted">(ya estaban en ' +
-                                      esc(h.oficina) + ')</span>'
-                                    : 'Oficina ' + esc(h.codOfi) + ' — ' + esc(h.oficina)) +
-                                 ' · ' + nO +
-                                 (h.codigoFuncionario ? ' <span class="cf-resp-cod" title="Código del responsable en esta oficina">' +
-                                    '<i class="ti ti-id-badge-2"></i> ' + esc(h.codigoFuncionario) + '</span>' : '') +
-                                 '</td></tr>';
-                    }
-                    filas += filaHallazgo(h);
-                });
-
-                var cabClase = pendientes === 0 ? 'todo-resuelto' : (enCustodia === pendientes ? 'en-custodia' : '');
-                var botonRegistrar = (g.idPersona && sinRegistrar > 0)
-                    ? '<button class="sm-btn sm-btn-sm sm-btn-peligro cf-registrar-persona" data-id="' + g.idPersona +
-                      '" data-nombre="' + esc(g.nombre) + '" data-ci="' + esc(g.ci || '') + '">' +
-                      '<i class="ti ti-file-alert me-1"></i>Notificar ' + sinRegistrar + '</button>' : '';
-
-                return '<div class="sm-card cf-grupo">' +
-                    '<div class="cf-grupo-head ' + cabClase + ' collapsed" data-bs-toggle="collapse" data-bs-target="#' + id + '">' +
-                        '<div class="d-flex align-items-center gap-2"><i class="ti ti-chevron-right cf-chevron"></i><div>' +
-                        '<div class="cf-nom">' + esc(g.nombre) + '</div>' +
-                        '<div class="cf-sub">C.I. ' + esc(g.ci || 's/d') +
-                        (codigos.length ? ' · <span class="cf-resp-cod" title="Código(s) de responsable de esta persona">' +
-                            '<i class="ti ti-id-badge-2"></i> Cód. resp. ' + codigos.map(esc).join(' · ') + '</span>' : '') +
-                        ' · ' + Object.keys(predios).length + ' predio(s) · ' + Object.keys(oficinas).length + ' oficina(s)</div></div></div>' +
-                        '<div class="d-flex gap-2 align-items-center flex-wrap">' +
-                            (pendientes > 0
-                                ? '<span class="badge bg-danger">' + pendientes + ' pendiente(s)</span>'
-                                : '<span class="badge bg-success">Todo resuelto</span>') +
-                            (enCustodia > 0 ? '<span class="badge est-custodia">' + enCustodia + ' en custodia</span>' : '') +
-                            ' <span class="badge bg-label-secondary">' + g.filas.length + ' total</span>' +
-                            botonRegistrar +
-                        '</div>' +
-                    '</div>' +
-                    // Las notificaciones vigentes quedan a la vista aunque el grupo esté cerrado.
-                    (g.notifs.length ? '<div class="cf-notifs">' + g.notifs.map(tarjetaNotif).join('') + '</div>' : '') +
-                    '<div class="collapse" id="' + id + '"><div class="table-responsive">' +
-                    '<table class="table sm-tabla align-middle mb-0"><thead><tr>' +
-                        '<th>Código</th><th>Descripción</th><th>Tipo</th>' +
-                        '<th>Estado</th><th>Notificación / origen</th><th></th>' +
-                    '</tr></thead><tbody>' + filas + '</tbody></table></div></div></div>';
-            }).join('');
-
-            // Los grupos que estaban abiertos siguen abiertos después de recargar.
-            var abiertosG = $('#cf-grupos .collapse.show').map(function () { return this.id; }).get();
-            $('#cf-grupos').html(html);
-            abiertosG.forEach(function (gid) {
-                var el = document.getElementById(gid);
-                if (!el) return;
-                el.classList.add('show');
-                $('#cf-grupos [data-bs-target="#' + gid + '"]').removeClass('collapsed');
-            });
+            gruposVista = personas;
+            $('#cf-ayuda-lista').show();
+            $('#cf-grupos').html(orden.map(function (k) { return tarjetaGrupo(k, personas[k]); }).join(''));
+            if (detalleAbierto) pintarDetalle(detalleAbierto);
             actualizarContadoresPlazo();
         }
 
@@ -1003,6 +1260,40 @@
                 dialogoResolver(s);
             }).fail(function (xhr) { aviso('Error', errorDe(xhr, 'No se pudo leer el faltante.'), 'error'); });
         });
+        // Abrir el detalle: clic en la tarjeta (fuera de sus botones) o Enter / Espacio con el foco en ella.
+        $(document).on('click.cf', '#cf-wrap .cf-grupo', function (e) {
+            if ($(e.target).closest('button, a, input, select, label').not('.cf-ver-detalle').length) return;
+            abrirDetalle($(this).attr('data-grupo'));
+        });
+        $(document).off('keydown.cf').on('keydown.cf', '#cf-wrap .cf-grupo', function (e) {
+            if (e.target !== this || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            abrirDetalle($(this).attr('data-grupo'));
+        });
+        // Un solo modal a la vez (plantilla): si desde el detalle se abre otro (plazo, reiterativa,
+        // registrar...), el detalle se cierra primero y vuelve cuando ese otro se cierra.
+        $(document).off('.cfDet')
+            .on('show.bs.modal.cfDet', '#cf-wrap .modal', function (e) {
+                if (this.id === 'cf-detalle') return;
+                var det = document.getElementById('cf-detalle');
+                if (!det || !det.classList.contains('show')) return;
+                e.preventDefault();
+                var otro = this;
+                reabrirDetalle = true;
+                $(det).one('hidden.bs.modal', function () { bootstrap.Modal.getOrCreateInstance(otro).show(); });
+                modalDetalle().hide();
+            })
+            .on('hidden.bs.modal.cfDet', '#cf-wrap .modal', function () {
+                if (this.id === 'cf-detalle') {
+                    if (!reabrirDetalle) detalleAbierto = null;
+                    return;
+                }
+                if (reabrirDetalle) {
+                    reabrirDetalle = false;
+                    if (detalleAbierto && gruposVista[detalleAbierto]) { pintarDetalle(detalleAbierto); modalDetalle().show(); }
+                    else detalleAbierto = null;
+                }
+            });
         $(document).on('click.cf', '#cf-wrap .cf-ver-cola', function () {
             document.getElementById('btn-monitor-cola-vsiaf')?.click();
         });
@@ -1276,14 +1567,8 @@
                 return;
             }
             $('#cf-actas-cuerpo').html(lista.map(function (a) {
-                var resuelta = a.estadoActa === 'VIGENTE' && a.totalBienes > 0 && a.resueltos === a.totalBienes;
-                // Sus faltantes pasaron a una reiterativa: el papel sigue valiendo, pero ya no es la vigente.
-                // Tiene una reiterativa no anulada (lo dice el servidor): ya no es la vigente ni se anula.
                 var reiterada = a.estadoActa === 'VIGENTE' && a.reiterada;
-                var estado = a.estadoActa === 'ANULADA' ? '<span class="badge est-gris">Anulada</span>'
-                           : reiterada ? '<span class="badge est-camino">Reiterada</span>'
-                           : resuelta ? '<span class="badge est-ok">Resuelta</span>'
-                           : '<span class="badge bg-label-primary">Vigente</span>';
+                var estado = estadoActaBadge(a);
                 var avance = a.estadoActa === 'ANULADA' ? '—' : [
                     a.enCustodia ? '<span class="badge est-custodia">' + a.enCustodia + ' en custodia</span>' : '',
                     a.enviados   ? '<span class="badge est-camino">' + a.enviados + ' trasladando</span>' : '',
@@ -2471,6 +2756,126 @@
                 aceptar: 'Emitir reiterativa', peligrosa: true
             }).then(function (si) {
                 if (si) ejecutarN(CUS + '/actas/generar-reiterativa', datosGR(plazo), $b, $('#cf-generar-reiterativa'), 'Reiterativa emitida');
+            });
+        });
+
+        // ── Unir notificaciones de la misma persona ──────────────────────
+        // Caso típico: la persona tiene dos registros (con y sin C.I.) y salió una notificación por
+        // cada uno. El servidor busca las otras con la misma regla que "Sumar otro registro".
+        var unibles = [];
+        function tipoUnible(u) {
+            return u.numeroReiterativa === 1 ? '1ª reiterativa' : (u.numeroReiterativa === 2 ? '2ª y última reiterativa' : 'Notificación');
+        }
+        function seleccionUnir() {
+            return unibles.filter(function (u) {
+                return !u.opcional || $('#un-lista .un-acta[value="' + Number(u.idActa) + '"]').is(':checked');
+            });
+        }
+        function enLista(l) { return l.length < 2 ? l.join('') : l.slice(0, -1).join(', ') + ' y ' + l[l.length - 1]; }
+        function ciLimpio(ci) { return (ci || '').replace(/[.\-\s]/g, ''); }
+
+        $(document).on('click.cf', '#cf-wrap .cf-n-unir', function (e) {
+            e.preventDefault();
+            var n = notifDe(this);
+            if (!n) return;
+            unibles = [];
+            $('#un-sub').text(subNotif(n));
+            $('#un-lista').html('<div class="text-muted small py-2"><span class="spinner-border spinner-border-sm me-1"></span>' +
+                                'Buscando otras notificaciones de esta persona…</div>');
+            $('#un-plazo, #un-doc, #un-fecha-doc, #un-obs').val('');
+            $('#un-plazo').removeClass('is-invalid');
+            $('#cf-unir input[name="un-modo"][value="NUEVA"]').prop('checked', true);
+            refrescarUnir();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('cf-unir')).show();
+            $.get(CUS + '/actas/' + n.idActa + '/unibles')
+                .done(function (lista) { unibles = lista || []; pintarUnibles(); })
+                .fail(function (xhr) {
+                    $('#un-lista').html('<div class="sm-aviso sm-aviso-peligro small mb-0"><i class="ti ti-alert-triangle"></i><div>' +
+                                        esc(errorDe(xhr, 'No se pudieron buscar las notificaciones.')) + '</div></div>');
+                });
+        });
+
+        function pintarUnibles() {
+            if (unibles.length < 2) {
+                $('#un-lista').html('<div class="sm-aviso small mb-0"><i class="ti ti-info-circle"></i><div>No hay otra notificación ' +
+                    'vigente de esta persona ni de otro registro suyo (mismo C.I., o sin C.I. y con el mismo nombre). ' +
+                    'No hay nada que unir.</div></div>');
+                refrescarUnir();
+                return;
+            }
+            $('#un-lista').html(unibles.map(function (u) {
+                return '<label class="cf-opcion">' +
+                    '<input type="checkbox" class="form-check-input un-acta" value="' + Number(u.idActa) + '"' +
+                        (u.opcional ? '' : ' checked disabled') + '>' +
+                    '<div class="flex-grow-1"><div class="d-flex justify-content-between align-items-center flex-wrap gap-2">' +
+                        '<div><b>' + esc(u.numero) + '</b> <span class="badge ' + (u.numeroReiterativa ? 'est-error' : 'bg-label-primary') +
+                        '">' + tipoUnible(u) + '</span>' + (u.opcional ? '' : ' <span class="cf-sub">(desde la que abrió)</span>') + '</div>' +
+                        contadorHtml(u) + '</div>' +
+                    '<div class="cf-sub">' + esc(u.persona) + ' · C.I. ' + esc(u.ci || 's/d') + ' · ' +
+                        u.pendientes + ' bien(es) pendiente(s)</div></div></label>';
+            }).join(''));
+            actualizarContadoresPlazo();
+            refrescarUnir();
+        }
+
+        function refrescarUnir() {
+            var sel = seleccionUnir();
+            $('#un-lista .un-acta').each(function () { $(this).closest('.cf-opcion').toggleClass('cf-marcada', this.checked); });
+
+            // Como reiterativa sigue la cadena de la que va más adelante: si alguna ya es la 2ª, no hay más.
+            var maxR = sel.reduce(function (m, u) { return Math.max(m, u.numeroReiterativa); }, 0);
+            var $rei = $('#cf-unir input[name="un-modo"][value="REITERATIVA"]');
+            var puedeRei = sel.length >= 2 && maxR < 2;
+            $rei.prop('disabled', !puedeRei).closest('.cf-opcion').toggleClass('cf-deshabilitada', !puedeRei);
+            if (!puedeRei && $rei.is(':checked')) $('#cf-unir input[name="un-modo"][value="NUEVA"]').prop('checked', true);
+            $('#un-rei-txt').text(maxR >= 2 ? 'No disponible: una de ellas ya es la segunda y última reiterativa.'
+                : (maxR === 0 ? 'Sale como la primera reiterativa' : 'Sale como la segunda y última reiterativa') +
+                  ' y reitera a todas las que se unen. Plazo nuevo.');
+            $('#cf-unir input[name="un-modo"]').each(function () { $(this).closest('.cf-opcion').toggleClass('cf-marcada', this.checked); });
+
+            if (sel.length >= 2) {
+                // A nombre del registro con C.I.; si ninguno tiene, la más antigua (igual que el servidor).
+                var orden = sel.slice().sort(function (a, b) { return a.idActa - b.idActa; });
+                var principal = orden.filter(function (u) { return ciLimpio(u.ci); })[0] || orden[0];
+                var total = sel.reduce(function (t, u) { return t + u.pendientes; }, 0);
+                $('#un-nota').html('<i class="ti ti-info-circle"></i><div>Sale con <b>número nuevo</b>, a nombre de <b>' +
+                    esc(principal.persona) + '</b>' + (principal.ci ? ' (C.I. ' + esc(principal.ci) + ')' : '') + ', con <b>' + total +
+                    ' bien(es)</b>. Las unidas quedan como <b>Unidas</b> y ya no son las vigentes. No se mueve ningún bien ni se ' +
+                    'envía nada al VSIAF.<br>Observación automática (no sale en el papel): <i>Producto de la unión de las ' +
+                    'notificaciones de faltantes ' + esc(enLista(orden.map(function (u) { return u.numero; }))) + '.</i></div>').show();
+            } else {
+                $('#un-nota').hide();
+            }
+            var ok = sel.length >= 2 && plazoValido($('#un-plazo')) && !previaEnCursoN;
+            $('#un-guardar, #un-previa').prop('disabled', !ok);
+        }
+        $('#cf-unir').on('change', '.un-acta, input[name="un-modo"]', refrescarUnir);
+        $('#un-plazo').on('input', refrescarUnir);
+
+        function datosUN(plazo) {
+            return { idsActas: seleccionUnir().map(function (u) { return u.idActa; }),
+                     modo: $('#cf-unir input[name="un-modo"]:checked').val(),
+                     plazoDias: plazo, documentoRespaldo: $('#un-doc').val() || null,
+                     fechaDocumento: $('#un-fecha-doc').val() || null, observacion: $('#un-obs').val() || null };
+        }
+        $('#un-previa').on('click', function () {
+            var plazo = leerPlazoDe($('#un-plazo'));
+            if (plazo === null) return;
+            vistaPreviaN(CUS + '/actas/unir/vista-previa', datosUN(plazo), $(this), refrescarUnir);
+        });
+        $('#un-guardar').on('click', function () {
+            var plazo = leerPlazoDe($('#un-plazo'));
+            if (plazo === null) return;
+            var d = datosUN(plazo), sel = seleccionUnir(), $b = $(this);
+            var como = d.modo === 'REITERATIVA' ? 'como reiterativa' : 'como notificación nueva';
+            confirmar({
+                titulo: '¿Unir ' + sel.length + ' notificaciones?',
+                texto: 'Se emite un documento nuevo, ' + como + ', con número nuevo y un plazo de <b>' + plazo +
+                       ' día(s) hábil(es) desde hoy</b>. La(s) <b>' + esc(enLista(sel.map(function (u) { return u.numero; }))) +
+                       '</b> quedan como unidas. No se mueve ningún bien ni se envía nada al VSIAF.',
+                aceptar: 'Unir y emitir', peligrosa: true
+            }).then(function (si) {
+                if (si) ejecutarN(CUS + '/actas/unir', d, $b, $('#cf-unir'), 'Notificaciones unidas');
             });
         });
 

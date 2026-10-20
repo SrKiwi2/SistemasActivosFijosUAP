@@ -53,6 +53,12 @@ public class ActaFaltante extends AuditoriaConfig {
 
     public static final String VIGENTE = "VIGENTE";
     public static final String ANULADA = "ANULADA";
+    /**
+     * Notificación cuyos faltantes pendientes pasaron a otra al unir varias de la misma
+     * persona. El papel sigue siendo auténtico; la vigente es la que la unió (su contenido
+     * la nombra en {@code notificacion.unificaA}).
+     */
+    public static final String UNIFICADA = "UNIFICADA";
 
     /** Acta de faltantes: registra faltantes nuevos y pide su traslado a la custodia. */
     public static final String TIPO_FALTANTES = "FALTANTES";
@@ -142,7 +148,7 @@ public class ActaFaltante extends AuditoriaConfig {
     @Column(name = "hash_contenido", length = 64, nullable = false)
     private String hashContenido;
 
-    /** VIGENTE | ANULADA. "Resuelta" no se guarda: sale de sus faltantes. */
+    /** VIGENTE | ANULADA | UNIFICADA. "Resuelta" no se guarda: sale de sus faltantes. */
     @Column(name = "estado_acta", length = 15, nullable = false)
     private String estadoActa;
 

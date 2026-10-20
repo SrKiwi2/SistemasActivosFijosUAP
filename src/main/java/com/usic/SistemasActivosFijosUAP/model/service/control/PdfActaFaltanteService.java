@@ -245,10 +245,15 @@ public class PdfActaFaltanteService {
         doc.add(new Paragraph("De mi consideración:", N_NEGRITA));
         if (acta.esReiterativa()) {
             // Antes la reiterativa salía igual que la notificación original: no decía que reiteraba.
-            doc.add(parrafo("En atención a la **" + nvl(acta.reiteraA(), "notificación anterior") + "**"
-                    + (acta.reiteraAFecha() != null ? " de fecha " + acta.reiteraAFecha().format(FECHA_LARGA) : "")
+            // Una unión emitida como reiterativa reitera a todas las que unió, no solo a la de la cadena.
+            String reitera = acta.esUnion()
+                    ? "En atención a las notificaciones **" + enLista(acta.unificaA()) + "**"
+                    : "En atención a la **" + nvl(acta.reiteraA(), "notificación anterior") + "**"
+                        + (acta.reiteraAFecha() != null ? " de fecha " + acta.reiteraAFecha().format(FECHA_LARGA) : "");
+            doc.add(parrafo(reitera
                     + ", y considerando que a la fecha no se regularizó la situación de los bienes detallados a "
-                    + "continuación, mediante la presente se le **reitera dicha notificación**"
+                    + "continuación, mediante la presente se le **"
+                    + (acta.esUnion() ? "reiteran dichas notificaciones" : "reitera dicha notificación") + "**"
                     + (Integer.valueOf(2).equals(acta.numeroReiterativa())
                             ? " con carácter de **segunda y última notificación**." : ".")));
         }
@@ -321,6 +326,12 @@ public class PdfActaFaltanteService {
         firmaNotificacion(doc, writer, acta, vistaPrevia, adjuntos);
         doc.close();
         return out.toByteArray();
+    }
+
+    /** "A", "A y B", "A, B y C". */
+    private static String enLista(java.util.List<String> l) {
+        if (l.size() == 1) return l.get(0);
+        return String.join(", ", l.subList(0, l.size() - 1)) + " y " + l.get(l.size() - 1);
     }
 
     /** Párrafo justificado; lo que va entre ** sale en negrita. */

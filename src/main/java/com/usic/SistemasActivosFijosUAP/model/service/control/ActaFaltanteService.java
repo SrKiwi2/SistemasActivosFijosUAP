@@ -487,6 +487,9 @@ public class ActaFaltanteService {
         if (ActaFaltante.ANULADA.equals(acta.getEstadoActa())) {
             throw new ReglaNegocioException("La notificación " + numero + " está anulada.");
         }
+        if (ActaFaltante.UNIFICADA.equals(acta.getEstadoActa())) {
+            throw new ReglaNegocioException("La notificación " + numero + " se unió a otra: use la notificación que la unió.");
+        }
         JsonNode not = nodoNotificacion(acta.getContenido());
         if (not == null || !not.hasNonNull("plazoDiasHabiles")) {
             throw new ReglaNegocioException(numero + " es un acta, no una notificación con plazo.");
@@ -835,18 +838,10 @@ public class ActaFaltanteService {
      * referencia a la notificación que reitera.
      */
     private void completarReiterativa(ActaFaltante nueva, NotificacionVigente nv, int plazo, LocalDateTime ahora, String unidadOverride) {
-        Map<Long, Oficina> origen = new java.util.HashMap<>();
-        List<Activo> bienes = new ArrayList<>();
-        for (HallazgoInventario h : nv.pendientes()) {
-            Activo a = h.getActivo();
-            if (a == null) continue;
-            bienes.add(a);
-            origen.put(a.getIdActivo(), h.getOficinaOrigen() != null ? h.getOficinaOrigen() : a.getOficina());
-        }
-        Function<Activo, Oficina> deOrigen = a -> origen.get(a.getIdActivo());
-        List<Activo> ordenados = bienes.stream().sorted(ordenDocumento(deOrigen)).toList();
+        BienesDelDocumento b = bienesDelDocumento(nv.pendientes());
+        List<Activo> ordenados = b.ordenados();
+        Function<Activo, Oficina> deOrigen = b.origen();
 
-        ActaFaltante ant = nv.acta();
         Map<String, Object> not = datosNotificacion(plazo, ahora, ordenados, deOrigen);
         // Aplicar override de unidad si se proporciona
         if (vacioANull(unidadOverride) != null) {
@@ -854,17 +849,287 @@ public class ActaFaltanteService {
         }
         not.put("inicioPlazo", ahora.withNano(0).toString());
         not.put("numeroReiterativa", nueva.getNumeroReiterativa());
-        Map<String, Object> reitera = new LinkedHashMap<>();
-        reitera.put("numero", ant.getNumero());
-        reitera.put("numeroImpreso", ActaFaltante.numeroImpreso(ant.getNumero()));
-        JsonNode notAnt = nv.notificacion();
-        reitera.put("fecha", notAnt.hasNonNull("inicioPlazo") ? notAnt.path("inicioPlazo").asText()
-                : ant.getFechaEmision().withNano(0).toString());
-        reitera.put("plazoDias", notAnt.path("plazoDiasHabiles").asInt());
-        not.put("notificacionAnterior", reitera);
+        not.put("notificacionAnterior", referencia(nv));
 
         nueva.setContenido(contenido(nueva, nv.persona(), ordenados, ActaFaltante.TIPO_FALTANTES, deOrigen, not));
         nueva.setHashContenido(sha256(nueva.getContenido()));
+    }
+
+    /** Cómo queda nombrada una notificación anterior en el contenido de la que la reemplaza. */
+    private static Map<String, Object> referencia(NotificacionVigente nv) {
+        ActaFaltante ant = nv.acta();
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("numero", ant.getNumero());
+        r.put("numeroImpreso", ActaFaltante.numeroImpreso(ant.getNumero()));
+        JsonNode notAnt = nv.notificacion();
+        r.put("fecha", notAnt.hasNonNull("inicioPlazo") ? notAnt.path("inicioPlazo").asText()
+                : ant.getFechaEmision().withNano(0).toString());
+        r.put("plazoDias", notAnt.path("plazoDiasHabiles").asInt());
+        return r;
+    }
+
+    /** Los bienes de las notificaciones, ordenados como en el papel y con su oficina de ORIGEN. */
+    private record BienesDelDocumento(List<Activo> ordenados, Function<Activo, Oficina> origen) {}
+
+    private static BienesDelDocumento bienesDelDocumento(List<HallazgoInventario> pendientes) {
+        Map<Long, Oficina> origen = new java.util.HashMap<>();
+        List<Activo> bienes = new ArrayList<>();
+        for (HallazgoInventario h : pendientes) {
+            Activo a = h.getActivo();
+            if (a == null) continue;
+            bienes.add(a);
+            origen.put(a.getIdActivo(), h.getOficinaOrigen() != null ? h.getOficinaOrigen() : a.getOficina());
+        }
+        Function<Activo, Oficina> deOrigen = a -> origen.get(a.getIdActivo());
+        return new BienesDelDocumento(bienes.stream().sorted(ordenDocumento(deOrigen)).toList(), deOrigen);
+    }
+
+    // ── Unir notificaciones de la misma persona (documento nuevo, número nuevo) ──
+    //
+    // Pasa cuando la misma persona tiene dos registros (con y sin C.I.) y se le emitió una
+    // notificación por cada uno. La unión es como una reiterativa con varias de origen: un
+    // documento nuevo con todos los pendientes, que pasan a él; las unidas quedan UNIFICADA.
+    // No toca el VSIAF: los bienes siguen donde estén (en custodia o en camino).
+
+    /** La unión sale como notificación nueva: el plazo vuelve a empezar. */
+    public static final String UNIR_NUEVA = "NUEVA";
+    /** La unión sale como la reiterativa que sigue en la cadena (1ª o 2ª y última). */
+    public static final String UNIR_REITERATIVA = "REITERATIVA";
+    private static final int TOPE_UNION = 10;
+
+    /**
+     * Las notificaciones vigentes con las que se puede unir la indicada: de la misma persona o
+     * de otro registro suyo (mismo C.I., o uno sin C.I., y el nombre parecido; la misma regla
+     * que al sumar registros al emitir). La indicada va primera y no es opcional.
+     */
+    public List<CustodiaDTOs.NotificacionUnible> unibles(Long idActa) {
+        return soloLectura(() -> {
+            NotificacionVigente base = notificacionVigente(idActa, false);
+            List<CustodiaDTOs.NotificacionUnible> out = new ArrayList<>();
+            out.add(unible(base, false));
+            for (ActaFaltante a : actaDao.notificacionesVigentes()) {
+                if (a.getIdActa().equals(idActa) || a.getPersona() == null) continue;
+                if (!mismaPersona(base.persona(), a.getPersona())) continue;
+                try {
+                    out.add(unible(notificacionVigente(a.getIdActa(), false), true));
+                } catch (ReglaNegocioException e) {
+                    // Sin pendientes (resuelta o ya reiterada): no hay nada que unir.
+                }
+            }
+            return out;
+        });
+    }
+
+    private static CustodiaDTOs.NotificacionUnible unible(NotificacionVigente nv, boolean opcional) {
+        ActaFaltante a = nv.acta();
+        return new CustodiaDTOs.NotificacionUnible(a.getIdActa(), ActaFaltante.numeroImpreso(a.getNumero()),
+                a.getPersonaNombre(), a.getPersonaCi(), nv.pendientes().size(),
+                a.getNumeroReiterativa() != null ? a.getNumeroReiterativa() : 0,
+                nv.notificacion().path("plazoDiasHabiles").asInt(),
+                fechaHora(texto(nv.notificacion(), "inicioPlazo")), opcional);
+    }
+
+    /** Misma persona o un registro suyo: el C.I. no choca y el nombre tiene al menos dos palabras en común. */
+    private static boolean mismaPersona(Persona a, Persona b) {
+        if (Objects.equals(a.getIdPersona(), b.getIdPersona())) return true;
+        String ciA = ciLimpio(a.getCi()), ciB = ciLimpio(b.getCi());
+        if (ciA != null && ciB != null && !ciA.equals(ciB)) return false;
+        return palabrasEnComun(a, b) >= 2;
+    }
+
+    /**
+     * @param principal a nombre de quién sale (el registro con C.I.)
+     * @param reiterada en modo reiterativa, la que la cadena sigue (la de reiterativa más alta)
+     */
+    private record Union(List<NotificacionVigente> notificaciones, NotificacionVigente principal,
+                         NotificacionVigente reiterada, int numeroReiterativa, List<HallazgoInventario> pendientes) {}
+
+    private Union prepararUnion(CustodiaDTOs.UnirNotificacionesRequest req, boolean bloquear) {
+        if (req == null || req.idsActas() == null) throw new ReglaNegocioException("Elija las notificaciones que se unen.");
+        List<Long> ids = req.idsActas().stream().filter(Objects::nonNull).distinct().sorted().toList();
+        if (ids.size() < 2) throw new ReglaNegocioException("Elija al menos dos notificaciones para unir.");
+        if (ids.size() > TOPE_UNION) {
+            throw new ReglaNegocioException("Se unen hasta " + TOPE_UNION + " notificaciones a la vez.");
+        }
+        boolean comoReiterativa = UNIR_REITERATIVA.equals(req.modo());
+        if (!comoReiterativa && !UNIR_NUEVA.equals(req.modo())) {
+            throw new ReglaNegocioException("Elija cómo sale la unión: notificación nueva o reiterativa.");
+        }
+        validarPlazo(req.plazoDias());
+
+        List<NotificacionVigente> nvs = new ArrayList<>();
+        for (Long id : ids) nvs.add(notificacionVigente(id, bloquear));
+        // A nombre del registro con C.I., como al sumar registros al emitir; si ninguno tiene, la más antigua.
+        NotificacionVigente principal = nvs.stream().filter(n -> ciLimpio(n.persona().getCi()) != null)
+                .findFirst().orElse(nvs.get(0));
+        for (NotificacionVigente n : nvs) {
+            if (!mismaPersona(principal.persona(), n.persona())) {
+                throw new ReglaNegocioException("La " + ActaFaltante.numeroImpreso(n.acta().getNumero()) + " es de "
+                        + n.acta().getPersonaNombre() + ", que no es la misma persona que " + principal.acta().getPersonaNombre()
+                        + ": no se pueden unir.");
+            }
+        }
+
+        NotificacionVigente reiterada = null;
+        int siguiente = 0;
+        if (comoReiterativa) {
+            for (NotificacionVigente n : nvs) {
+                if (reiterada == null || nivel(n) > nivel(reiterada)) reiterada = n;
+            }
+            siguiente = nivel(reiterada) + 1;
+            if (siguiente > 2) {
+                throw new ReglaNegocioException("La " + ActaFaltante.numeroImpreso(reiterada.acta().getNumero())
+                        + " ya es la segunda y última reiterativa: una las notificaciones como notificación nueva.");
+            }
+        }
+        List<HallazgoInventario> pendientes = nvs.stream().flatMap(n -> n.pendientes().stream()).toList();
+        if (pendientes.size() > TOPE_BIENES) {
+            throw new ReglaNegocioException("La unión tendría " + pendientes.size() + " bienes; el tope es " + TOPE_BIENES + ".");
+        }
+        return new Union(nvs, principal, reiterada, siguiente, pendientes);
+    }
+
+    private static int nivel(NotificacionVigente n) {
+        return n.acta().getNumeroReiterativa() != null ? n.acta().getNumeroReiterativa() : 0;
+    }
+
+    private static String numerosUnidos(Union u) {
+        List<String> nums = u.notificaciones().stream().map(n -> ActaFaltante.numeroImpreso(n.acta().getNumero())).toList();
+        return String.join(", ", nums.subList(0, nums.size() - 1)) + " y " + nums.get(nums.size() - 1);
+    }
+
+    /** La unión en memoria (sin número ni contenido). */
+    private ActaFaltante armarUnion(Union u, CustodiaDTOs.UnirNotificacionesRequest req, Usuario autor, LocalDateTime ahora) {
+        ActaFaltante p = u.principal().acta();
+        ActaFaltante a = new ActaFaltante();
+        a.setToken(nuevoToken());
+        a.setPersona(u.principal().persona());
+        // Nombre y cargo como en el papel de la principal: pudieron corregirse a mano (título, cargo).
+        a.setPersonaNombre(p.getPersonaNombre());
+        a.setPersonaCi(recortar(u.principal().persona().getCi(), 20));
+        a.setPersonaCargo(p.getPersonaCargo());
+        a.setFechaEmision(ahora);
+        a.setUsuarioEmision(autor != null ? autor.getUsuario() : "SISTEMA");
+        a.setDocumentoRespaldo(recortar(vacioANull(req.documentoRespaldo()), 120));
+        a.setFechaDocumento(req.fechaDocumento());
+        // Queda dicho de dónde sale (pedido del usuario). La observación no va en el papel.
+        String obs = vacioANull(req.observacion());
+        a.setObservacion("Producto de la unión de las notificaciones de faltantes " + numerosUnidos(u) + "."
+                + (obs != null ? " " + obs : ""));
+        a.setTotalBienes(u.pendientes().size());
+        a.setEstadoActa(ActaFaltante.VIGENTE);
+        a.setEstado("ACTIVO");
+        if (autor != null) a.setRegistroIdUsuario(autor.getIdUsuario());
+        if (u.reiterada() != null) {
+            a.setTipoNotificacion(u.numeroReiterativa() == 1 ? ActaFaltante.TipoNotificacion.REITERATIVA_1.name()
+                                                             : ActaFaltante.TipoNotificacion.REITERATIVA_2.name());
+            a.setActaAnterior(u.reiterada().acta());
+            a.setNumeroReiterativa(u.numeroReiterativa());
+        }
+        return a;
+    }
+
+    /**
+     * Contenido de la unión: los pendientes de todas con su oficina de origen y, en
+     * {@code unificaA}, cada notificación unida con sus faltantes (anular la unión los devuelve
+     * a cada una).
+     */
+    private void completarUnion(ActaFaltante nueva, Union u, int plazo, LocalDateTime ahora) {
+        BienesDelDocumento b = bienesDelDocumento(u.pendientes());
+        Map<String, Object> not = datosNotificacion(plazo, ahora, b.ordenados(), b.origen());
+        // La unidad del papel de la principal: pudo corregirse a mano.
+        String unidad = texto(u.principal().notificacion(), "unidad");
+        if (unidad != null) not.put("unidad", unidad);
+        not.put("inicioPlazo", ahora.withNano(0).toString());
+        if (u.reiterada() != null) {
+            not.put("numeroReiterativa", nueva.getNumeroReiterativa());
+            not.put("notificacionAnterior", referencia(u.reiterada()));
+        }
+        List<Map<String, Object>> unidas = new ArrayList<>();
+        for (NotificacionVigente n : u.notificaciones()) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("idActa", n.acta().getIdActa());
+            r.putAll(referencia(n));
+            r.put("hallazgos", n.pendientes().stream().map(HallazgoInventario::getIdHallazgo).toList());
+            unidas.add(r);
+        }
+        not.put("unificaA", unidas);
+        nueva.setContenido(contenido(nueva, u.principal().persona(), b.ordenados(), ActaFaltante.TIPO_FALTANTES,
+                b.origen(), not));
+        nueva.setHashContenido(sha256(nueva.getContenido()));
+    }
+
+    public Registro unirNotificaciones(CustodiaDTOs.UnirNotificacionesRequest req, Usuario autor) {
+        return enTransaccion(() -> {
+            // Turno ANTES de leer, como la reiterativa: otra acción sobre estas notificaciones queda en fila.
+            turnoNotificaciones();
+            Union u = prepararUnion(req, true);
+            LocalDateTime ahora = LocalDateTime.now();
+            String numero = String.format("%s%03d/%d", ActaFaltante.PREFIJO_NOTIFICACION,
+                    actaDao.ultimoCorrelativo(String.valueOf(ahora.getYear())) + 1, ahora.getYear());
+
+            ActaFaltante nueva = armarUnion(u, req, autor, ahora);
+            // contenido y hash son NOT NULL y dependen del número: primero un borrador.
+            nueva.setContenido("{}");
+            nueva.setHashContenido("-");
+            actaDao.saveAndFlush(nueva);
+            nueva.setNumero(numero);
+            completarUnion(nueva, u, req.plazoDias(), ahora);
+            actaDao.save(nueva);
+
+            for (HallazgoInventario h : u.pendientes()) {
+                h.setActa(nueva);
+                h.setDocumentoRespaldo(nueva.getDocumentoRespaldo());
+                h.setFechaDocumento(nueva.getFechaDocumento());
+                hallazgoDao.save(h);
+            }
+            for (NotificacionVigente n : u.notificaciones()) {
+                n.acta().setEstadoActa(ActaFaltante.UNIFICADA);
+                if (autor != null) n.acta().setModificacionIdUsuario(autor.getIdUsuario());
+                actaDao.save(n.acta());
+            }
+
+            String impreso = ActaFaltante.numeroImpreso(numero);
+            String como = u.reiterada() == null ? "notificación nueva"
+                    : (u.numeroReiterativa() == 1 ? "primera reiterativa" : "segunda y última reiterativa");
+            int total = u.pendientes().size();
+            actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_REGISTRO,
+                    numero, "Unió las notificaciones " + numerosUnidos(u) + " en la " + impreso + " (" + como + ") a "
+                            + nueva.getPersonaNombre() + ": " + total + " bien(es), " + req.plazoDias()
+                            + " día(s) hábil(es)", total, nueva.getIdActa());
+            return new Registro(nueva.getIdActa(), impreso, total,
+                    "Notificación " + impreso + " (" + como + ") emitida: une " + numerosUnidos(u) + " con "
+                            + total + " bien(es) y " + req.plazoDias() + " día(s) hábil(es) de plazo.");
+        });
+    }
+
+    public ActaFaltanteDTO unirNotificacionesVistaPrevia(CustodiaDTOs.UnirNotificacionesRequest req, Usuario autor) {
+        return soloLectura(() -> {
+            Union u = prepararUnion(req, false);
+            LocalDateTime ahora = LocalDateTime.now();
+            ActaFaltante previa = armarUnion(u, req, autor, ahora);
+            previa.setNumero(ActaFaltante.PREFIJO_NOTIFICACION + "___/" + ahora.getYear());
+            completarUnion(previa, u, req.plazoDias(), ahora);
+            return aDto(previa, VISTA_PREVIA);
+        });
+    }
+
+    /** idActa → faltantes de cada notificación que unió esta (vacío si no unió ninguna). */
+    private Map<Long, List<Long>> unidasDe(String contenido) {
+        Map<Long, List<Long>> out = new LinkedHashMap<>();
+        JsonNode not = nodoNotificacion(contenido);
+        if (not == null) return out;
+        for (JsonNode u : not.path("unificaA")) {
+            List<Long> hs = new ArrayList<>();
+            for (JsonNode h : u.path("hallazgos")) hs.add(h.asLong());
+            out.put(u.path("idActa").asLong(), hs);
+        }
+        return out;
+    }
+
+    /** Para buscar la notificación que unió a otra ({@link IActaFaltanteDao#queUnio}). */
+    private static String patronUnion(Long idActa) {
+        return "[{\"idActa\": " + idActa + "}]";
     }
 
     /** Orden de los bienes en el documento: predio, oficina (de origen) y código. */
@@ -1129,6 +1394,12 @@ public class ActaFaltanteService {
             if (ActaFaltante.ANULADA.equals(acta.getEstadoActa())) {
                 throw new ReglaNegocioException("El acta " + acta.getNumero() + " ya está anulada.");
             }
+            if (ActaFaltante.UNIFICADA.equals(acta.getEstadoActa())) {
+                String en = actaDao.queUnio(patronUnion(idActa))
+                        .map(x -> ActaFaltante.numeroImpreso(x.getNumero())).orElse("otra notificación");
+                throw new ReglaNegocioException("La " + ActaFaltante.numeroImpreso(acta.getNumero()) + " se unió en la "
+                        + en + ": anule primero esa notificación.");
+            }
             // Una notificación ya reiterada no se anula: la reiterativa quedaría reiterando un papel
             // anulado y sin forma de anularse. Se anula primero la reiterativa.
             actaDao.findFirstByActaAnteriorIdActaAndEstadoActaNotOrderByIdActaDesc(idActa, ActaFaltante.ANULADA)
@@ -1140,6 +1411,49 @@ public class ActaFaltanteService {
             // Se bloquea antes de leer: el despacho a la custodia puede estar moviendo estos bienes.
             List<Long> ids = hallazgoDao.idsDeLaActa(idActa);
             List<HallazgoInventario> hs = ids.isEmpty() ? List.of() : hallazgoDao.bloquear(ids);
+            Map<Long, List<Long>> unidas = unidasDe(acta.getContenido());
+            if (!unidas.isEmpty()) {
+                // Una unión no movió ningún bien: cada faltante vuelve a la notificación de la que
+                // vino, y esas vuelven a estar vigentes. Va antes que la reiterativa: una unión
+                // emitida como reiterativa también tiene notificación anterior.
+                long resueltos = hs.stream().filter(h -> ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())).count();
+                if (resueltos > 0) {
+                    throw new ReglaNegocioException(resueltos + " faltante(s) de la notificación ya se resolvieron: "
+                            + "no se puede anular la unión.");
+                }
+                Map<Long, ActaFaltante> vuelveA = new HashMap<>();
+                List<ActaFaltante> originales = new ArrayList<>();
+                for (Map.Entry<Long, List<Long>> e : unidas.entrySet()) {
+                    ActaFaltante o = actaDao.findById(e.getKey())
+                            .orElseThrow(() -> new ReglaNegocioException("Una de las notificaciones unidas ya no existe."));
+                    if (!ActaFaltante.UNIFICADA.equals(o.getEstadoActa())) {
+                        throw new ReglaNegocioException("La " + ActaFaltante.numeroImpreso(o.getNumero())
+                                + " ya no figura como unida: no hay a dónde devolver sus faltantes.");
+                    }
+                    originales.add(o);
+                    e.getValue().forEach(idH -> vuelveA.put(idH, o));
+                }
+                for (HallazgoInventario h : hs) {
+                    ActaFaltante o = vuelveA.get(h.getIdHallazgo());
+                    if (o == null) {
+                        throw new ReglaNegocioException("El faltante " + (h.getActivo() != null ? h.getActivo().getCodigo() : h.getIdHallazgo())
+                                + " no vino de las notificaciones unidas: no se puede anular la unión.");
+                    }
+                    h.setActa(o);
+                    h.setDocumentoRespaldo(o.getDocumentoRespaldo());
+                    h.setFechaDocumento(o.getFechaDocumento());
+                }
+                for (ActaFaltante o : originales) {
+                    o.setEstadoActa(ActaFaltante.VIGENTE);
+                    if (autor != null) o.setModificacionIdUsuario(autor.getIdUsuario());
+                }
+                acta.setEstadoActa(ActaFaltante.ANULADA);
+                acta.setMotivoAnulacion(m);
+                acta.setFechaAnulacion(LocalDateTime.now());
+                acta.setUsuarioAnulacion(autor != null ? autor.getUsuario() : "SISTEMA");
+                if (autor != null) acta.setModificacionIdUsuario(autor.getIdUsuario());
+                return acta.getNumero();
+            }
             ActaFaltante reiterada = acta.getActaAnterior();
             if (reiterada != null) {
                 // Una reiterativa no movió ningún bien: al anularla, sus faltantes vuelven a la
@@ -1282,6 +1596,11 @@ public class ActaFaltanteService {
 
     private ActaFaltanteDTO aDto(ActaFaltante acta) {
         String estado = acta.getEstadoActa();
+        if (ActaFaltante.UNIFICADA.equals(estado)) {
+            String en = actaDao.queUnio(patronUnion(acta.getIdActa()))
+                    .map(x -> ActaFaltante.numeroImpreso(x.getNumero())).orElse(null);
+            return aDto(acta, estado, null, en);
+        }
         if (ActaFaltante.VIGENTE.equals(estado)) {
             // Reiterada: sus faltantes pendientes pasaron a la reiterativa. Antes, con algún bien
             // resuelto antes de reiterar, la verificación decía «faltantes resueltos».
@@ -1308,7 +1627,13 @@ public class ActaFaltanteService {
      * @param reiteradaPor la reiterativa que la reemplaza (solo en REITERADA)
      */
     private ActaFaltanteDTO aDto(ActaFaltante acta, String estado, String reiteradaPor) {
+        return aDto(acta, estado, reiteradaPor, null);
+    }
+
+    /** @param unificadaEn la notificación que la unió (solo en UNIFICADA) */
+    private ActaFaltanteDTO aDto(ActaFaltante acta, String estado, String reiteradaPor, String unificadaEn) {
         List<ActaFaltanteDTO.Predio> predios = new ArrayList<>();
+        List<String> unificaA = new ArrayList<>();
         String tipo = acta.esRegularizacion() ? ActaFaltante.TIPO_REGULARIZACION : ActaFaltante.TIPO_FALTANTES;
         Integer plazo = null;
         String ciudad = null, firmante = null, unidadDestino = null;
@@ -1332,6 +1657,9 @@ public class ActaFaltanteService {
                 if (ant.isObject()) {
                     reiteraA = texto(ant, "numeroImpreso");
                     reiteraAFecha = fechaHora(ant.hasNonNull("fecha") ? texto(ant, "fecha") : texto(ant, "fechaEmision"));
+                }
+                for (JsonNode u : not.path("unificaA")) {
+                    if (texto(u, "numeroImpreso") != null) unificaA.add(texto(u, "numeroImpreso"));
                 }
             }
             Map<String, Map<String, List<ActaFaltanteDTO.Bien>>> arbol = new LinkedHashMap<>();
@@ -1365,7 +1693,7 @@ public class ActaFaltanteService {
                 Objects.equals(sha256(acta.getContenido()), acta.getHashContenido()), predios, tipo,
                 plazo, ciudad, firmante, unidadDestino, inicioPlazo,
                 numeroReiterativa != null && numeroReiterativa > 0 ? numeroReiterativa : null, reiteraA, reiteraAFecha,
-                reiteradaPor);
+                reiteradaPor, unificaA, unificadaEn);
     }
 
     private static LocalDateTime fechaHora(String s) {

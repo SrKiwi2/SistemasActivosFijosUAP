@@ -235,6 +235,36 @@ public final class CustodiaDTOs {
             String         personaUnidadOverride
     ) {}
 
+    /**
+     * Pedido para unir notificaciones vigentes de la misma persona (o de dos registros suyos)
+     * en una sola: documento nuevo, número nuevo, con todos los bienes pendientes de ellas.
+     *
+     * @param modo {@code NUEVA}: notificación nueva, el plazo vuelve a empezar;
+     *             {@code REITERATIVA}: la unión sale como la reiterativa que sigue en la cadena.
+     */
+    public record UnirNotificacionesRequest(
+            List<Long>     idsActas,
+            String         modo,
+            Integer        plazoDias,
+            String         documentoRespaldo,
+            java.time.LocalDate fechaDocumento,
+            String         observacion
+    ) {}
+
+    /** Otra notificación vigente de la persona (o de un registro suyo) con la que se puede unir. */
+    public record NotificacionUnible(
+            Long           idActa,
+            String         numero,
+            String         persona,
+            String         ci,
+            int            pendientes,
+            int            numeroReiterativa,
+            Integer        plazoDias,
+            java.time.LocalDateTime inicioPlazo,
+            /** false si es la notificación desde la que se pidió (va siempre en la unión). */
+            boolean        opcional
+    ) {}
+
     public record Conciliacion(
             List<Alerta> fueraDeCustodia,
             List<Alerta> sinRegistro,

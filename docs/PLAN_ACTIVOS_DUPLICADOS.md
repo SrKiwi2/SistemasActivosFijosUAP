@@ -118,6 +118,38 @@ Si a la vez se está trasladando a faltantes, el registro de duplicado espera a 
 
 **Verificación pública:** `/verificar/duplicado/{token}`, con el C.I. enmascarado.
 
+### Pantalla sin scroll (20-oct)
+
+A pedido del usuario (igual que Donaciones y Adicionales), solo `duplicados/vista.html`:
+- El registro es un **carrusel de 3 pasos**: 1 El que sobra · 2 El que se queda · 3 Revisión y motivo.
+  - Paso 2: la ficha del que sobra a la izquierda, para comparar.
+  - A la derecha: búsqueda, «Invertir», la ficha del que se queda y los parecidos. Con el que se
+    queda elegido, los parecidos se ocultan y vuelven con un botón. La lista ocupa el alto que
+    queda (`altoGemelos`).
+  - Al paso 2 se pasa con el que sobra elegido; al 3, con los dos. Atrás, siempre.
+  - Vista previa y Registrar, solo en el paso 3.
+- **Fichas** con «Etiqueta: valor» en una línea, con el texto completo en el `title`. También en
+  el detalle del caso.
+- **Listado:** filas de alto parejo. Según el ancho real del listado se ocultan Origen (≤1250),
+  Registro (≤1100) y Notificación y el selector de filas (≤820).
+- **Medido** con el marco real: 0 px de scroll en el formulario en 1366×657, 1366×768, 1280×600,
+  1024×700, 800×700, 1536×730 y 1920×950. El listado a 800×700 queda con 3 px.
+- 20 comprobaciones de comportamiento. **No probado en vivo.**
+- **Arreglos del `revisor` (20-oct):**
+  1. **Grave:** con la red lenta se podía registrar un par distinto del confirmado. Una búsqueda
+     pendiente cambiaba «el que se queda» con el diálogo abierto y `pedido()` se leía después.
+     Ahora:
+     - al buscar se suelta la elección anterior, y no se avanza ni se registra hasta que responde;
+     - las respuestas viejas se descartan;
+     - se envía exactamente el par del diálogo, y si cambió, no se registra.
+  2. Revisiones (`/api/situacion`) fuera de orden, por ejemplo al invertir rápido: se descarta la
+     que no corresponde al par actual. Venía de antes.
+  3. Oyentes globales (`resize.dupGemelos`, `sciaf:duplicados`): se quitaban para siempre al
+     cambiar de pestaña, porque el módulo queda desprendido. Ahora solo se ignoran mientras está
+     desprendido. Con esto vuelve el refresco en vivo del listado tras cambiar de pestaña, que
+     también venía de antes.
+  - Probado: 8 comprobaciones más, con búsquedas lentas simuladas.
+
 ## 4. Archivos
 
 **Nuevos** (bajo `src/main/java/com/usic/SistemasActivosFijosUAP/`):

@@ -191,6 +191,54 @@ estética (todo morado, íconos sólidos sin degradado ni relieve).
 - Ojo con lo impreso sin D: `01-02-04-00001` en papel es también el código de un activo normal.
   Decisión del usuario; si un papel se usa para buscar el bien, buscar con la D.
 
+## Sexta tanda (20-oct): sin scroll en pantallas chicas (solo la vista)
+
+Pedido: «no debe tener scroll; en pantallas más pequeñas se crea scroll dentro del formulario en el
+carrusel». Antes, en 1366×768 el paso 1 tenía 121 px de scroll interno, el paso 3 con un bien 747 px
+y con dos bienes 1.615 px, más scroll de página. Solo cambió `donacion/vista.html`; el servidor no.
+
+- **Asistente en columna:** pasos arriba, `.js-etapas` al medio y el pie con los botones siempre a la
+  vista. `ajustarAlto` mide `.js-etapas` (y `.js-exito`), ya no `.js-panel`; solo si la ventana es
+  más baja de lo previsto se desplaza la etapa, nunca la página. Con el asistente abierto la cabecera
+  pierde totales, «Nueva donación» y subtítulo (`.dn-en-form`, como Adicionales).
+- **Paso 3 = carrusel:** se ve un bien a la vez (`.dn-bien.activo`); las fichas de arriba
+  (`pintarChips`) pasan de uno a otro y se ponen en rojo si el bien tiene algo por revisar. Cada
+  tarjeta tiene tres secciones: Datos · Detalle · Fotos y resultado (`seccionBien`). Al validar se
+  muestra el bien con el primer error **en la sección de ese campo** (grupo/descripción/cantidad/valor
+  → Datos; series → Detalle; descripción final larga → Fotos y resultado). Se quitó «contraer».
+  El estado de las series va en la línea de la etiqueta; el mapa línea → código (edición) en
+  `.js-series-mapa`. El aviso «unidades con movimientos» (edición) es un candado en la cabecera de la
+  tarjeta que abre el texto completo.
+- **Paso 2:** un alta rápida abierta ocupa el lugar de los campos (`.dn-con-alta`); su título dice en
+  qué predio u oficina se crea.
+- **Pasos 3 y 4:** los totales van en el pie. Paso 4: dos tarjetas (datos en 2 columnas, el texto
+  completo en el `title`) y la tabla de bienes ocupa lo que queda; solo sus filas se desplazan.
+- **Listado:** columnas cortas al ancho de su contenido, donante en 2 líneas, documento y destino en 1;
+  por `@container` (ancho real del listado) se ocultan Documento (≤1150), Fecha (≤930) y Valor
+  (≤800). `minFilas: 3` (con 5 fijas no entraban y salía scroll de página).
+- **Por alto de ventana:** `max-height` 820 / 680 / 620 px compactan; a ≤620 (1280×720 con barras
+  del navegador) se oculta la cabecera del módulo mientras el asistente está abierto.
+- **Celular (<768):** la página se desplaza entera y el pie queda pegado abajo (como Adicionales).
+
+**Verificado** en Chrome sin pantalla con un arnés del marco real (menú, barra, pestañas) y datos
+simulados: 0 px de scroll en todos los pasos en 1366×657, 1366×768, 1536×730, 1280×600, 1024×700,
+800×700 y 1920×950; 34 comprobaciones de comportamiento (agregar, quitar, duplicar, validar y saltar
+al error, altas, cancelar, edición con candado y mapa de series). Thymeleaf renderiza. **No probado en
+vivo** ni con datos reales.
+
+**Arreglos del `revisor` (20-oct):**
+1. **XSS (grave):** los `title` nuevos del listado y del resumen se armaban con `esc`, que no
+   escapa comillas: un donante `ACME" ONCLICK="…` (la carga en octal sobrevive a las mayúsculas)
+   metía un `onclick` que corría al abrir el acta un administrador. Ahora usan `escAttr`
+   (convierte `"` y `'`). Regla: **dentro de un atributo, `escAttr` o `.attr()`; nunca `esc` solo.**
+2. Pulsar una ficha la recreaba y el foco caía en `<body>` (Ctrl+Enter y Alt+N dejaban de andar):
+   `pintarChips` devuelve el foco a la ficha activa.
+3. Paso 4 en tablet/celular: el pie no mostraba todos los totales; se agregó `.dn-resumen-totales`
+   (bienes, activos que se crean, valor) debajo de las tarjetas por debajo de 992 px.
+4. (Del revisor de Adicionales, mismo atajo, venía de antes) Ctrl+Enter con un select2 enfocado
+   abría la lista y avanzaba; otro Ctrl+Enter elegía la opción resaltada sin verla. Ahora el atajo
+   no actúa con un select2 enfocado o abierto, y al cambiar de paso el foco queda en el paso nuevo.
+
 ## Riesgo abierto (explicado al usuario)
 
 **Una oficina o un responsable «pendiente» por días puede chocar con uno creado directo en el VSIAF.**

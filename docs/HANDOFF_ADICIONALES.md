@@ -142,6 +142,40 @@ que la forma y las características; el financiador pasó a «Adquisición». So
 de `templates/adicional/vista.html`; el JS no se tocó (todo va por clases `js-*`). Visto en una
 captura estática a 1366 px; **sin probar en vivo** ni medir otra vez el «sin scroll de página».
 
+## Formulario en carrusel, sin scroll (20-oct)
+
+Pedido: lo mismo que en Donaciones, «si vas a hacer scroll hay que agrupar bien la información que
+va a pedir». Antes el formulario tenía 6 secciones apiladas: 1.141 px de scroll interno en
+1366×657 (y 1.001 px aun en 1920×950). Solo cambió `adicional/vista.html`.
+
+- **4 pasos** (`.adi-pasos` / `.adi-etapa`):
+  1. **El bien** – nombre, marca, modelo, color, material, medidas y la vista previa de la descripción.
+  2. **Unidades y valor** – cantidad, códigos antiguos, series (una línea por unidad), fecha de
+     adquisición, valor, vida útil y financiador.
+  3. **Clasificación y ubicación** – predio, grupo, auxiliar, estado, oficina, responsable y el
+     código que recibirá. Un alta rápida abierta ocupa el lugar de los campos (`.adi-con-alta`).
+  4. **Notas y fotos** – características, observación y fotos (en la corrección, sin fotos).
+- **Nada es obligatorio:** cualquier paso se abre con un clic; Atrás / Siguiente / Ctrl+Enter; se
+  guarda desde cualquier paso. Los pasos con datos se marcan (`marcarPasos`). Al guardar, cada aviso
+  lleva al paso del dato que falta o sobra. «Guardar y registrar otro» vuelve al paso 1.
+- Códigos antiguos y series: la caja muestra hasta 5 líneas (3 en ventanas ≤700 px de alto); con
+  más unidades se desplaza dentro de la caja.
+- Ventana baja: el encabezado del formulario queda en una línea (≤820 px) y la cabecera del módulo
+  se oculta con el formulario abierto (≤700 px). Listado: Valor se oculta con listado ≤780 px y el
+  botón de reporte queda solo con ícono ≤900 px. Celular: «Guardar y otro» solo ícono.
+
+**Verificado** en Chrome sin pantalla con el marco real: 0 px de scroll en todos los pasos en
+1366×657, 1366×768, 1280×600, 1024×700, 800×700, 1536×730 y 1920×950 (el listado a 800×700
+queda con 3 px por el mínimo de 3 filas); 23 comprobaciones de comportamiento. Thymeleaf renderiza.
+**No probado en vivo.**
+
+**Arreglos del `revisor` (20-oct):** sin hallazgos graves. (1) Ctrl+Enter con un select2 enfocado
+abría su lista y cambiaba de paso; un segundo Ctrl+Enter **elegía la opción resaltada** (p. ej. el
+primer financiador) sin que nadie la viera. Ahora el atajo no actúa con un select2 enfocado o
+abierto (también en Donaciones, donde el fallo venía de antes). (2) Al cambiar de paso el foco caía
+en `<body>` y Ctrl+Enter dejaba de responder: `irAPaso` pasa el foco al paso nuevo. Probado con
+teclas reales (CDP `Input.dispatchKeyEvent`).
+
 ## Pendiente / ofrecer
 
 1. En Consulta, un adicional sin código no lleva la pastilla «ADICIONAL» (se reconoce por el
