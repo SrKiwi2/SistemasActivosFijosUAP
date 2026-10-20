@@ -38,36 +38,92 @@
     .dup-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 160px; font-size: .82rem; color: var(--sm-texto-2); }
     .dup-una { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dup-nowrap { white-space: nowrap; }
+    /* Filas de alto parejo: la línea del envío (bajo el estado) en una sola línea; el texto completo en el title */
+    .dup-pantalla .js-tabla td small.d-block { max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dup-pantalla .js-listado { container-type: inline-size; container-name: duplista; }
     @media (min-width: 768px) {
-        @container duplista (max-width: 1050px) { .dup-col-origen { display: none; } }
-        @container duplista (max-width: 880px) { .dup-col-fecha { display: none; } }
+        /* Según el ancho REAL del listado (el menú lateral le quita 260 px) */
+        @container duplista (max-width: 1300px) { .dup-una { max-width: 180px; } .dup-desc { min-width: 140px; } }
+        @container duplista (max-width: 1250px) { .dup-col-origen { display: none; } }
+        @container duplista (max-width: 1100px) { .dup-col-fecha { display: none; } }
+        @container duplista (max-width: 900px) {
+            .dup-una { max-width: 130px; }
+            .dup-pantalla .js-segmento button { padding: 0 .4rem; font-size: .8rem; }
+            .dup-pantalla .js-listado .sm-buscador { flex-basis: 180px; min-width: 150px; }
+            .dup-pantalla .sm-filas .sm-select { min-width: 120px; }
+        }
+        /* Tablet: la notificación se ve en el detalle y las filas quedan en «Ajustar a pantalla» */
+        @container duplista (max-width: 820px) { .dup-col-noti, .dup-pantalla .js-listado .sm-filas { display: none; } }
+        @container duplista (max-width: 1150px) {
+            .dup-pantalla .js-segmento button { padding: 0 .55rem; font-size: .84rem; }
+            .dup-pantalla .sm-filas > i, .dup-pantalla .sm-filas .dup-l-filas { display: none; }
+            .dup-pantalla .js-listado .sm-buscador { flex-basis: 240px; min-width: 180px; }
+        }
     }
 
     /* Registro por pasos */
     .dup-panel { padding: 0; overflow: hidden; }
-    .dup-panel-cuerpo { overflow-y: auto; padding: 1rem 1.1rem; }
-    .dup-paso { border: 1px solid var(--sm-borde); border-radius: 12px; margin-bottom: .9rem; background: var(--sm-superficie); }
-    .dup-paso-cab { display: flex; align-items: center; gap: .6rem; padding: .6rem .9rem; border-bottom: 1px solid var(--sm-borde);
-        background: var(--sm-superficie-2); border-radius: 12px 12px 0 0; font-weight: 700; color: var(--sm-texto); }
-    .dup-paso-num { width: 26px; height: 26px; flex: none; border-radius: 50%; background: var(--dp); color: #fff; display: inline-flex;
-        align-items: center; justify-content: center; font-size: .85rem; }
-    .dup-paso-cuerpo { padding: .85rem .9rem; }
+    .dup-panel-cuerpo { overflow-y: auto; padding: .85rem 1.1rem; }
+    /* Carrusel de pasos: un paso a la vista; pasos arriba y botones abajo siempre visibles */
+    .dup-pasos { display: flex; gap: .4rem; padding: .5rem 1rem .35rem; border-bottom: 1px solid var(--sm-borde); flex-wrap: wrap; }
+    .dup-paso-btn { flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: .5rem; border: 0; background: none; padding: .25rem .3rem;
+        color: var(--sm-texto-2); font-weight: 600; font-size: .88rem; border-radius: 10px; text-align: left; }
+    .dup-paso-btn:disabled { cursor: default; opacity: .7; }
+    .dup-paso-num { width: 28px; height: 28px; flex: none; border-radius: 50%; border: 2px solid var(--sm-borde-fuerte); background: var(--sm-superficie);
+        display: inline-flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 800; transition: all .2s ease; }
+    .dup-paso-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dup-paso-btn.hecho .dup-paso-num { border-color: var(--dp); background: var(--dp-suave); color: var(--dp); }
+    .dup-paso-btn.actual { color: var(--sm-texto); }
+    .dup-paso-btn.actual .dup-paso-num { border-color: transparent; background: var(--dp); color: #fff; }
+    .dup-avance { height: 4px; background: var(--sm-superficie-3); }
+    .dup-avance > span { display: block; height: 100%; width: 33.4%; background: var(--dp); transition: width .4s cubic-bezier(.3,.9,.3,1); }
+    .dup-etapa { display: none; }
+    .dup-etapa.visible { display: block; animation: dup-deslizar .3s ease both; }
+    .dup-etapa.visible.atras { animation-name: dup-deslizar-atras; }
+    .dup-etapa:focus { outline: 0; }
+    .dup-etapa-tit { font-size: 1rem; font-weight: 700; color: var(--sm-texto); margin-bottom: .15rem; }
     .dup-ayuda { font-size: .8rem; color: var(--sm-texto-2); margin: 0 0 .6rem; }
+    /* Paso 2: los parecidos se desplazan dentro de su lista (la pantalla no) */
+    .dup-lado-queda { min-width: 0; display: flex; flex-direction: column; }
+    .dup-lado-queda .dup-gemelos { max-height: 34vh; overflow-y: auto; padding-right: 2px; }   /* el alto exacto lo pone altoGemelos() */
+    /* Con el que se queda elegido, la ficha ocupa el lugar de los parecidos (se vuelven a ver con un clic) */
+    .dup-lado-queda .dup-buscar { flex-wrap: nowrap; }
+    .dup-lado-queda .dup-buscar .sm-campo { flex: 1 1 auto; min-width: 0; }
+    .dup-lado-queda .dup-buscar .sm-btn { flex: none; padding-left: .8rem; padding-right: .8rem; }
+    .dup-lado-queda .dup-ver-gemelos { display: none; }
+    .dup-lado-queda.con-queda .dup-ver-gemelos { display: inline-flex; }
+    .dup-lado-queda.ver-gemelos .dup-ver-gemelos { background: var(--dp-suave); color: var(--dp); }
+    .dup-lado-queda.con-queda:not(.ver-gemelos) .dup-gemelos { display: none; }
+    .dup-lado-queda.con-queda.ver-gemelos .js-ficha-queda { display: none; }
+    .dup-comparar .dup-ficha { margin-top: 0; }
+    .dup-lado-queda .dup-ficha { margin-top: .6rem; }
+    /* Paso 3: revisión a la izquierda, motivo a la derecha */
+    .dup-revision-motivo { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 1rem; }
+    @media (max-width: 767.98px) { .dup-revision-motivo { grid-template-columns: 1fr; } }
+    .dup-l-corto { display: none; }
+    .dup-pie .sm-btn { margin-bottom: 0; }
+    @keyframes dup-deslizar { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+    @keyframes dup-deslizar-atras { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
     .dup-buscar { display: flex; gap: .5rem; flex-wrap: wrap; }
     .dup-buscar .sm-campo { flex: 1 1 260px; }
     .dup-ficha { border: 1px solid var(--sm-borde); border-radius: 10px; padding: .65rem .8rem; margin-top: .7rem; background: var(--sm-superficie-2); }
     .dup-ficha.sobra { border-left: 4px solid var(--sm-peligro); }
     .dup-ficha.queda { border-left: 4px solid var(--sm-exito); }
     .dup-ficha-tit { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--sm-texto-2); margin-bottom: .2rem; }
+    .dup-ficha-cab { display: flex; align-items: baseline; justify-content: space-between; gap: .3rem .8rem; flex-wrap: wrap; }
+    .dup-ficha-cab .dup-ficha-tit { margin-bottom: 0; }
     .dup-ficha .dup-codigo { font-size: 1rem; color: var(--sm-texto); }
-    .dup-ficha-desc { font-weight: 600; color: var(--sm-texto); margin: .2rem 0 .4rem; overflow-wrap: anywhere; }
-    .dup-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .15rem .9rem; font-size: .82rem; }
-    .dup-datos small { display: block; color: var(--sm-texto-2); font-size: .7rem; }
-    .dup-datos span { font-weight: 600; color: var(--sm-texto); overflow-wrap: anywhere; }
+    .dup-ficha-desc { font-weight: 600; color: var(--sm-texto); margin: .2rem 0 .35rem; overflow-wrap: anywhere; font-size: .9rem;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .dup-datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .1rem .9rem; font-size: .8rem; }
+    .dup-datos > div { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dup-datos small { color: var(--sm-texto-2); font-size: .72rem; }
+    .dup-datos span { font-weight: 600; color: var(--sm-texto); }
     .dup-marcas { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
     .dup-comparar { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
-    @media (max-width: 900px) { .dup-comparar { grid-template-columns: 1fr; } }
+    /* Lado a lado hasta tablet (para comparar); apilados solo en celular */
+    @media (max-width: 767.98px) { .dup-comparar { grid-template-columns: 1fr; } }
+    @media (max-width: 1100px) { .dup-datos { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
     .dup-gemelos { margin-top: .7rem; }
     .dup-gemelo { display: flex; gap: .7rem; align-items: flex-start; width: 100%; text-align: left; border: 1px solid var(--sm-borde);
         border-radius: 10px; padding: .5rem .7rem; margin-bottom: .4rem; background: var(--sm-superficie); color: var(--sm-texto); }
@@ -83,10 +139,77 @@
     .dup-tarjeta.falta { background: rgba(var(--sm-peligro-rgb), .1); color: var(--sm-peligro); }
     html.dark-style .dup-tarjeta.atencion, html[data-theme="dark"] .dup-tarjeta.atencion { color: #fbbf24; }
     html.dark-style .dup-tarjeta.ok, html[data-theme="dark"] .dup-tarjeta.ok { color: #4ade80; }
-    .dup-pie { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: .75rem 1.1rem;
-        border-top: 1px solid var(--sm-borde); background: var(--sm-superficie-2); position: sticky; bottom: 0; z-index: 3; }
+    .dup-pie { display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; padding: .6rem 1.1rem;
+        border-top: 1px solid var(--sm-borde); background: linear-gradient(var(--sm-superficie-2), var(--sm-superficie-2)), var(--sm-superficie);
+        position: sticky; bottom: 0; z-index: 3; }
     .dup-pie .dup-nota { margin-right: auto; font-size: .78rem; color: var(--sm-texto-2); }
+    .dup-pie.en-final .dup-nota { display: none; }
     .dup-textarea { width: 100%; min-height: 90px; resize: vertical; text-transform: none !important; }
+
+    /* ── Responsive: sin scroll en laptops (1366×768 con barras del navegador ≈ 657 px de alto) ── */
+    .dup-pantalla .sm-cabecera { row-gap: .55rem; }
+    .dup-pantalla.dup-en-form .sm-cabecera { margin-bottom: .6rem; }
+    @media (max-height: 820px) {
+        .dup-pantalla .sm-subtitulo { display: none; }
+        .dup-pantalla .sm-cabecera { margin-bottom: .6rem; }
+        .dup-pantalla .js-panel-form .sm-detalle-head { padding-top: .4rem; padding-bottom: .4rem; }
+        .dup-pantalla .js-panel-form .sm-detalle-head > .sm-cabecera-icono, .dup-pantalla .js-panel-form .sm-detalle-head small { display: none; }
+        .dup-pantalla .js-panel-form .sm-detalle-head > .flex-grow-1 { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+        .dup-pantalla .js-panel-form .sm-detalle-head .sm-modal-titulo { font-size: 1.05rem; }
+        .dup-pantalla .dup-pasos { padding: .35rem .9rem .25rem; }
+        .dup-pantalla .dup-paso-btn { font-size: .84rem; padding: .15rem .3rem; }
+        .dup-pantalla .dup-paso-num { width: 26px; height: 26px; }
+        .dup-pantalla .dup-panel-cuerpo { padding: .65rem 1rem; }
+        .dup-pantalla .dup-ayuda { margin-bottom: .45rem; }
+        .dup-pantalla .dup-etapa .sm-input:not(textarea) { height: 38px; }
+        .dup-pantalla .dup-etapa .sm-btn, .dup-pantalla .dup-pie .sm-btn { height: 38px; font-size: .92rem; }
+        .dup-pantalla .dup-pie { padding: .45rem 1rem; }
+        .dup-pantalla .dup-ficha { padding: .5rem .7rem; }
+        .dup-pantalla .dup-ficha-desc { margin: .1rem 0 .3rem; }
+        .dup-pantalla .dup-tarjeta { padding: .45rem .65rem; margin-bottom: .35rem; }
+        .dup-pantalla .dup-textarea { min-height: 76px; }
+    }
+    /* Con el registro abierto en ventanas bajas, la cabecera del módulo se oculta (el registro dice qué es) */
+    @media (max-height: 700px) and (min-width: 768px) {
+        .dup-pantalla.dup-en-form .sm-cabecera { display: none; }
+        .dup-pantalla .sm-migas { display: none; }
+        .dup-pantalla .dup-etapa > .dup-ayuda { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+        .dup-pantalla .dup-ficha-desc { -webkit-line-clamp: 1; }
+        .dup-pantalla .dup-gemelo { padding: .35rem .6rem; margin-bottom: .3rem; }
+    }
+    @media (max-height: 620px) and (min-width: 768px) {
+        .dup-pantalla .sm-cabecera > .sm-cabecera-icono { width: 38px; height: 38px; font-size: 1.15rem; }
+        .dup-pantalla .sm-titulo { font-size: 1.2rem; }
+        .dup-pantalla .sm-dato { padding: .3rem .7rem; }
+        .dup-pantalla .sm-cabecera { margin-bottom: .4rem; }
+        .dup-pantalla .dup-pasos { padding: .2rem .9rem .1rem; }
+        .dup-pantalla .dup-paso-num { width: 24px; height: 24px; }
+        .dup-pantalla .dup-pie { padding-top: .3rem; padding-bottom: .3rem; }
+        .dup-pantalla .dup-pie .sm-btn { height: 36px; }
+        .dup-pantalla .sm-toolbar { padding-top: .35rem; padding-bottom: .35rem; }
+        .dup-pantalla .sm-tabla.table > tbody > tr > td { padding-top: .3rem; padding-bottom: .3rem; }
+        .dup-pantalla .dup-datos { gap: .05rem .8rem; }
+        .dup-pantalla .dup-etapa-tit { font-size: .95rem; margin-bottom: 0; }
+        .dup-pantalla .dup-panel-cuerpo { padding-top: .5rem; padding-bottom: .5rem; }
+        .dup-pantalla .js-panel-form .sm-detalle-head { display: none; }
+        .dup-pantalla .dup-textarea { min-height: 64px; }
+    }
+    /* Celular: la página se desplaza y el pie queda pegado abajo, en una línea */
+    @media (max-width: 767.98px) {
+        .dup-pantalla .dup-panel { overflow: visible; }
+        .dup-pantalla .dup-pie { flex-wrap: nowrap; gap: .4rem; padding: .5rem .6rem; border-radius: 0 0 12px 12px; box-shadow: 0 -6px 14px -8px rgba(15, 23, 42, .25); }
+        .dup-pantalla .dup-pie .dup-nota, .dup-pantalla .dup-l-largo { display: none; }
+        .dup-pantalla .dup-l-corto { display: inline; }
+        .dup-pantalla .dup-pie .sm-btn { flex: 1 1 auto; padding-left: .55rem; padding-right: .55rem; }
+        .dup-pantalla .dup-pie .js-cancelar, .dup-pantalla .dup-pie .js-atras { flex: 0 0 auto; }
+        .dup-pantalla .dup-paso-btn { min-width: 0; flex: 0 0 auto; }
+        .dup-pantalla .dup-paso-btn.actual { flex: 1 1 auto; min-width: 0; }
+        .dup-pantalla .dup-paso-btn:not(.actual) .dup-paso-txt { display: none; }
+        .dup-pantalla .dup-lado-queda .dup-gemelos { max-height: none; }
+        .dup-pantalla .sm-cabecera-acciones { gap: .4rem; }
+        .dup-pantalla .sm-cabecera-acciones .sm-dato { flex: 1 1 0; justify-content: center; padding: .3rem .4rem; font-size: .7rem; }
+        .dup-pantalla .sm-cabecera-acciones .js-nuevo { flex: 1 1 100%; justify-content: center; }
+    }
 
     /* Detalle */
     .dup-linea { list-style: none; margin: 0; padding: 0; font-size: .84rem; }
@@ -136,7 +259,7 @@
         </div>
         <div class="sm-toolbar-espacio"></div>
         <label class="sm-filas">
-            <i class="ti ti-list-numbers"></i> Filas
+            <i class="ti ti-list-numbers"></i><span class="dup-l-filas"> Filas</span>
             <select class="sm-select js-largo" aria-label="Filas por página">
                 <option value="auto" selected>Ajustar a pantalla</option>
                 <option value="10">10</option>
@@ -154,7 +277,7 @@
                 <th>Persona</th>
                 <th class="dup-col-origen">Origen</th>
                 <th>Estado</th>
-                <th class="dup-nowrap">Notificación</th>
+                <th class="dup-nowrap dup-col-noti">Notificación</th>
                 <th class="dup-col-fecha dup-nowrap">Registro</th>
             </tr>
         </thead>
@@ -172,60 +295,75 @@
         </div>
         <button type="button" class="btn-close js-cancelar" aria-label="Cerrar"></button>
     </div>
+    <!-- Pasos (carrusel): se avanza al tener elegido lo del paso; se vuelve atrás siempre -->
+    <div class="dup-pasos" role="tablist" aria-label="Pasos del registro">
+        <button type="button" class="dup-paso-btn" data-paso="1"><span class="dup-paso-num">1</span><span class="dup-paso-txt">El que sobra</span></button>
+        <button type="button" class="dup-paso-btn" data-paso="2"><span class="dup-paso-num">2</span><span class="dup-paso-txt">El que se queda</span></button>
+        <button type="button" class="dup-paso-btn" data-paso="3"><span class="dup-paso-num">3</span><span class="dup-paso-txt">Revisión y motivo</span></button>
+    </div>
+    <div class="dup-avance"><span class="js-avance"></span></div>
     <div class="dup-panel-cuerpo js-panel-cuerpo">
 
-        <div class="dup-paso">
-            <div class="dup-paso-cab"><span class="dup-paso-num">1</span> ¿Qué código sobra?</div>
-            <div class="dup-paso-cuerpo">
-                <p class="dup-ayuda">Es el registro <b>sin bien físico propio</b>: en el barrido, normalmente es el que salió <b>FALTANTE</b>.</p>
-                <div class="dup-buscar">
-                    <div class="sm-campo"><i class="ti ti-barcode"></i>
-                        <input type="text" class="sm-input js-cod-sobra" placeholder="Código del activo que sobra" autocomplete="off"></div>
-                    <button type="button" class="sm-btn sm-btn-suave js-buscar-sobra"><i class="ti ti-search"></i> Buscar</button>
+        <!-- Paso 1 -->
+        <div class="dup-etapa" data-etapa="1">
+            <div class="dup-etapa-tit">¿Qué código sobra?</div>
+            <p class="dup-ayuda">Es el registro <b>sin bien físico propio</b>: en el barrido, normalmente es el que salió <b>FALTANTE</b>.</p>
+            <div class="dup-buscar">
+                <div class="sm-campo"><i class="ti ti-barcode"></i>
+                    <input type="text" class="sm-input js-cod-sobra" placeholder="Código del activo que sobra" autocomplete="off"></div>
+                <button type="button" class="sm-btn sm-btn-suave js-buscar-sobra"><i class="ti ti-search"></i> Buscar</button>
+            </div>
+            <div class="js-ficha-sobra"></div>
+        </div>
+
+        <!-- Paso 2: el que sobra a la izquierda (para comparar) y el que se queda a la derecha -->
+        <div class="dup-etapa" data-etapa="2">
+            <div class="dup-etapa-tit">¿Con qué activo es el mismo bien?</div>
+            <p class="dup-ayuda">Es el que <b>se queda</b>: el de la etiqueta que tiene el bien. Escriba su código o elíjalo entre los parecidos
+                (el sistema solo sugiere; quien vio el bien decide).</p>
+            <div class="dup-comparar">
+                <div class="js-ref-sobra"></div>
+                <div class="dup-lado-queda">
+                    <div class="dup-buscar">
+                        <div class="sm-campo"><i class="ti ti-barcode"></i>
+                            <input type="text" class="sm-input js-cod-queda" placeholder="Código del activo que se queda" autocomplete="off"></div>
+                        <button type="button" class="sm-btn sm-btn-suave js-buscar-queda" title="Buscar (Enter)" aria-label="Buscar"><i class="ti ti-search"></i></button>
+                        <button type="button" class="sm-btn sm-btn-neutro js-invertir" title="Intercambiar el que sobra y el que se queda" disabled>
+                            <i class="ti ti-arrows-exchange"></i><span class="dup-l-largo"> Invertir</span></button>
+                        <button type="button" class="sm-btn sm-btn-neutro js-ver-gemelos dup-ver-gemelos" title="Elegir otro de los parecidos"><i class="ti ti-list-search"></i></button>
+                    </div>
+                    <div class="js-ficha-queda"></div>
+                    <div class="dup-gemelos js-gemelos"></div>
                 </div>
-                <div class="js-ficha-sobra"></div>
             </div>
         </div>
 
-        <div class="dup-paso">
-            <div class="dup-paso-cab"><span class="dup-paso-num">2</span> ¿Con qué activo es el mismo bien?</div>
-            <div class="dup-paso-cuerpo">
-                <p class="dup-ayuda">Es el que <b>se queda</b>: el de la etiqueta que tiene el bien. Puede escribir su código o elegirlo entre los parecidos
-                    (el sistema solo sugiere; quien vio el bien decide).</p>
-                <div class="dup-buscar">
-                    <div class="sm-campo"><i class="ti ti-barcode"></i>
-                        <input type="text" class="sm-input js-cod-queda" placeholder="Código del activo que se queda" autocomplete="off"></div>
-                    <button type="button" class="sm-btn sm-btn-suave js-buscar-queda"><i class="ti ti-search"></i> Buscar</button>
-                    <button type="button" class="sm-btn sm-btn-neutro js-invertir" title="Intercambiar el que sobra y el que se queda" disabled>
-                        <i class="ti ti-arrows-exchange"></i> Invertir</button>
+        <!-- Paso 3 -->
+        <div class="dup-etapa" data-etapa="3">
+            <div class="dup-revision-motivo">
+                <div>
+                    <div class="dup-etapa-tit">Revise lo que va a pasar</div>
+                    <div class="js-revision"><p class="dup-ayuda mb-0">Elija los dos activos y aquí verá qué hará el sistema.</p></div>
                 </div>
-                <div class="js-ficha-queda"></div>
-                <div class="dup-gemelos js-gemelos"></div>
-            </div>
-        </div>
-
-        <div class="dup-paso">
-            <div class="dup-paso-cab"><span class="dup-paso-num">3</span> Revise lo que va a pasar</div>
-            <div class="dup-paso-cuerpo js-revision">
-                <p class="dup-ayuda mb-0">Elija los dos activos y aquí verá qué hará el sistema.</p>
-            </div>
-        </div>
-
-        <div class="dup-paso">
-            <div class="dup-paso-cab"><span class="dup-paso-num">4</span> ¿Por qué es el mismo bien?</div>
-            <div class="dup-paso-cuerpo">
-                <p class="dup-ayuda">Va en la notificación. Por ejemplo: «En el levantamiento del 15/10 se encontró una sola computadora con la etiqueta
-                    del código que se queda; misma serie y modelo».</p>
-                <textarea class="sm-input dup-textarea js-motivo" maxlength="2000" data-sm-mayus="no"
-                          placeholder="Motivo (al menos 10 caracteres)"></textarea>
+                <div>
+                    <div class="dup-etapa-tit">¿Por qué es el mismo bien?</div>
+                    <p class="dup-ayuda">Va en la notificación. Por ejemplo: «En el levantamiento del 15/10 se encontró una sola computadora con la etiqueta
+                        del código que se queda; misma serie y modelo».</p>
+                    <textarea class="sm-input dup-textarea js-motivo" maxlength="2000" data-sm-mayus="no"
+                              placeholder="Motivo (al menos 10 caracteres)"></textarea>
+                    <div class="dup-ayuda mt-1 js-motivo-cuenta">0 / 10 caracteres como mínimo</div>
+                    <div class="dup-ayuda mt-2 mb-0"><i class="ti ti-info-circle"></i> Al registrar se emite la notificación NOT:SCIAF:AD y el traslado sigue solo cuando el VSIAF confirma.</div>
+                </div>
             </div>
         </div>
     </div>
     <div class="dup-pie">
         <span class="dup-nota">Al registrar se emite la notificación NOT:SCIAF:AD y el traslado sigue solo cuando el VSIAF confirma.</span>
-        <button type="button" class="sm-btn sm-btn-neutro js-cancelar"><i class="ti ti-x"></i> Cancelar</button>
-        <button type="button" class="sm-btn sm-btn-suave js-previa" disabled><i class="ti ti-eye"></i> Vista previa</button>
-        <button type="button" class="sm-btn sm-btn-exito js-registrar" disabled><i class="ti ti-file-certificate"></i> Registrar y emitir notificación</button>
+        <button type="button" class="sm-btn sm-btn-neutro js-cancelar" aria-label="Cancelar"><i class="ti ti-x"></i><span class="dup-l-largo"> Cancelar</span></button>
+        <button type="button" class="sm-btn sm-btn-neutro js-atras" aria-label="Paso anterior" title="Paso anterior"><i class="ti ti-arrow-left"></i></button>
+        <button type="button" class="sm-btn js-siguiente">Siguiente <i class="ti ti-arrow-right"></i></button>
+        <button type="button" class="sm-btn sm-btn-suave js-previa d-none" disabled><i class="ti ti-eye"></i><span class="dup-l-largo"> Vista previa</span></button>
+        <button type="button" class="sm-btn sm-btn-exito js-registrar d-none" disabled><i class="ti ti-file-certificate"></i> <span class="dup-l-largo">Registrar y emitir notificación</span><span class="dup-l-corto">Registrar</span></button>
     </div>
 </section>
 
@@ -251,7 +389,8 @@
     const $panel = $raiz.find('.js-panel-form');
     const $modal = $raiz.find('.js-modal');
     const $detalle = $raiz.find('.js-detalle');
-    const st = { sobra: null, queda: null, situacion: null, enviando: false, filtro: '' };
+    const st = { sobra: null, queda: null, situacion: null, enviando: false, filtro: '', paso: 1,
+                 busqueda: { sobra: 0, queda: 0 }, revision: 0 };   // contadores: se descartan respuestas viejas
 
     const ESTADOS = {
         EN_PROCESO:    { texto: 'En proceso',    clase: 'sm-pastilla-aviso' },
@@ -303,12 +442,12 @@
                     { data: null, render: function (d, t, f) {
                         let h = pastilla(f.estado);
                         if (f.estado === 'EN_PROCESO' && f.estadoEnvio) {
-                            h += '<small class="d-block ' + (f.estadoEnvio === 'ERROR' ? 'text-danger' : 'text-muted') + '" title="' + esc(f.mensajeEnvio || '') + '">'
+                            h += '<small class="d-block ' + (f.estadoEnvio === 'ERROR' ? 'text-danger' : 'text-muted') + '" title="' + esc(f.mensajeEnvio || ENVIOS[f.estadoEnvio] || '') + '">'
                                 + esc(ENVIOS[f.estadoEnvio] || f.estadoEnvio) + '</small>';
                         }
                         return h;
                     } },
-                    { data: 'numero', className: 'dup-nowrap', render: function (v) { return v ? esc(String(v).replace('NOT-AD-', 'AD ')) : '—'; } },
+                    { data: 'numero', className: 'dup-nowrap dup-col-noti', render: function (v) { return v ? esc(String(v).replace('NOT-AD-', 'AD ')) : '—'; } },
                     { data: null, className: 'dup-col-fecha dup-nowrap', render: function (d, t, f) {
                         return esc(fecha(f.fecha)) + '<small class="d-block text-muted">' + esc(f.usuario || '') + '</small>';
                     } }
@@ -332,7 +471,7 @@
     // En vivo: el ciclo de envío avisa cuando el VSIAF confirma un traslado.
     let esperaRecarga = null;
     $(document).on('sciaf:duplicados.modDup', function () {
-        if (!document.body.contains($raiz[0])) { $(document).off('.modDup'); return; }
+        if (!document.body.contains($raiz[0])) return;   // pestaña desprendida: vuelve; no quitar el oyente
         clearTimeout(esperaRecarga);
         esperaRecarga = setTimeout(recargar, 600);
     });
@@ -352,10 +491,84 @@
     function reiniciar() {
         st.sobra = null; st.queda = null; st.situacion = null;
         $panel.find('.js-cod-sobra, .js-cod-queda, .js-motivo').val('');
-        $panel.find('.js-ficha-sobra, .js-ficha-queda, .js-gemelos').empty();
+        $panel.find('.js-ficha-sobra, .js-ficha-queda, .js-gemelos, .js-ref-sobra').empty();
         $panel.find('.js-revision').html('<p class="dup-ayuda mb-0">Elija los dos activos y aquí verá qué hará el sistema.</p>');
+        contarMotivo();
         refrescarBotones();
+        irAPaso(1);
     }
+
+    // ── Carrusel: un paso a la vista. Se avanza con lo del paso elegido; atrás, siempre. ──
+    function puedeIr(n) { return n <= 1 || (n === 2 && !!st.sobra) || (n === 3 && !!st.sobra && !!st.queda); }
+
+    function irAPaso(n, atras) {
+        st.paso = n;
+        $panel.find('.dup-etapa').removeClass('visible atras');
+        $panel.find('.dup-etapa[data-etapa="' + n + '"]').addClass('visible' + (atras ? ' atras' : ''));
+        if (n === 2) pintarRefSobra();
+        actualizarPasos();
+        $panel.find('.js-avance').css('width', (n * 33.34) + '%');
+        $panel.find('.js-atras').prop('disabled', n === 1);
+        $panel.find('.js-siguiente').toggleClass('d-none', n === 3);
+        $panel.find('.js-previa, .js-registrar').toggleClass('d-none', n !== 3);
+        $panel.find('.dup-pie').toggleClass('en-final', n === 3);   // la nota va en la ayuda del motivo
+        $panel.find('.js-panel-cuerpo').scrollTop(0);
+        ajustarCuerpo();
+        altoGemelos();
+        // El campo del paso, si está vacío; si no, el paso mismo (el foco nunca cae en <body>).
+        setTimeout(function () {
+            const $c = $panel.find('.dup-etapa.visible').find('.js-cod-sobra, .js-cod-queda, .js-motivo').filter(function () { return !this.value; }).first();
+            if ($c.length) { $c.trigger('focus'); return; }
+            const af = document.activeElement;
+            if (!$panel[0].contains(af) || !$(af).is(':visible:not(:disabled)')) {
+                $panel.find('.dup-etapa.visible').attr('tabindex', '-1')[0].focus({ preventScroll: true });
+            }
+        }, 60);
+    }
+
+    function actualizarPasos() {
+        $panel.find('.dup-paso-btn').each(function () {
+            const n = Number(this.dataset.paso);
+            $(this).toggleClass('actual', n === st.paso).toggleClass('hecho', n < st.paso)
+                .attr('aria-selected', n === st.paso ? 'true' : 'false').prop('disabled', n !== st.paso && !puedeIr(n));
+        });
+    }
+
+    /** La lista de parecidos ocupa lo que queda del cuerpo (se desplaza ella, no la pantalla). */
+    function altoGemelos() {
+        const g = $panel.find('.js-gemelos')[0], c = $panel.find('.js-panel-cuerpo')[0];
+        if (!g || !c || !$(g).is(':visible')) return;
+        const tope = parseFloat(c.style.maxHeight);
+        if (!tope || window.innerWidth < 768) { g.style.maxHeight = ''; return; }
+        const pad = parseFloat(getComputedStyle(c).paddingBottom) || 0;
+        g.style.maxHeight = Math.max(120, tope - (g.getBoundingClientRect().top - c.getBoundingClientRect().top) - pad - 2) + 'px';
+    }
+    // Con la pestaña desprendida (otra pestaña a la vista) el módulo no está en el documento, pero
+    // vuelve: se ignora el evento, sin quitar el oyente (quitarlo lo perdía para siempre).
+    $(window).on('resize.dupGemelos', function () {
+        if (!document.body.contains($raiz[0])) return;
+        setTimeout(altoGemelos, 200);
+    });
+
+    /** En el paso 2, la ficha del que sobra a la izquierda, para comparar con el que se queda. */
+    function pintarRefSobra() { $panel.find('.js-ref-sobra').html(st.sobra ? fichaHtml(st.sobra, 'sobra') : ''); }
+
+    function contarMotivo() {
+        const n = ($panel.find('.js-motivo').val() || '').trim().length;
+        $panel.find('.js-motivo-cuenta').text(n >= 10 ? n + ' caracteres' : n + ' / 10 caracteres como mínimo').toggleClass('text-danger', n > 0 && n < 10);
+    }
+
+    $raiz.on('click', '.dup-paso-btn', function () {
+        const n = Number(this.dataset.paso);
+        if (n !== st.paso && puedeIr(n)) irAPaso(n, n < st.paso);
+    });
+    $raiz.on('click', '.js-atras', function () { if (st.paso > 1) irAPaso(st.paso - 1, true); });
+    $raiz.on('click', '.js-siguiente', function () {
+        const n = st.paso + 1;
+        if (puedeIr(n)) { irAPaso(n); return; }
+        aviso(st.paso === 1 ? 'Busque y elija el código que sobra.' : 'Busque o elija el código que se queda.');
+        $panel.find(st.paso === 1 ? '.js-cod-sobra' : '.js-cod-queda').trigger('focus');
+    });
 
     function fichaHtml(f, tipo) {
         const titulo = tipo === 'sobra' ? 'Sobra · va a la oficina de duplicados' : 'Se queda · no se toca';
@@ -365,16 +578,20 @@
         if (f.bloqueado) marcas.push('<span class="sm-pastilla sm-pastilla-peligro">Bloqueado</span>');
         if (f.soloSciaf) marcas.push('<span class="sm-pastilla sm-pastilla-info">Solo SCIAF</span>');
         if (f.estado && f.estado !== 'ACTIVO') marcas.push('<span class="sm-pastilla sm-pastilla-peligro">' + esc(f.estado) + '</span>');
-        const dato = function (et, v) { return '<div><small>' + et + '</small><span>' + (v != null && v !== '' ? esc(v) : '—') + '</span></div>'; };
+        // «Etiqueta: valor» en una línea (con «…»; el texto completo en el title): la ficha queda
+        // en la mitad de alto y las dos entran lado a lado sin desplazar la pantalla.
+        const dato = function (et, v) {
+            const t = v != null && v !== '' ? String(v) : '';
+            return '<div title="' + esc(et + ': ' + (t || '—')) + '"><small>' + et + '</small> <span>' + (t ? esc(t) : '—') + '</span></div>';
+        };
         return '<div class="dup-ficha ' + tipo + '">'
-            + '<div class="dup-ficha-tit">' + titulo + '</div>'
-            + '<div class="dup-codigo">' + esc(f.codigo) + '</div>'
-            + '<div class="dup-ficha-desc sm-mayus">' + esc(f.descripcion || '—') + '</div>'
+            + '<div class="dup-ficha-cab"><span class="dup-ficha-tit">' + titulo + '</span><span class="dup-codigo">' + esc(f.codigo) + '</span></div>'
+            + '<div class="dup-ficha-desc sm-mayus" title="' + esc(f.descripcion || '') + '">' + esc(f.descripcion || '—') + '</div>'
             + '<div class="dup-datos">'
             + dato('Marca', f.marca) + dato('Modelo', f.modelo) + dato('N° de serie', f.serie)
             + dato('Grupo contable', f.grupo) + dato('Auxiliar', f.auxiliar)
             + dato('Costo', f.costo != null ? bs(f.costo) : null) + dato('Costo anterior', f.costoAnterior != null ? bs(f.costoAnterior) : null)
-            + dato('Fecha de adquisición', f.fechaAdquisicion ? fecha(f.fechaAdquisicion) : null)
+            + dato('Adquisición', f.fechaAdquisicion ? fecha(f.fechaAdquisicion) : null)
             + dato('Revaluado', f.revaluado == null ? null : (f.revaluado ? 'Sí' : 'No'))
             + dato('Predio', f.unidad ? f.unidad + (f.predio ? ' · ' + f.predio : '') : null)
             + dato('Oficina', f.oficina ? (f.codOfi != null ? f.codOfi + ' – ' : '') + f.oficina : null)
@@ -394,14 +611,22 @@
         if (!codigo) { aviso('Escriba el código.'); return; }
         const $f = $panel.find(tipo === 'sobra' ? '.js-ficha-sobra' : '.js-ficha-queda');
         $f.html('<div class="dup-ayuda mt-2"><i class="ti ti-loader-2"></i> Buscando…</div>');
+        // Mientras busca, la elección anterior ya no vale: no se puede avanzar ni registrar con ella
+        // (con la red lenta se llegaba a registrar un par distinto del que se veía).
+        const n = ++st.busqueda[tipo];
+        st[tipo] = null; st.situacion = null;
+        if (tipo === 'sobra') pintarRefSobra();
+        refrescarBotones();
         try {
             const f = await buscarFicha(codigo);
+            if (n !== st.busqueda[tipo]) return;   // ya se pidió otra búsqueda
             st[tipo] = f;
             $panel.find(tipo === 'sobra' ? '.js-cod-sobra' : '.js-cod-queda').val(f.codigo);
             $f.html(fichaHtml(f, tipo));
-            if (tipo === 'sobra') cargarGemelos();
+            if (tipo === 'sobra') { cargarGemelos(); pintarRefSobra(); }
             await revisar();
         } catch (e) {
+            if (n !== st.busqueda[tipo]) return;
             st[tipo] = null;
             $f.html(e.sesionPerdida ? '' : '<div class="dup-tarjeta falta mt-2"><i class="ti ti-alert-circle"></i><div>' + esc(e.message) + '</div></div>');
             await revisar();
@@ -413,8 +638,10 @@
         if (!st.sobra) { $g.empty(); return; }
         $g.html('<div class="dup-ayuda"><i class="ti ti-loader-2"></i> Buscando activos parecidos en el mismo predio…</div>');
         try {
-            const r = await SciafModulo.pedir(URL + '/api/activo/' + st.sobra.idActivo + '/gemelos', { metodo: 'GET' });
+            const idSobra = st.sobra.idActivo;
+            const r = await SciafModulo.pedir(URL + '/api/activo/' + idSobra + '/gemelos', { metodo: 'GET' });
             const lista = await r.json();
+            if (!st.sobra || st.sobra.idActivo !== idSobra) return;   // cambió el que sobra mientras tanto
             if (!r.ok || lista.ok === false) throw new Error(lista.msg || 'No se pudieron buscar parecidos.');
             if (!lista.length) { $g.html('<div class="dup-ayuda">No se encontraron activos parecidos en el mismo predio y grupo. Escriba el código del que se queda.</div>'); return; }
             let h = '<div class="dup-ayuda"><b>Parecidos en el mismo predio</b> (sugerencias; elija solo si es el bien que vio):</div>';
@@ -426,6 +653,7 @@
                     + '<span class="d-block dup-motivos">' + esc((g.motivos || []).join(' · ')) + '</span></span></button>';
             });
             $g.html(h);
+            altoGemelos();
         } catch (e) { if (!e.sesionPerdida) $g.html('<div class="dup-ayuda text-danger">' + esc(e.message) + '</div>'); }
     }
 
@@ -433,11 +661,16 @@
         const $r = $panel.find('.js-revision');
         st.situacion = null;
         refrescarBotones();
+        const n = ++st.revision;
         if (!st.sobra) { $r.html('<p class="dup-ayuda mb-0">Elija los dos activos y aquí verá qué hará el sistema.</p>'); return; }
+        const par = { sobra: st.sobra.idActivo, queda: st.queda ? st.queda.idActivo : null };
+        // Una respuesta que llega tarde (p. ej. antes de «Invertir») no pisa la del par actual.
+        const vigente = function () { return n === st.revision && st.sobra && st.sobra.idActivo === par.sobra && (st.queda ? st.queda.idActivo : null) === par.queda; };
         try {
-            const url = URL + '/api/situacion?sobrante=' + st.sobra.idActivo + (st.queda ? '&principal=' + st.queda.idActivo : '');
+            const url = URL + '/api/situacion?sobrante=' + par.sobra + (par.queda ? '&principal=' + par.queda : '');
             const r = await SciafModulo.pedir(url, { metodo: 'GET' });
             const s = await r.json();
+            if (!vigente()) return;
             if (!r.ok || s.ok === false) throw new Error(s.msg || 'No se pudo revisar.');
             st.situacion = s;
             let h = '';
@@ -462,6 +695,7 @@
             }
             $r.html(h || '<p class="dup-ayuda mb-0">Elija el activo que se queda.</p>');
         } catch (e) {
+            if (!vigente()) return;
             if (!e.sesionPerdida) $r.html('<div class="dup-tarjeta falta"><i class="ti ti-alert-circle"></i><div>' + esc(e.message) + '</div></div>');
         }
         refrescarBotones();
@@ -478,7 +712,25 @@
         const ok = listo() && !st.enviando;
         $panel.find('.js-registrar, .js-previa').prop('disabled', !ok);
         $panel.find('.js-invertir').prop('disabled', !(st.sobra && st.queda));
+        actualizarPasos();
+        marcarQueda();
     }
+    /** Con el que se queda elegido se ve su ficha; los parecidos, con «Elegir otro de los parecidos». */
+    function marcarQueda() {
+        const $l = $panel.find('.dup-lado-queda');
+        const antes = $l.hasClass('con-queda') ? $l.data('idQueda') : null;
+        const ahora = st.queda ? st.queda.idActivo : null;
+        $l.toggleClass('con-queda', !!st.queda);
+        if (ahora !== antes) $l.removeClass('ver-gemelos');   // recién elegido: a la vista su ficha
+        $l.data('idQueda', ahora);
+        $l.find('.js-ver-gemelos').attr('title', $l.hasClass('ver-gemelos') ? 'Volver al elegido' : 'Elegir otro de los parecidos')
+            .html($l.hasClass('ver-gemelos') ? '<i class="ti ti-arrow-back-up"></i>' : '<i class="ti ti-list-search"></i>');
+        altoGemelos();
+    }
+    $raiz.on('click', '.js-ver-gemelos', function () {
+        $panel.find('.dup-lado-queda').toggleClass('ver-gemelos');
+        marcarQueda();
+    });
 
     $raiz.on('click', '.js-nuevo', function () { reiniciar(); mostrar('form'); $panel.find('.js-cod-sobra').trigger('focus'); });
     $raiz.on('click', '.js-cancelar', function () { mostrar('listado'); });
@@ -489,7 +741,7 @@
         e.preventDefault();
         elegir($(this).hasClass('js-cod-sobra') ? 'sobra' : 'queda', this.value);
     });
-    $raiz.on('click', '.js-gemelo', function () { elegir('queda', $(this).data('codigo')); });
+    $raiz.on('click', '.js-gemelo', function () { $panel.find('.dup-lado-queda').removeClass('ver-gemelos'); elegir('queda', $(this).data('codigo')); });
     $raiz.on('click', '.js-invertir', async function () {
         const a = st.sobra, b = st.queda;
         if (!a || !b) return;
@@ -498,10 +750,11 @@
         $panel.find('.js-cod-queda').val(a.codigo);
         $panel.find('.js-ficha-sobra').html(fichaHtml(b, 'sobra'));
         $panel.find('.js-ficha-queda').html(fichaHtml(a, 'queda'));
+        pintarRefSobra();
         cargarGemelos();
         await revisar();
     });
-    $raiz.on('input', '.js-motivo', refrescarBotones);
+    $raiz.on('input', '.js-motivo', function () { contarMotivo(); refrescarBotones(); });
     $raiz.on('change', '.js-confirma', refrescarBotones);
 
     function pedido() {
@@ -525,6 +778,9 @@
     $raiz.on('click', '.js-registrar', async function () {
         if (!listo() || st.enviando) return;
         const s = st.situacion;
+        // Se envía EXACTAMENTE el par que se muestra en el diálogo; si algo cambió mientras estaba
+        // abierto (una búsqueda que respondió tarde), no se registra.
+        const enviar = pedido();
         const ok = await sciafConfirmar({
             titulo: '¿Registrar ' + esc(st.sobra.codigo) + ' como duplicado?',
             texto: '<div class="text-start"><b>' + esc(st.sobra.codigo) + '</b> irá a <b>' + esc(s.oficinaDestino || 'la oficina de duplicados') + '</b> a nombre de <b>'
@@ -533,9 +789,13 @@
             aceptar: 'Sí, registrar'
         });
         if (!ok) return;
+        if (!listo() || !st.sobra || !st.queda || st.sobra.idActivo !== enviar.idSobrante || st.queda.idActivo !== enviar.idPrincipal) {
+            aviso('Los activos elegidos cambiaron mientras confirmaba. Revise el paso 3 y vuelva a registrar.');
+            return;
+        }
         st.enviando = true; refrescarBotones();
         try {
-            const res = await SciafModulo.pedirJson(URL + '/api/registrar', { json: pedido() });
+            const res = await SciafModulo.pedirJson(URL + '/api/registrar', { json: enviar });
             if (!res.ok) throw new Error(res.msg);
             mostrar('listado');
             recargar();
@@ -698,7 +958,22 @@
     pintarTotales(INICIAL.totales);
     iniciarTabla();
     mostrar('listado');
-    ajustarCuerpo = SciafModulo.ajustarAlto($panel.find('.js-panel-cuerpo'), 70);
+    // Solo el cuerpo se mide; los pasos y el pie quedan a la vista.
+    ajustarCuerpo = SciafModulo.ajustarAlto($panel.find('.js-panel-cuerpo'), 12);
+    // Si la cabecera cambia de alto sin que cambie la ventana (menú lateral, fuente), se vuelve a medir.
+    if (window.ResizeObserver) {
+        let altoCab = 0, espera = null;
+        new ResizeObserver(function (e) {
+            const h = Math.round(e[0].contentRect.height);
+            if (h === altoCab) return;
+            altoCab = h;
+            clearTimeout(espera);
+            espera = setTimeout(function () {
+                if (!$panel.hasClass('d-none')) { ajustarCuerpo(); return; }
+                try { window.dispatchEvent(new Event('resize')); } catch (x) { /* viejo */ }
+            }, 120);
+        }).observe($raiz.find('.sm-cabecera')[0]);
+    }
 })();
 </script>
 </div>

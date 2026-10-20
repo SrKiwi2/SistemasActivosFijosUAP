@@ -41,7 +41,39 @@
     .adi-pantalla .js-tabla tbody tr { cursor: pointer; }
 
     .adi-panel { padding: 0; overflow: hidden; }
-    .adi-panel-cuerpo { overflow-y: auto; padding: 1rem 1.1rem; }
+    .adi-panel-cuerpo { overflow-y: auto; padding: .9rem 1.1rem; }
+
+    /* ── Formulario en pasos (carrusel): un grupo de datos a la vista, sin scroll. Nada es
+          obligatorio: cualquier paso se abre con un clic y se guarda desde cualquiera. ── */
+    .adi-pasos { display: flex; gap: .4rem; padding: .5rem 1rem .35rem; border-bottom: 1px solid var(--sm-borde); flex-wrap: wrap; }
+    .adi-paso { flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: .5rem; border: 0; background: none; padding: .25rem .3rem;
+        color: var(--sm-texto-2); font-weight: 600; font-size: .88rem; border-radius: 10px; text-align: left; }
+    .adi-paso:hover { color: var(--ad); }
+    .adi-paso-num { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        border: 2px solid var(--sm-borde-fuerte); background: var(--sm-superficie); font-weight: 800; transition: all .2s ease; }
+    .adi-paso-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Con datos cargados: el número en verde azulado claro (el paso «tiene algo») */
+    .adi-paso.con-datos .adi-paso-num { border-color: var(--ad); background: var(--ad-suave); color: var(--ad); }
+    .adi-paso.actual { color: var(--sm-texto); }
+    .adi-paso.actual .adi-paso-num { border-color: transparent; color: #fff; background: var(--ad); }
+    .adi-avance { height: 4px; background: var(--sm-superficie-3); }
+    .adi-avance > span { display: block; height: 100%; width: 25%; background: var(--ad); transition: width .4s cubic-bezier(.3,.9,.3,1); }
+    .adi-etapa { display: none; }
+    .adi-etapa.visible { display: block; animation: adi-deslizar .3s ease both; }
+    .adi-etapa:focus { outline: 0; }
+    .adi-etapa.visible.atras { animation-name: adi-deslizar-atras; }
+    .adi-etapa-ayuda { font-size: .84rem; color: var(--sm-texto-2); margin-bottom: .6rem; }
+    .adi-etapa-ayuda > i { color: var(--ad); }
+    .adi-sub { font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ad); margin: .8rem 0 .4rem;
+        display: flex; align-items: center; gap: .4rem; }
+    .adi-sub::after { content: ""; flex: 1; height: 1px; background: var(--sm-borde); }
+    .adi-etiqueta-extra { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    /* Con un alta rápida abierta, el alta ocupa el lugar de los campos del paso 3 */
+    .adi-con-alta .adi-ocultar-en-alta { display: none !important; }
+    .adi-con-alta .sm-subformulario { margin-top: 0; }
+    .adi-sub-pie .sm-btn, .adi-pie .sm-btn { margin-bottom: 0; }
+    @keyframes adi-deslizar { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+    @keyframes adi-deslizar-atras { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
     .adi-vista { animation: adi-aparecer .25s ease both; }
     .adi-seccion { border: 1px solid var(--sm-borde); border-radius: 12px; margin-bottom: .9rem; background: var(--sm-superficie); }
     .adi-seccion-cab { display: flex; align-items: center; gap: .5rem; padding: .6rem .9rem; border-bottom: 1px solid var(--sm-borde);
@@ -148,7 +180,9 @@
     @media (min-width: 768px) {
         @container adilista (max-width: 1150px) { .adi-col-fotos { display: none; } }
         @container adilista (max-width: 1000px) { .adi-col-grupo { display: none; } .adi-ubic { max-width: 200px; } }
+        @container adilista (max-width: 900px) { .adi-l-reporte { display: none; } }
         @container adilista (max-width: 820px) { .adi-ubic { max-width: 150px; } .adi-desc { min-width: 140px; } }
+        @container adilista (max-width: 780px) { .adi-col-valor { display: none; } }
     }
 
     /* Ventanas muy bajas (1280×720, ventana achicada): modo compacto */
@@ -174,7 +208,56 @@
         .adi-pantalla .adi-seccion { margin-bottom: .6rem; }
         .adi-pantalla .adi-seccion-cab { padding: .45rem .8rem; }
         .adi-pantalla .adi-seccion-cuerpo { padding: .65rem .8rem; }
-        .adi-pantalla .adi-pie { padding: .5rem 1rem; }
+        .adi-pantalla .adi-pie { padding: .45rem 1rem; }
+        .adi-pantalla .adi-pasos { padding: .35rem .9rem .25rem; }
+        .adi-pantalla .adi-paso { font-size: .84rem; padding: .15rem .3rem; }
+        .adi-pantalla .adi-paso-num { width: 26px; height: 26px; }
+        .adi-pantalla .adi-etapa-ayuda { font-size: .8rem; margin-bottom: .45rem; }
+        .adi-pantalla .adi-etapa .row.g-2 { --bs-gutter-y: .45rem; }
+        .adi-pantalla .adi-etapa .sm-label { margin-bottom: .2rem; font-size: .8rem; }
+        .adi-pantalla .adi-etapa .sm-input:not(textarea), .adi-pantalla .adi-etapa .sm-select { height: 38px; padding-top: .3rem; padding-bottom: .3rem; font-size: .92rem; }
+        .adi-pantalla .adi-etapa textarea.sm-input { padding-top: .4rem; padding-bottom: .4rem; line-height: 1.35; }
+        .adi-pantalla .adi-etapa .js-desc { min-height: 52px !important; }
+        .adi-pantalla .adi-etapa .select2-container--default .select2-selection--single { height: 38px; }
+        .adi-pantalla .adi-etapa .select2-container .select2-selection__arrow { height: 36px; }
+        .adi-pantalla .adi-icono-btn { width: 38px; height: 38px; }
+        .adi-pantalla .adi-cantidad button { width: 34px; }
+        .adi-pantalla .adi-sub { margin: .6rem 0 .3rem; }
+        .adi-pantalla .adi-info { margin-top: .6rem; padding: .45rem .8rem; }
+        .adi-pantalla .adi-previa { padding: .45rem .7rem; }
+        .adi-pantalla .sm-subformulario { padding: .6rem .8rem .7rem; }
+        .adi-pantalla .sm-subformulario-cab { margin-bottom: .45rem; }
+        .adi-pantalla .adi-sub-pie { margin-top: .55rem; }
+        .adi-pantalla .adi-sub-pie .sm-btn, .adi-pantalla .adi-pie .sm-btn { height: 38px; font-size: .92rem; }
+        .adi-pantalla .adi-foto, .adi-pantalla .adi-foto-add { width: 80px; height: 80px; }
+    }
+
+    /* Extremo (1280×720 con las barras del navegador): con el formulario abierto se oculta la
+       cabecera del módulo (el nombre está en la pestaña y el título del formulario). */
+    /* Ventana baja con el formulario abierto: el encabezado del formulario queda en una línea
+       (sin ícono) y la cabecera del módulo se oculta: el formulario ya dice qué se registra. */
+    @media (max-height: 820px) and (min-width: 768px) {
+        .adi-pantalla .js-panel-form .sm-detalle-head > .sm-cabecera-icono { display: none; }
+        .adi-pantalla .js-panel-form .sm-detalle-head { padding-top: .4rem; padding-bottom: .4rem; }
+        .adi-pantalla .js-panel-form .sm-detalle-head > div { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+        .adi-pantalla .js-panel-form .sm-detalle-head .sm-modal-titulo { font-size: 1.05rem; margin: 0; }
+    }
+    @media (max-height: 700px) and (min-width: 768px) {
+        .adi-pantalla.adi-en-form .sm-cabecera { display: none; }
+    }
+    @media (max-height: 620px) and (min-width: 768px) {
+        .adi-pantalla .adi-etapa-ayuda { display: none; }
+        .adi-pantalla .adi-pasos { padding: .2rem .9rem .1rem; }
+        .adi-pantalla .adi-paso-num { width: 24px; height: 24px; }
+        .adi-pantalla .adi-pie { padding-top: .3rem; padding-bottom: .3rem; }
+        .adi-pantalla .adi-pie .sm-btn { height: 36px; }
+        .adi-pantalla .adi-panel-cuerpo { padding-top: .55rem; padding-bottom: .55rem; }
+        .adi-pantalla .adi-etapa .js-desc { min-height: 44px !important; }
+        .adi-pantalla .adi-etapa .row.g-2 { --bs-gutter-y: .3rem; }
+        .adi-pantalla .adi-previa b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .adi-pantalla .sm-cabecera { margin-bottom: .4rem; }
+        .adi-pantalla .sm-toolbar { padding-top: .35rem; padding-bottom: .35rem; }
+        .adi-pantalla .sm-tabla.table > tbody > tr > td { padding-top: .3rem; padding-bottom: .3rem; }
     }
 
     /* Celular: la página se desplaza entera y el pie con los botones queda pegado abajo */
@@ -185,6 +268,14 @@
         .adi-pantalla .adi-pie { flex-wrap: nowrap; gap: .4rem; padding: .5rem .6rem; }
         .adi-pantalla .adi-pie .sm-btn { flex: 1 1 auto; justify-content: center; padding-left: .55rem; padding-right: .55rem; white-space: nowrap; }
         .adi-pantalla .adi-pie .js-cancelar { flex: 0 0 auto; }
+        .adi-pantalla .adi-pie .js-atras, .adi-pantalla .adi-pie .js-siguiente { flex: 0 0 auto; }
+        /* Cinco botones en una línea: «Guardar y otro» queda con su ícono (el title lo explica) */
+        .adi-pantalla .adi-pie .js-guardar-otro { flex: 0 0 auto; }
+        .adi-pantalla .adi-pie .js-guardar-otro .adi-l-corto { display: none; }
+        /* Pasos: solo el número; el nombre, del paso actual */
+        .adi-pantalla .adi-paso { min-width: 0; flex: 0 0 auto; }
+        .adi-pantalla .adi-paso.actual { flex: 1 1 auto; min-width: 0; }
+        .adi-pantalla .adi-paso:not(.actual) .adi-paso-txt { display: none; }
         .adi-pantalla .adi-l-largo { display: none; }
         .adi-pantalla .adi-l-corto { display: inline; }
         .adi-pantalla .js-panel-form .sm-detalle-head small { display: none; }
@@ -232,7 +323,7 @@
         </div>
         <div class="sm-toolbar-espacio"></div>
         <button type="button" class="sm-btn sm-btn-suave js-reporte" title="Acta de bienes adicionales por oficina y responsable">
-            <i class="ti ti-file-type-pdf"></i> Reporte por oficina / responsable</button>
+            <i class="ti ti-file-type-pdf"></i><span class="adi-l-reporte"> Reporte por oficina / responsable</span></button>
         <button type="button" class="sm-btn sm-btn-suave js-etiquetas-sel" disabled
                 title="Marque en la tabla los activos con código (los recién registrados se marcan solos)">
             <i class="ti ti-qrcode"></i> Etiquetas <span class="js-n-sel">(0)</span></button>
@@ -258,7 +349,7 @@
                 <th class="adi-col-grupo">Grupo contable</th>
                 <th>Ubicación</th>
                 <th class="text-center adi-col-fotos">Fotos</th>
-                <th class="text-end adi-nowrap">Valor</th>
+                <th class="text-end adi-nowrap adi-col-valor">Valor</th>
             </tr>
         </thead>
     </table>
@@ -273,21 +364,29 @@
                 <h5 class="sm-modal-titulo js-form-titulo">Registre lo que sepa del bien</h5>
                 <small>Ningún dato es obligatorio. Solo escriba el nombre o el código antiguo para poder reconocerlo.</small></div>
         </div>
+        <!-- Pasos: nada es obligatorio, se puede ir a cualquiera y guardar desde cualquiera -->
+        <div class="adi-pasos" role="tablist" aria-label="Partes del registro">
+            <button type="button" class="adi-paso" data-paso="1"><span class="adi-paso-num">1</span><span class="adi-paso-txt">El bien</span></button>
+            <button type="button" class="adi-paso" data-paso="2"><span class="adi-paso-num">2</span><span class="adi-paso-txt">Unidades y valor</span></button>
+            <button type="button" class="adi-paso" data-paso="3"><span class="adi-paso-num">3</span><span class="adi-paso-txt">Clasificación y ubicación</span></button>
+            <button type="button" class="adi-paso" data-paso="4"><span class="adi-paso-num">4</span><span class="adi-paso-txt">Notas y fotos</span></button>
+        </div>
+        <div class="adi-avance"><span class="js-avance"></span></div>
         <div class="adi-panel-cuerpo js-panel-cuerpo">
 
-            <!-- 1. Qué es el bien: todo lo que forma la descripción, con la vista previa debajo -->
-            <div class="adi-seccion">
-                <div class="adi-seccion-cab"><i class="ti ti-file-description"></i> Descripción del bien <small>estos datos forman la descripción</small></div>
-                <div class="adi-seccion-cuerpo row g-2">
+            <!-- Paso 1. Qué es el bien: todo lo que forma la descripción, con la vista previa debajo -->
+            <div class="adi-etapa" data-etapa="1">
+                <div class="adi-etapa-ayuda"><i class="ti ti-file-description"></i> Lo que se sepa del bien: estos datos forman su descripción.</div>
+                <div class="row g-2">
                     <div class="col-12">
                         <label class="sm-label">Nombre del bien</label>
                         <textarea class="sm-input js-desc" rows="2" maxlength="600" style="min-height:60px" placeholder="Ej: SILLA DE ESCRITORIO GIRATORIA"></textarea>
                     </div>
-                    <div class="col-lg-4 col-md-6"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" placeholder="Ej: TP-LINK" /></div>
-                    <div class="col-lg-4 col-md-6"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" placeholder="Ej: ARCHER C20" /></div>
-                    <div class="col-lg-4 col-md-6"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" placeholder="Ej: PLOMO" /></div>
-                    <div class="col-lg-6 col-md-6"><label class="sm-label">Material</label><input type="text" class="sm-input js-material" maxlength="80" placeholder="Ej: METAL Y TELA" /></div>
-                    <div class="col-lg-6"><label class="sm-label">Medidas</label><input type="text" class="sm-input js-medidas" maxlength="80" placeholder="Ej: 1.20 X 0.60 M" /></div>
+                    <div class="col-lg-4 col-md-4"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" placeholder="Ej: TP-LINK" /></div>
+                    <div class="col-lg-4 col-md-4"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" placeholder="Ej: ARCHER C20" /></div>
+                    <div class="col-lg-4 col-md-4"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" placeholder="Ej: PLOMO" /></div>
+                    <div class="col-md-6"><label class="sm-label">Material</label><input type="text" class="sm-input js-material" maxlength="80" placeholder="Ej: METAL Y TELA" /></div>
+                    <div class="col-md-6"><label class="sm-label">Medidas</label><input type="text" class="sm-input js-medidas" maxlength="80" placeholder="Ej: 1.20 X 0.60 M" /></div>
                     <div class="col-12">
                         <div class="adi-previa">
                             <i class="ti ti-eye"></i>
@@ -295,17 +394,13 @@
                                 <b class="js-previa">—</b></div>
                         </div>
                     </div>
-                    <div class="col-12">
-                        <label class="sm-label">Características <small class="text-muted">(detalle extra; no entra en la descripción)</small></label>
-                        <textarea class="sm-input js-caract" rows="2" style="min-height:60px" maxlength="4000" placeholder="Ej: 4 PUERTOS LAN, ANTENAS EXTERNAS, CON CARGADOR"></textarea>
-                    </div>
                 </div>
             </div>
 
-            <!-- 2. Cuántos y cómo se reconocen: una línea por unidad -->
-            <div class="adi-seccion">
-                <div class="adi-seccion-cab"><i class="ti ti-hash"></i> Unidades y códigos</div>
-                <div class="adi-seccion-cuerpo row g-2">
+            <!-- Paso 2. Cuántos, cómo se reconocen (una línea por unidad) y cuánto valen -->
+            <div class="adi-etapa" data-etapa="2">
+                <div class="adi-etapa-ayuda"><i class="ti ti-hash"></i> Varios bienes iguales: un activo por unidad, con su código antiguo y su serie (uno por línea).</div>
+                <div class="row g-2">
                     <div class="col-lg-3 col-md-4 js-bloque-cantidad">
                         <label class="sm-label">Cantidad</label>
                         <div class="adi-cantidad">
@@ -313,48 +408,53 @@
                             <input type="number" class="sm-input js-cantidad" min="1" max="200" value="1" />
                             <button type="button" class="js-mas" aria-label="Uno más">+</button>
                         </div>
-                        <div class="adi-ayuda">Varios iguales: un activo por unidad.</div>
                     </div>
                     <div class="col-lg col-md-4">
-                        <label class="sm-label">Código antiguo <small class="text-muted js-ayuda-antiguo">(el que usaba Activos Fijos)</small></label>
+                        <label class="sm-label"><span class="text-nowrap">Código antiguo</span> <small class="text-muted adi-etiqueta-extra js-ayuda-antiguo">(el que usaba Activos Fijos)</small></label>
                         <textarea class="sm-input js-antiguos" rows="1" style="min-height:44px" placeholder="Ej: AF-2015-0231"></textarea>
                         <div class="adi-ayuda js-info-antiguos"></div>
                     </div>
                     <div class="col-lg col-md-4">
-                        <label class="sm-label">N° de serie <small class="text-muted">(va en la descripción)</small></label>
+                        <label class="sm-label"><span class="text-nowrap">N° de serie</span> <small class="text-muted adi-etiqueta-extra">(va en la descripción)</small></label>
                         <textarea class="sm-input js-series" rows="1" style="min-height:44px" placeholder="Ej: 218B096002420"></textarea>
                         <div class="adi-ayuda js-info-series"></div>
                     </div>
                 </div>
-            </div>
-
-            <div class="adi-seccion">
-                <div class="adi-seccion-cab"><i class="ti ti-layers-subtract"></i> Clasificación <small>con predio y grupo contable recibe código nuevo</small></div>
-                <div class="adi-seccion-cuerpo row g-2">
-                    <div class="col-lg-3 col-md-6"><label class="sm-label">Predio</label><select class="js-predio"><option value=""></option></select></div>
-                    <div class="col-lg-3 col-md-6"><label class="sm-label">Grupo contable</label><select class="js-grupo"><option value=""></option></select></div>
-                    <div class="col-lg-3 col-md-6"><label class="sm-label">Auxiliar</label><select class="js-auxiliar" disabled><option value=""></option></select></div>
-                    <div class="col-lg-3 col-md-6"><label class="sm-label">Estado de conservación</label><select class="sm-select js-estado"></select></div>
-                    <div class="col-12">
-                        <div class="adi-info"><i class="ti ti-barcode"></i><div class="js-codigo-previo">—</div></div>
-                    </div>
+                <div class="adi-sub"><i class="ti ti-receipt"></i> Adquisición</div>
+                <div class="row g-2">
+                    <div class="col-lg-3 col-md-3"><label class="sm-label">Fecha de adquisición</label><input type="date" class="sm-input js-fecha" /></div>
+                    <div class="col-lg-3 col-md-3"><label class="sm-label">Valor unitario (Bs)</label><input type="number" class="sm-input js-valor text-end" min="0" step="0.01" placeholder="0.00" /></div>
+                    <div class="col-lg-2 col-md-2"><label class="sm-label">Vida útil (años)</label><input type="number" class="sm-input js-vida text-center" min="0" max="100" /></div>
+                    <div class="col-lg-4 col-md-4"><label class="sm-label">Financiador</label><select class="js-financiador"><option value=""></option></select></div>
                 </div>
             </div>
 
-            <div class="adi-seccion">
-                <div class="adi-seccion-cab"><i class="ti ti-map-pin"></i> Ubicación</div>
-                <div class="adi-seccion-cuerpo row g-2">
-                    <div class="col-md-6"><label class="sm-label">Oficina</label>
-                        <div class="adi-con-boton">
-                            <div><select class="js-oficina" disabled><option value=""></option></select></div>
-                            <button type="button" class="adi-icono-btn js-alta-oficina" disabled title="Crear una oficina nueva en este predio"><i class="ti ti-plus"></i></button>
-                        </div></div>
-                    <div class="col-md-6"><label class="sm-label">Responsable</label>
-                        <div class="adi-con-boton">
-                            <div><select class="js-responsable" disabled><option value=""></option></select></div>
-                            <button type="button" class="adi-icono-btn js-alta-resp" disabled title="Registrar un responsable nuevo en esta oficina"><i class="ti ti-user-plus"></i></button>
-                        </div></div>
-                    <div class="col-12">
+            <!-- Paso 3. Clasificación (da el código nuevo) y dónde está -->
+            <div class="adi-etapa" data-etapa="3">
+                <div class="adi-ocultar-en-alta">
+                    <div class="adi-etapa-ayuda"><i class="ti ti-layers-subtract"></i> Con predio y grupo contable recibe código nuevo; la oficina y el responsable dicen dónde está.</div>
+                    <div class="row g-2">
+                        <div class="col-lg-3 col-md-6"><label class="sm-label">Predio</label><select class="js-predio"><option value=""></option></select></div>
+                        <div class="col-lg-3 col-md-6"><label class="sm-label">Grupo contable</label><select class="js-grupo"><option value=""></option></select></div>
+                        <div class="col-lg-3 col-md-6"><label class="sm-label">Auxiliar</label><select class="js-auxiliar" disabled><option value=""></option></select></div>
+                        <div class="col-lg-3 col-md-6"><label class="sm-label">Estado de conservación</label><select class="sm-select js-estado"></select></div>
+                        <div class="col-md-6"><label class="sm-label">Oficina</label>
+                            <div class="adi-con-boton">
+                                <div><select class="js-oficina" disabled><option value=""></option></select></div>
+                                <button type="button" class="adi-icono-btn js-alta-oficina" disabled title="Crear una oficina nueva en este predio"><i class="ti ti-plus"></i></button>
+                            </div></div>
+                        <div class="col-md-6"><label class="sm-label">Responsable</label>
+                            <div class="adi-con-boton">
+                                <div><select class="js-responsable" disabled><option value=""></option></select></div>
+                                <button type="button" class="adi-icono-btn js-alta-resp" disabled title="Registrar un responsable nuevo en esta oficina"><i class="ti ti-user-plus"></i></button>
+                            </div></div>
+                    </div>
+                    <div class="d-none js-nota-ubicacion"><div class="sm-aviso sm-aviso-aviso mt-2 mb-0 py-2"><i class="ti ti-lock"></i>
+                        <div class="small">Este activo ya tiene movimientos: su oficina y responsable se cambian con Transferencias o Asignaciones.</div></div></div>
+                    <div class="adi-info"><i class="ti ti-barcode"></i><div class="js-codigo-previo">—</div></div>
+                </div>
+                <!-- Altas rápidas: mientras una está abierta ocupa el lugar de los campos -->
+                <div>
                         <!-- Alta rápida de oficina -->
                         <div class="sm-subformulario adi-sub-alta js-sub-oficina d-none">
                             <div class="sm-subformulario-cab"><i class="ti ti-door"></i>
@@ -402,29 +502,22 @@
                                 <button type="button" class="sm-btn js-resp-crear" data-subir="true"><i class="ti ti-cloud-upload"></i> Crear y subir al VSIAF</button>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 d-none js-nota-ubicacion"><div class="sm-aviso sm-aviso-aviso mb-0 py-2"><i class="ti ti-lock"></i>
-                        <div class="small">Este activo ya tiene movimientos: su oficina y responsable se cambian con Transferencias o Asignaciones.</div></div></div>
                 </div>
             </div>
 
-            <!-- 5. Datos contables y nota libre -->
-            <div class="adi-seccion">
-                <div class="adi-seccion-cab"><i class="ti ti-receipt"></i> Adquisición y observación</div>
-                <div class="adi-seccion-cuerpo row g-2">
-                    <div class="col-lg-3 col-md-6"><label class="sm-label">Fecha de adquisición</label><input type="date" class="sm-input js-fecha" /></div>
-                    <div class="col-lg-3 col-md-6"><label class="sm-label">Valor unitario (Bs)</label><input type="number" class="sm-input js-valor text-end" min="0" step="0.01" placeholder="0.00" /></div>
-                    <div class="col-lg-2 col-md-6"><label class="sm-label">Vida útil (años)</label><input type="number" class="sm-input js-vida text-center" min="0" max="100" /></div>
-                    <div class="col-lg-4 col-md-6"><label class="sm-label">Financiador</label><select class="js-financiador"><option value=""></option></select></div>
-                    <div class="col-12"><label class="sm-label">Observación</label>
-                        <textarea class="sm-input adi-sin-mayus js-obs" data-sm-mayus="no" rows="2" style="min-height:60px" maxlength="4000"
+            <!-- Paso 4. Texto libre y fotos -->
+            <div class="adi-etapa" data-etapa="4">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="sm-label">Características <small class="text-muted adi-etiqueta-extra">(detalle extra; no entra en la descripción)</small></label>
+                        <textarea class="sm-input js-caract" rows="3" style="min-height:76px" maxlength="4000" placeholder="Ej: 4 PUERTOS LAN, ANTENAS EXTERNAS, CON CARGADOR"></textarea>
+                    </div>
+                    <div class="col-md-6"><label class="sm-label">Observación</label>
+                        <textarea class="sm-input adi-sin-mayus js-obs" data-sm-mayus="no" rows="3" style="min-height:76px" maxlength="4000"
                                   placeholder="Dónde se encontró, estado, quién lo informó…"></textarea></div>
                 </div>
-            </div>
-
-            <div class="adi-seccion js-seccion-fotos">
-                <div class="adi-seccion-cab"><i class="ti ti-photo"></i> Fotos <small>hasta 3; se ponen a cada unidad</small></div>
-                <div class="adi-seccion-cuerpo">
+                <div class="js-seccion-fotos">
+                    <div class="adi-sub"><i class="ti ti-photo"></i> Fotos <small class="fw-normal text-muted text-lowercase">(hasta 3; se ponen a cada unidad)</small></div>
                     <div class="adi-fotos js-fotos">
                         <label class="adi-foto-add js-foto-add" title="Agregar fotos (JPG, PNG o WEBP)">
                             <input type="file" class="d-none js-foto-input" accept="image/jpeg,image/png,image/webp" multiple />
@@ -437,6 +530,8 @@
         <div class="adi-pie">
             <span class="adi-nota js-pie-nota">Nada es obligatorio.</span>
             <button type="button" class="sm-btn sm-btn-neutro js-cancelar" aria-label="Cancelar"><i class="ti ti-x"></i><span class="adi-l-largo"> Cancelar</span></button>
+            <button type="button" class="sm-btn sm-btn-neutro js-atras" aria-label="Paso anterior" title="Paso anterior"><i class="ti ti-arrow-left"></i></button>
+            <button type="button" class="sm-btn sm-btn-neutro js-siguiente" title="Paso siguiente (Ctrl+Enter)"><span class="adi-l-largo">Siguiente </span><i class="ti ti-arrow-right"></i></button>
             <button type="button" class="sm-btn sm-btn-suave js-guardar-otro" title="Guarda y deja la clasificación y la ubicación para cargar el siguiente"><i class="ti ti-repeat"></i><span class="adi-l-largo"> Guardar y registrar otro</span><span class="adi-l-corto"> Guardar y otro</span></button>
             <button type="button" class="sm-btn sm-btn-exito js-guardar"><i class="ti ti-device-floppy"></i> Guardar</button>
         </div>
@@ -509,7 +604,7 @@
     const predioPorId = {}, grupoPorId = {};
     PREDIOS.forEach(function (p) { predioPorId[p.id] = p; });
     GRUPOS.forEach(function (g) { grupoPorId[g.id] = g; });
-    const st = { edicion: null, enviando: false, token: null, fotos: [] };
+    const st = { edicion: null, enviando: false, token: null, fotos: [], paso: 1 };
     const URL_OBJ = window.URL || window.webkitURL;
 
     // ── utilidades ──
@@ -582,7 +677,7 @@
                             + (abajo ? '<small class="text-muted">' + esc(abajo) + '</small>' : '') + '</span>';
                     } },
                     { data: 'fotos', className: 'text-center adi-col-fotos', render: function (v) { return v ? '<i class="ti ti-photo"></i> ' + esc(v) : '<span class="text-muted">—</span>'; } },
-                    { data: 'valor', className: 'text-end adi-nowrap', render: function (v) { return v ? esc(bs(v)) : '<span class="text-muted">—</span>'; } }
+                    { data: 'valor', className: 'text-end adi-nowrap adi-col-valor', render: function (v) { return v ? esc(bs(v)) : '<span class="text-muted">—</span>'; } }
                 ]
             }
         });
@@ -632,6 +727,62 @@
         else reajustarTabla();
     }
     let ajustarCuerpo = function () {};
+
+    // ════════════════════════════════════════════════════════════
+    //  Pasos del formulario (carrusel): un grupo de datos a la vista
+    // ════════════════════════════════════════════════════════════
+
+    function irAPaso(n, atras) {
+        st.paso = n;
+        $form.find('.adi-etapa').removeClass('visible atras');
+        $form.find('.adi-etapa[data-etapa="' + n + '"]').addClass('visible' + (atras ? ' atras' : ''));
+        $form.find('.adi-paso').each(function () {
+            const actual = Number(this.dataset.paso) === n;
+            $(this).toggleClass('actual', actual).attr('aria-selected', actual ? 'true' : 'false');
+        });
+        $form.find('.js-avance').css('width', (n * 25) + '%');
+        $form.find('.js-atras').prop('disabled', n === 1);
+        $form.find('.js-siguiente').toggleClass('d-none', n === 4);
+        $form.find('.js-panel-cuerpo').scrollTop(0);
+        ajustarCuerpo();
+        // Si el foco quedó en el paso que se ocultó (o en Siguiente/Atrás ya ocultos o desactivados),
+        // el navegador lo manda a <body>, fuera del módulo, y Ctrl+Enter deja de responder:
+        // pasa al paso nuevo.
+        const af = document.activeElement;
+        if ($form[0].contains(af) && !$(af).is(':visible:not(:disabled)')) {
+            $form.find('.adi-etapa.visible').attr('tabindex', '-1')[0].focus({ preventScroll: true });
+        }
+    }
+
+    /** Marca los pasos que ya tienen algún dato (nada es obligatorio: solo orienta). */
+    function marcarPasos() {
+        const v = function (sel) { return !!($form.find(sel).val() || '').toString().trim(); };
+        const con = {
+            1: ['.js-desc', '.js-marca', '.js-modelo', '.js-color', '.js-material', '.js-medidas'].some(v),
+            2: ['.js-antiguos', '.js-series', '.js-fecha', '.js-valor', '.js-vida', '.js-financiador'].some(v)
+                || (!st.edicion && Number($form.find('.js-cantidad').val()) > 1),
+            3: ['.js-predio', '.js-grupo', '.js-auxiliar', '.js-estado', '.js-oficina', '.js-responsable'].some(v),
+            4: ['.js-caract', '.js-obs'].some(v) || st.fotos.length > 0
+        };
+        $form.find('.adi-paso').each(function () { $(this).toggleClass('con-datos', !!con[this.dataset.paso]); });
+    }
+
+    $raiz.on('click', '.adi-paso', function () {
+        const n = Number(this.dataset.paso);
+        if (n !== st.paso) irAPaso(n, n < st.paso);
+    });
+    $raiz.on('click', '.js-atras', function () { if (st.paso > 1) irAPaso(st.paso - 1, true); });
+    $raiz.on('click', '.js-siguiente', function () { if (st.paso < 4) irAPaso(st.paso + 1); });
+    $raiz.on('change', '.js-form select', marcarPasos);
+    // Ctrl+Enter: paso siguiente (con el formulario a la vista). No con un select2 enfocado o
+    // abierto: select2 toma el Enter sin mirar Ctrl (abre la lista o ELIGE la opción resaltada) y
+    // el paso cambiaría con un dato elegido que nadie vio.
+    $raiz.on('keydown', function (e) {
+        if ($panel.hasClass('d-none') || !(e.ctrlKey && e.key === 'Enter')) return;
+        if ($(e.target).closest('.select2-container, .select2-dropdown').length || $raiz.find('.select2-container--open').length) return;
+        e.preventDefault();
+        if (st.paso < 4) irAPaso(st.paso + 1);
+    });
     // La tabla («Ajustar a pantalla») se mide al cambiar el tamaño de la ventana; al volver del
     // formulario la cabecera cambió de alto sin que la ventana cambie: se le avisa igual.
     function reajustarTabla() { try { window.dispatchEvent(new Event('resize')); } catch (e) { /* navegador viejo */ } }
@@ -725,7 +876,10 @@
         $form.find('.js-alta-oficina').prop('disabled', bloq || !$predio.val());
         $form.find('.js-alta-resp').prop('disabled', bloq || !$oficina.val());
     }
-    function cerrarAltas() { $subOfi.addClass('d-none'); $subResp.addClass('d-none'); }
+    function cerrarAltas() {
+        $subOfi.addClass('d-none'); $subResp.addClass('d-none');
+        $form.find('.adi-etapa[data-etapa="3"]').removeClass('adi-con-alta');
+    }
     function textoSel($s) { const d = $s.select2('data'); return d && d[0] && d[0].id ? d[0].text : '—'; }
     $raiz.on('click', '.js-sub-cerrar', cerrarAltas);
 
@@ -737,6 +891,7 @@
         $subOfi.find('.js-ofi-nombre, .js-ofi-cod').val('');
         $subOfi.find('.js-ofi-cuenta').text('0 / 65');
         $subOfi.removeClass('d-none');
+        $form.find('.adi-etapa[data-etapa="3"]').addClass('adi-con-alta');
         $subOfi.find('.js-ofi-nombre').trigger('focus');
         try {
             const r = await SciafModulo.pedir('/administracion/oficina/siguiente-codigo/' + p.id, { metodo: 'GET' });
@@ -782,6 +937,7 @@
         $cargo.val(null).trigger('change');
         $subResp.find('.js-resp-cuenta').text('0 / 35').removeClass('text-danger fw-bold');
         $subResp.removeClass('d-none');
+        $form.find('.adi-etapa[data-etapa="3"]').addClass('adi-con-alta');
         $subResp.find('.js-resp-ci').trigger('focus');
         try {
             const r = await SciafModulo.pedir('/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=' + encodeURIComponent($oficina.val()), { metodo: 'GET' });
@@ -879,8 +1035,9 @@
     function refrescar() {
         const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
         const ant = lineas($form.find('.js-antiguos').val()), ser = lineas($form.find('.js-series').val());
-        // Con varias unidades, una línea por unidad: las cajas crecen hasta 6 líneas.
-        $form.find('.js-antiguos, .js-series').attr('rows', Math.min(6, cant)).css('min-height', cant > 1 ? '' : '44px');
+        // Con varias unidades, una línea por unidad: las cajas crecen con la cantidad
+        // (hasta 5 a la vista, 3 en ventanas bajas, para que el paso entre; con más, la caja se desplaza)
+        $form.find('.js-antiguos, .js-series').attr('rows', Math.min(window.innerHeight <= 700 ? 3 : 5, cant)).css('min-height', cant > 1 ? '' : '44px');
         const repetidas = function (l) { const v = l.filter(Boolean); return v.filter(function (s, k) { return v.indexOf(s) !== k; }); };
         $form.find('.js-info-antiguos').toggleClass('mal', ant.length > cant)
             .text(ant.length > cant ? ant.length + ' líneas para ' + cant + ' unidad(es)' : (cant > 1 ? 'Uno por línea, en el orden de las unidades (línea vacía = sin código antiguo).' : ''));
@@ -899,6 +1056,7 @@
         if (t.length) base += ' ' + t.join(', ');
         $form.find('.js-previa').text(base);
         $form.find('.js-largo').text('(' + base.length + ' / 1024)').toggleClass('text-danger', base.length > 1024);
+        marcarPasos();
     }
     $raiz.on('input change', '.js-form input, .js-form textarea, .js-form .js-estado', function () { refrescar(); if ($(this).hasClass('js-cantidad')) actualizarCodigo(); });
     $raiz.on('input', '.js-form input.sm-input[type=text]:not([data-sm-mayus=no]), .js-form textarea:not([data-sm-mayus=no])', function () {
@@ -969,6 +1127,7 @@
         estadoAltas();
         refrescar();
         actualizarCodigo();
+        irAPaso(1);
     }
 
     $raiz.on('click', '.js-nuevo', function () {
@@ -982,9 +1141,14 @@
     async function guardar(otro) {
         if (st.enviando) return;
         const d = leer();
-        if (!d.descripcion && !d.codigosAntiguos.some(Boolean)) { aviso('Escriba al menos el nombre o descripción, o el código antiguo.'); $form.find('.js-desc').trigger('focus'); return; }
-        if (!d.descripcion && d.codigosAntiguos.filter(Boolean).length < d.cantidad) { aviso('Sin descripción, cada unidad necesita su código antiguo.'); return; }
-        if (d.codigosAntiguos.length > d.cantidad || d.series.length > d.cantidad) { aviso('Hay más líneas de código antiguo o serie que unidades.'); return; }
+        // Cada aviso lleva al paso donde está el dato que falta o sobra.
+        const enPaso = function (n, sel) { irAPaso(n, n < st.paso); setTimeout(function () { $form.find(sel).trigger('focus'); }, 60); };
+        if (!d.descripcion && !d.codigosAntiguos.some(Boolean)) { aviso('Escriba al menos el nombre o descripción, o el código antiguo.'); enPaso(1, '.js-desc'); return; }
+        if (!d.descripcion && d.codigosAntiguos.filter(Boolean).length < d.cantidad) { aviso('Sin descripción, cada unidad necesita su código antiguo.'); enPaso(2, '.js-antiguos'); return; }
+        if (d.codigosAntiguos.length > d.cantidad || d.series.length > d.cantidad) {
+            aviso('Hay más líneas de código antiguo o serie que unidades.');
+            enPaso(2, d.codigosAntiguos.length > d.cantidad ? '.js-antiguos' : '.js-series'); return;
+        }
         const ed = st.edicion;
         const ok = await sciafConfirmar(ed ? {
             titulo: '¿Guardar los cambios?', texto: 'Se corrige el activo ' + (ed.codigo ? '<b>' + esc(ed.codigo) + '</b>' : '<b>sin código</b>') + '.', aceptar: 'Sí, guardar'
@@ -1058,6 +1222,7 @@
                 .insertBefore($c.find('.js-foto-add'));
         });
         $c.find('.js-foto-add').toggleClass('oculto', st.fotos.length >= MAX_FOTOS);
+        marcarPasos();
     }
     $raiz.on('change', '.js-foto-input', async function () {
         const archivos = Array.from(this.files || []); this.value = '';

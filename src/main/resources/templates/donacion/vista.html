@@ -59,7 +59,11 @@
         color: var(--sm-exito); background: rgba(var(--sm-exito-rgb), .12); }
 
     .dn-panel { padding: 0; overflow: hidden; }
-    .dn-panel-cuerpo { overflow-y: auto; }
+    /* El asistente es una columna: pasos arriba, la etapa al medio y el pie con los botones
+       abajo, siempre a la vista. Cada etapa está pensada para entrar sin scroll en una laptop
+       (1366×768); solo si la ventana es todavía más baja se desplaza la etapa, nunca la página. */
+    .dn-panel-cuerpo > form { display: flex; flex-direction: column; }
+    .dn-etapas { display: flex; flex-direction: column; min-height: 0; }
     .dn-vista { animation: dn-aparecer .3s ease both; }
 
     /* ── Fotos ── */
@@ -82,34 +86,47 @@
     .dn-foto-item-tit { font-weight: 700; font-size: .88rem; margin-bottom: .45rem; color: var(--sm-texto); }
 
     /* ── Asistente: pasos ── */
-    .dn-pasos { display: flex; gap: .4rem; padding: .9rem 1rem .5rem; border-bottom: 1px solid var(--sm-borde); position: relative; flex-wrap: wrap; }
+    .dn-pasos { display: flex; gap: .4rem; padding: .6rem 1rem .4rem; border-bottom: 1px solid var(--sm-borde); position: relative; flex-wrap: wrap; flex-shrink: 0; }
     .dn-paso {
-        flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: .55rem; border: 0; background: none; padding: .35rem .3rem;
+        flex: 1 1 0; min-width: 120px; display: flex; align-items: center; gap: .55rem; border: 0; background: none; padding: .25rem .3rem;
         color: var(--sm-texto-2); font-weight: 600; font-size: .88rem; border-radius: 10px; text-align: left;
     }
     .dn-paso:disabled { cursor: default; }
     .dn-paso-num {
-        width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
         border: 2px solid var(--sm-borde-fuerte); background: var(--sm-superficie); font-weight: 800; transition: all .25s ease;
     }
     .dn-paso.hecho .dn-paso-num { border-color: var(--dn); background: var(--dn-suave); color: var(--dn); }
     .dn-paso.actual { color: var(--sm-texto); }
     .dn-paso.actual .dn-paso-num { border-color: transparent; color: #fff; background: var(--dn); transform: scale(1.08); }
-    .dn-avance { height: 4px; background: var(--sm-superficie-3); }
+    .dn-avance { height: 4px; background: var(--sm-superficie-3); flex-shrink: 0; }
     .dn-avance > span { display: block; height: 100%; width: 25%; background: var(--dn); transition: width .45s cubic-bezier(.3,.9,.3,1); }
-    .dn-etapa { padding: 1rem 1.1rem; display: none; }
+    .dn-etapa { padding: .9rem 1.1rem; display: none; }
     .dn-etapa.visible { display: block; animation: dn-deslizar .35s ease both; }
     .dn-etapa.visible.atras { animation-name: dn-deslizar-atras; }
+    .dn-etapa:focus { outline: 0; }
     .dn-etapa-tit { font-size: 1.05rem; font-weight: 700; color: var(--sm-texto); margin-bottom: .2rem; }
     .dn-ayuda { font-size: .85rem; color: var(--sm-texto-2); margin-bottom: .9rem; }
+    /* Título de la etapa con su ayuda a la izquierda y, si hay, un control a la derecha */
+    .dn-etapa-cab { display: flex; align-items: center; gap: .5rem 1rem; flex-wrap: wrap; margin-bottom: .8rem; }
+    .dn-etapa-cab > :first-child { flex: 1 1 320px; min-width: 0; }
+    .dn-etapa-cab .dn-ayuda { margin-bottom: 0; }
+    .dn-obs { min-height: 64px !important; }
     .dn-pie {
-        display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap;
-        padding: .75rem 1.1rem; border-top: 1px solid var(--sm-borde);
+        display: flex; gap: .6rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; flex-shrink: 0;
+        padding: .6rem 1.1rem; border-top: 1px solid var(--sm-borde);
         /* fondo sólido: en modo oscuro --sm-superficie-2 es translúcido y dejaba ver los campos */
         background: linear-gradient(var(--sm-superficie-2), var(--sm-superficie-2)), var(--sm-superficie);
-        position: sticky; bottom: 0; z-index: 3;
+        position: relative; z-index: 3;
     }
+    .dn-pie .sm-btn { margin-bottom: 0; }
     .dn-pie .dn-atajo { margin-right: auto; font-size: .76rem; color: var(--sm-texto-2); }
+    /* En los pasos 3 y 4 el pie muestra los totales de los bienes en lugar de los atajos */
+    .dn-pie .dn-totales { display: none; margin-right: auto; }
+    .dn-pie.en-bienes .dn-totales { display: flex; }
+    .dn-pie.en-bienes .dn-atajo { display: none !important; }
+    /* Pie angosto: solo bienes y valor, para que los botones no bajen a otra línea */
+    @media (max-width: 991.98px) { .dn-pie .dn-totales .dn-total:nth-child(2) { display: none; } }
     .dn-pie kbd { font-size: .7rem; padding: .1rem .35rem; background: var(--sm-superficie-3); color: var(--sm-texto); border: 1px solid var(--sm-borde-fuerte); box-shadow: none; }
 
     /* Segmento de tipo de donante */
@@ -135,33 +152,75 @@
     .dn-sub-alta { border-color: rgba(var(--dn-rgb), .45); background: var(--dn-suave); }
     .dn-sub-alta .sm-subformulario-cab > i { color: var(--dn); }
     .dn-sub-pie { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; margin-top: .8rem; }
+    .dn-sub-pie .sm-btn { margin-bottom: 0; }
+    /* Con un alta abierta, el alta ocupa el lugar de los campos del destino (su título dice en
+       qué predio u oficina se crea): así el paso entra en la ventana sin desplazarse. */
+    .dn-con-alta .dn-ocultar-en-alta { display: none !important; }
+    .dn-con-alta .sm-subformulario { margin-top: 0; }
 
     /* Tarjeta informativa (prefijo del código) */
     .dn-info {
-        display: flex; gap: .8rem; align-items: center; border-radius: 12px; padding: .8rem 1rem; margin-top: 1rem;
+        display: flex; gap: .8rem; align-items: center; border-radius: 12px; padding: .65rem 1rem; margin-top: .9rem;
         background: var(--dn-suave); border: 1px solid rgba(var(--dn-rgb), .25);
     }
     .dn-info > i { font-size: 1.6rem; color: var(--dn); }
     .dn-info .dn-codigo { font-size: 1.15rem; }
 
-    /* ── Bienes ── */
-    .dn-bien {
-        border: 1px solid var(--sm-borde); border-radius: 14px; background: var(--sm-superficie); margin-bottom: .9rem;
-        box-shadow: 0 10px 22px -20px rgba(15, 23, 42, .6); animation: dn-entrar .35s ease both; overflow: hidden;
+    /* ── Bienes: carrusel, se ve un bien a la vez ── */
+    .dn-carrusel { display: flex; align-items: center; gap: .6rem; margin-bottom: .7rem; }
+    .dn-carrusel .dn-etapa-tit { margin: 0; white-space: nowrap; flex-shrink: 0; }
+    .dn-carrusel .dn-ayuda-icono { color: var(--sm-texto-2); font-size: 1.05rem; cursor: help; flex-shrink: 0; }
+    .dn-chips-bienes { display: flex; gap: .35rem; flex: 1 1 auto; min-width: 0; overflow-x: auto; padding: 2px; scrollbar-width: thin; }
+    .dn-chips-bienes::-webkit-scrollbar { height: 4px; }
+    .dn-chips-bienes::-webkit-scrollbar-thumb { background: var(--sm-borde-fuerte); border-radius: 4px; }
+    .dn-chip-bien {
+        display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0; max-width: 190px; height: 34px; padding: 0 .65rem 0 .3rem;
+        border: 1px solid var(--sm-borde-fuerte); border-radius: 9px; background: var(--sm-superficie); color: var(--sm-texto-2);
+        font-size: .8rem; font-weight: 600; transition: all .15s ease;
     }
+    .dn-chip-bien b {
+        min-width: 24px; height: 24px; padding: 0 .3rem; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center;
+        background: var(--sm-superficie-3); color: var(--sm-texto); font-size: .78rem;
+    }
+    .dn-chip-bien span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
+    .dn-chip-bien:hover { border-color: var(--dn); color: var(--dn); }
+    .dn-chip-bien.activo { border-color: var(--dn); background: var(--dn-suave); color: var(--sm-texto); box-shadow: 0 0 0 2px rgba(var(--dn-rgb), .18); }
+    .dn-chip-bien.activo b { background: var(--dn); color: #fff; }
+    .dn-chip-bien.mal { border-color: var(--sm-peligro); }
+    .dn-chip-bien.mal b { background: var(--sm-peligro); color: #fff; }
+    .dn-bien {
+        border: 1px solid var(--sm-borde); border-radius: 14px; background: var(--sm-superficie);
+        box-shadow: 0 10px 22px -20px rgba(15, 23, 42, .6); overflow: hidden; display: none;
+    }
+    .dn-bien.activo { display: block; animation: dn-entrar .3s ease both; }
     .dn-bien.saliendo { animation: dn-salir .25s ease both; }
-    .dn-bien-cab { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; background: var(--sm-superficie-2); border-bottom: 1px solid var(--sm-borde); flex-wrap: wrap; }
+    .dn-bien-cab { display: flex; align-items: center; gap: .5rem .6rem; padding: .45rem .8rem; background: var(--sm-superficie-2); border-bottom: 1px solid var(--sm-borde); flex-wrap: wrap; }
+    /* Secciones de la tarjeta: Datos · Detalle · Fotos y resultado */
+    .dn-secciones { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--sm-superficie-3); border: 1px solid var(--sm-borde); }
+    .dn-secciones button {
+        display: inline-flex; align-items: center; gap: .3rem; height: 28px; padding: 0 .6rem; border: 0; border-radius: 7px;
+        background: transparent; color: var(--sm-texto-2); font-size: .8rem; font-weight: 600; white-space: nowrap; position: relative;
+    }
+    .dn-secciones button:hover { color: var(--dn); }
+    .dn-secciones button.activo { background: var(--dn); color: #fff; }
+    .dn-secciones button.mal::after { content: ""; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--sm-peligro); }
+    .dn-sec { display: none; }
+    .dn-sec.visible { display: block; animation: dn-aparecer .2s ease both; }
+    .dn-candado {
+        display: inline-flex; align-items: center; gap: .3rem; height: 28px; padding: 0 .55rem; border-radius: 8px; font-size: .76rem; font-weight: 700;
+        border: 1px solid rgba(245, 158, 11, .5); background: rgba(245, 158, 11, .14); color: #b45309;
+    }
+    html.dark-style .dn-candado, html[data-theme="dark"] .dn-candado { color: #fbbf24; }
     .dn-bien-num {
         width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .85rem;
         color: #fff; background: var(--dn);
     }
-    .dn-bien-tit { font-weight: 700; color: var(--sm-texto); min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
-    .dn-rango { font-size: .82rem; padding: .2rem .55rem; border-radius: 8px; background: var(--dn-suave); border: 1px dashed rgba(var(--dn-rgb), .45); color: var(--sm-texto); }
+    /* Base 0: el título cede espacio (con «…») antes de que la cabecera se parta en dos líneas */
+    .dn-bien-tit { font-weight: 700; color: var(--sm-texto); min-width: 90px; flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
+    .dn-rango { white-space: nowrap; font-size: .82rem; padding: .2rem .55rem; border-radius: 8px; background: var(--dn-suave); border: 1px dashed rgba(var(--dn-rgb), .45); color: var(--sm-texto); }
     .dn-rango.pulso { animation: dn-pulso .6s ease; }
     .dn-rango.vacio { color: var(--sm-texto-2); border-color: var(--sm-borde-fuerte); background: transparent; font-style: italic; }
-    .dn-bien-cuerpo { padding: .8rem; }
-    .dn-bien.contraido .dn-bien-cuerpo { display: none; }
-    .dn-bien.contraido .js-contraer i { transform: rotate(-90deg); }
+    .dn-bien-cuerpo { padding: .75rem .8rem; }
     .dn-icono-btn {
         width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie);
         color: var(--sm-texto-2); display: inline-flex; align-items: center; justify-content: center; transition: all .15s ease;
@@ -169,6 +228,7 @@
     .dn-icono-btn:hover { color: var(--dn); border-color: var(--dn); transform: translateY(-1px); }
     .dn-icono-btn.peligro:hover { color: var(--sm-peligro); border-color: var(--sm-peligro); }
     .dn-icono-btn i { transition: transform .2s ease; }
+    .dn-icono-btn.grande { width: 44px; height: 44px; flex-shrink: 0; }
     .dn-cantidad { display: flex; align-items: stretch; }
     .dn-cantidad .sm-input { text-align: center; border-radius: 0; font-weight: 700; }
     .dn-cantidad button { width: 40px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie-2); color: var(--sm-texto); font-weight: 800; }
@@ -184,45 +244,181 @@
     .dn-previa b { color: var(--sm-texto-2); font-weight: 600; }
     .dn-largo { float: right; font-size: .75rem; color: var(--sm-texto-2); }
     .dn-largo.excede { color: var(--sm-peligro); font-weight: 700; }
-    .dn-series-info { font-size: .78rem; color: var(--sm-texto-2); margin-top: .25rem; }
-    .dn-series-info.mal { color: var(--sm-peligro); }
+    /* Estado de las series en la línea de la etiqueta (no suma alto); el texto completo en el title */
+    .dn-series-info { margin-left: auto; min-width: 0; font-size: .74rem; font-weight: 500; color: var(--sm-texto-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dn-series-info.mal { color: var(--sm-peligro); font-weight: 700; }
+    .dn-series-mapa { font-size: .74rem; color: var(--sm-texto-2); margin-top: .2rem; max-height: 2.8em; overflow: hidden; }
+    .dn-series-mapa:empty { display: none; }
     .dn-con-boton { display: flex; gap: .35rem; }
     .dn-con-boton > :first-child { flex: 1; min-width: 0; }
     .dn-totales { display: flex; flex-wrap: wrap; gap: .5rem; }
     .dn-total { padding: .35rem .7rem; border-radius: 9px; background: var(--sm-superficie-3); font-size: .84rem; color: var(--sm-texto-2); }
     .dn-total strong { color: var(--sm-texto); font-size: .95rem; }
     .dn-agregar {
-        width: 100%; border: 2px dashed rgba(var(--dn-rgb), .4); border-radius: 14px; background: var(--dn-suave); color: var(--dn);
-        font-weight: 700; padding: .8rem; transition: all .2s ease;
+        flex-shrink: 0; height: 34px; border: 2px dashed rgba(var(--dn-rgb), .4); border-radius: 9px; background: var(--dn-suave); color: var(--dn);
+        font-weight: 700; font-size: .84rem; padding: 0 .8rem; white-space: nowrap; transition: all .2s ease;
     }
     .dn-agregar:hover { background: rgba(var(--dn-rgb), .14); transform: translateY(-1px); }
 
     /* ── Resumen y detalle ── */
-    .dn-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
-    .dn-tarjeta { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .75rem .9rem; background: var(--sm-superficie-2); }
-    .dn-tarjeta-cab { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--dn); margin-bottom: .4rem; }
+    .dn-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: .8rem; margin-bottom: .8rem; flex-shrink: 0; }
+    .dn-tarjeta { border: 1px solid var(--sm-borde); border-radius: 12px; padding: .6rem .85rem; background: var(--sm-superficie-2); min-width: 0; }
+    .dn-tarjeta-cab { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--dn); margin-bottom: .35rem; }
+    /* Dos datos por línea: la tarjeta queda en la mitad de alto */
+    .dn-tarjeta-campos { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: .3rem .8rem; }
     .dn-campo { margin-bottom: .35rem; }
     .dn-campo small { display: block; font-size: .72rem; color: var(--sm-texto-2); }
     .dn-campo span { font-weight: 600; color: var(--sm-texto); word-break: break-word; }
+    .dn-tarjeta-campos .dn-campo { margin-bottom: 0; min-width: 0; }
+    .dn-resumen-totales { flex-shrink: 0; margin: -.3rem 0 .6rem; font-size: .84rem; color: var(--sm-texto-2); }
+    .dn-resumen-totales b { color: var(--sm-texto); }
+    .dn-tarjeta-campos .dn-campo span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal; }
+    /* Paso 4: las tarjetas arriba y la tabla de bienes ocupa lo que queda (solo sus filas se desplazan) */
+    .dn-etapa[data-etapa="4"].visible { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    .dn-etapa[data-etapa="4"] .js-resumen { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
     .dn-tabla { width: 100%; font-size: .87rem; border-collapse: separate; border-spacing: 0; }
     .dn-tabla th { position: sticky; top: 0; background: var(--sm-superficie-3); color: var(--sm-texto-2); font-size: .74rem; text-transform: uppercase; letter-spacing: .04em; padding: .5rem .6rem; z-index: 1; }
     .dn-tabla td { padding: .5rem .6rem; border-bottom: 1px solid var(--sm-borde); color: var(--sm-texto); vertical-align: top; }
     .dn-tabla tr { animation: dn-entrar .3s ease both; }
     .dn-tabla td.text-end { white-space: nowrap; }
-    .dn-tabla-caja { border: 1px solid var(--sm-borde); border-radius: 12px; overflow: auto; max-height: 48vh; }
+    .dn-tabla-caja { border: 1px solid var(--sm-borde); border-radius: 12px; overflow: auto; flex: 1 1 auto; min-height: 96px; }
     .dn-movido { display: inline-block; margin-top: .2rem; font-size: .72rem; padding: .05rem .4rem; border-radius: 6px; background: rgba(245, 158, 11, .15); color: #b45309; }
 
     /* ── Éxito ── */
-    .dn-exito { text-align: center; padding: 2rem 1rem 1rem; position: relative; overflow: hidden; }
+    .dn-exito { text-align: center; padding: 1.5rem 1rem 1rem; position: relative; overflow: hidden; }
     .dn-exito-icono {
-        width: 92px; height: 92px; border-radius: 50%; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; font-size: 3rem; color: #fff;
+        width: 76px; height: 76px; border-radius: 50%; margin: 0 auto .8rem; display: flex; align-items: center; justify-content: center; font-size: 2.6rem; color: #fff;
         background: var(--sm-exito);
-        
     }
     .dn-exito-icono i { font-size: inherit; }
     .dn-confeti { position: absolute; top: 40px; left: 50%; width: 8px; height: 14px; border-radius: 2px; opacity: 0; animation: dn-confeti 1.4s ease-out forwards; pointer-events: none; }
-    .dn-codigos { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; margin: .5rem 0 1rem; }
+    /* Muchos códigos (una donación de 200 sillas): se desplaza la lista, no la pantalla */
+    .dn-codigos { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center; margin: .5rem 0 1rem; max-height: 24vh; overflow-y: auto; padding: 2px; }
+    .dn-exito .sm-btn { margin-bottom: 0; }
     .dn-chip { padding: .3rem .55rem; border-radius: 8px; border: 1px solid var(--sm-borde-fuerte); background: var(--sm-superficie); font-size: .84rem; animation: dn-entrar .3s ease both; }
+
+    /* ── Responsive: el módulo entra en la ventana sin scroll (mismo criterio que Activos adicionales) ── */
+    .dn-pantalla .sm-cabecera { row-gap: .55rem; }
+    .dn-pantalla .sm-cabecera-texto { flex: 1 1 280px; }
+    .dn-pantalla .sm-subtitulo { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    /* Con el asistente abierto, los totales, «Nueva donación» y el subtítulo no sirven: la cabecera queda en una línea */
+    .dn-pantalla.dn-en-form .sm-cabecera-acciones, .dn-pantalla.dn-en-form .sm-subtitulo { display: none; }
+    .dn-pantalla.dn-en-form .sm-cabecera { margin-bottom: .6rem; }
+
+    /* Listado: filas de alto parejo (donante en 2 líneas, destino y documento en 1) para que «Ajustar a pantalla» acierte */
+    .dn-pantalla .js-tabla-actas td { vertical-align: middle; }
+    .dn-pantalla .js-tabla-actas .dn-nowrap { white-space: nowrap; }
+    /* Columnas cortas: al ancho de su contenido; el resto del ancho queda para donante y destino */
+    .dn-pantalla .js-tabla-actas th.dn-ajustada { width: 1%; white-space: nowrap; }
+    .dn-don { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-width: 160px; }
+    .dn-una { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dn-una small { display: block; overflow: hidden; text-overflow: ellipsis; }
+    /* Columnas según el ancho REAL del listado (el menú lateral le quita 260 px). Va en la tarjeta
+       del listado y no en la raíz: el contenedor encierra a los «fixed» y la ventana del acta vive en la raíz. */
+    .dn-pantalla .js-listado { container-type: inline-size; container-name: dnlista; }
+    @media (min-width: 768px) {
+        @container dnlista (max-width: 1250px) { .dn-una { max-width: 200px; } }
+        @container dnlista (max-width: 1150px) { .dn-col-doc { display: none; } }
+        @container dnlista (max-width: 1000px) { .dn-una { max-width: 145px; } .dn-don { min-width: 130px; } }
+        @container dnlista (max-width: 930px) { .dn-col-fecha { display: none; } }
+        @container dnlista (max-width: 800px) { .dn-col-valor { display: none; } }
+    }
+
+    /* Pantallas bajas (laptop 1366×768, 1920×1080 al 125 %): menos aire y campos algo más bajos */
+    @media (max-height: 820px) {
+        .dn-pantalla .sm-subtitulo { display: none; }
+        .dn-pantalla .sm-cabecera { margin-bottom: .6rem; }
+        .dn-pantalla .dn-pasos { padding: .4rem .9rem .3rem; }
+        .dn-pantalla .dn-paso { font-size: .84rem; padding: .2rem .3rem; }
+        .dn-pantalla .dn-paso-num { width: 26px; height: 26px; }
+        .dn-pantalla .dn-etapa { padding: .65rem 1rem; }
+        .dn-pantalla .dn-etapa-tit { font-size: 1rem; margin-bottom: .1rem; }
+        .dn-pantalla .dn-ayuda { font-size: .8rem; margin-bottom: .6rem; }
+        .dn-pantalla .dn-etapa-cab { margin-bottom: .55rem; }
+        .dn-pantalla .dn-etapa .row.g-3 { --bs-gutter-y: .6rem; }
+        .dn-pantalla .dn-etapa .row.g-2 { --bs-gutter-y: .45rem; }
+        .dn-pantalla .dn-etapa .sm-label { margin-bottom: .2rem; font-size: .8rem; }
+        .dn-pantalla .dn-etapa .sm-input:not(textarea), .dn-pantalla .dn-etapa .sm-select { height: 38px; padding-top: .3rem; padding-bottom: .3rem; font-size: .92rem; }
+        .dn-pantalla .dn-etapa textarea.sm-input { min-height: 52px !important; padding-top: .4rem; padding-bottom: .4rem; line-height: 1.35; }
+        .dn-pantalla .dn-etapa .select2-container--default .select2-selection--single { height: 38px; }
+        .dn-pantalla .dn-etapa .select2-container .select2-selection__arrow { height: 36px; }
+        .dn-pantalla .dn-etapa .sm-segmento button { height: 32px; }
+        .dn-pantalla .dn-icono-btn.grande { width: 38px; height: 38px; }
+        .dn-pantalla .dn-cantidad button { width: 34px; }
+        .dn-pantalla .dn-info { margin-top: .6rem; padding: .5rem .9rem; }
+        .dn-pantalla .dn-info > i { font-size: 1.35rem; }
+        .dn-pantalla .sm-subformulario { padding: .6rem .8rem .7rem; }
+        .dn-pantalla .sm-subformulario-cab { margin-bottom: .45rem; }
+        .dn-pantalla .dn-sub-pie { margin-top: .55rem; }
+        .dn-pantalla .dn-sub-pie .sm-btn, .dn-pantalla .dn-pie .sm-btn { height: 38px; font-size: .92rem; }
+        .dn-pantalla .dn-pie { padding: .45rem 1rem; }
+        .dn-pantalla .dn-bien-cuerpo { padding: .6rem .75rem; }
+        .dn-pantalla .dn-bien-cab { padding: .35rem .7rem; }
+        .dn-pantalla .dn-carrusel { margin-bottom: .5rem; }
+        .dn-pantalla .dn-foto, .dn-pantalla .dn-foto-add { width: 80px; height: 80px; }
+        .dn-pantalla .dn-previa { margin-top: .5rem; padding: .45rem .7rem; }
+        .dn-pantalla .dn-tarjetas { gap: .6rem; margin-bottom: .6rem; }
+        .dn-pantalla .dn-tarjeta { padding: .5rem .75rem; }
+        .dn-pantalla .dn-exito { padding-top: 1rem; }
+        .dn-pantalla .dn-exito-icono { width: 60px; height: 60px; font-size: 2rem; margin-bottom: .5rem; }
+    }
+
+    /* Ventanas muy bajas (1280×720, 1366×768 con la barra del navegador): modo compacto */
+    @media (max-height: 680px) {
+        .dn-pantalla .sm-migas { display: none; }
+        .dn-pantalla .sm-cabecera > .sm-cabecera-icono { width: 38px; height: 38px; font-size: 1.15rem; }
+        .dn-pantalla .sm-titulo { font-size: 1.2rem; }
+        .dn-pantalla .sm-dato { padding: .3rem .7rem; }
+        .dn-pantalla .sm-toolbar { padding: .5rem .9rem; }
+        .dn-pantalla .sm-tabla.table > tbody > tr > td { padding-top: .35rem; padding-bottom: .35rem; }
+        .dn-pantalla.dn-en-form .sm-cabecera { margin-bottom: .4rem; }
+        .dn-pantalla .dn-pasos { padding-top: .3rem; padding-bottom: .2rem; }
+        .dn-pantalla .dn-etapa[data-etapa="1"] .dn-ayuda, .dn-pantalla .dn-etapa[data-etapa="2"] .dn-ayuda { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+        .dn-pantalla .dn-info .small:last-child { display: none; }
+        .dn-pantalla .dn-etapa { padding-top: .5rem; padding-bottom: .5rem; }
+        .dn-pantalla .dn-etapa .row.g-2 { --bs-gutter-y: .35rem; }
+        .dn-pantalla .dn-etapa .sm-input:not(textarea), .dn-pantalla .dn-etapa .sm-select { height: 36px; }
+        .dn-pantalla .dn-etapa .select2-container--default .select2-selection--single { height: 36px; }
+        .dn-pantalla .dn-etapa .select2-container .select2-selection__arrow { height: 34px; }
+        .dn-pantalla .dn-icono-btn.grande { width: 36px; height: 36px; }
+        .dn-pantalla .dn-etapa textarea.sm-input { min-height: 48px !important; }
+        .dn-pantalla .dn-carrusel { margin-bottom: .4rem; }
+        .dn-pantalla .dn-bien-cab { padding-top: .25rem; padding-bottom: .25rem; }
+        .dn-pantalla .dn-bien-cuerpo { padding: .5rem .7rem; }
+    }
+
+    /* Extremo (1280×720 con las barras del navegador): con el asistente abierto la cabecera del
+       módulo se oculta; el nombre ya está en la pestaña y los pasos dicen dónde se está. */
+    @media (max-height: 620px) and (min-width: 768px) {
+        .dn-pantalla.dn-en-form .sm-cabecera { display: none; }
+        .dn-pantalla .dn-pasos { padding: .2rem .9rem .1rem; }
+        .dn-pantalla .dn-paso-num { width: 24px; height: 24px; }
+        .dn-pantalla .dn-pie { padding-top: .3rem; padding-bottom: .3rem; }
+        .dn-pantalla .dn-pie .sm-btn { height: 36px; }
+        .dn-pantalla .sm-cabecera { margin-bottom: .4rem; }
+        .dn-pantalla .sm-toolbar { padding-top: .35rem; padding-bottom: .35rem; }
+    }
+
+    /* Celular: la página se desplaza entera y el pie con los botones queda pegado abajo */
+    @media (max-width: 767.98px) {
+        .dn-pantalla .dn-panel { overflow: visible; }
+        .dn-pantalla .dn-pie { position: sticky; bottom: 0; border-radius: 0 0 12px 12px; box-shadow: 0 -6px 14px -8px rgba(15, 23, 42, .25);
+            flex-wrap: nowrap; gap: .4rem; padding: .5rem .6rem; }
+        .dn-pantalla .dn-pie .sm-btn { flex: 1 1 auto; justify-content: center; padding-left: .55rem; padding-right: .55rem; }
+        .dn-pantalla .dn-pie.en-bienes .dn-totales { display: none; }
+        .dn-pantalla .dn-tabla-caja { max-height: 48vh; }
+        .dn-pantalla .dn-carrusel { flex-wrap: wrap; }
+        .dn-pantalla .dn-carrusel .dn-chips-bienes { order: 3; flex-basis: 100%; }
+        /* Tarjeta: número, título y botones arriba; las secciones en su propia línea, a lo ancho */
+        .dn-pantalla .dn-secciones { order: 10; flex: 1 1 100%; }
+        .dn-pantalla .dn-secciones button { flex: 1 1 0; justify-content: center; padding: 0 .3rem; }
+        .dn-pantalla .dn-sec-largo { display: none; }
+        .dn-pantalla .dn-rango { order: 11; }
+        .dn-pantalla .sm-cabecera-acciones { gap: .4rem; }
+        .dn-pantalla .sm-cabecera-acciones .sm-dato { flex: 1 1 0; justify-content: center; padding: .3rem .4rem; font-size: .7rem; }
+        .dn-pantalla .sm-cabecera-acciones .sm-dato strong { font-size: .95rem; }
+        .dn-pantalla .sm-cabecera-acciones .js-nueva { flex: 1 1 100%; justify-content: center; }
+    }
 
     @keyframes dn-entrar { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
     @keyframes dn-salir { to { opacity: 0; transform: translateX(30px) scale(.96); } }
@@ -278,14 +474,14 @@
     <table class="table sm-tabla align-middle js-tabla-actas">
         <thead>
             <tr>
-                <th style="width:150px;">N° de acta</th>
-                <th style="width:100px;">Fecha</th>
+                <th class="dn-ajustada">N° de acta</th>
+                <th class="dn-col-fecha dn-ajustada">Fecha</th>
                 <th>Donante</th>
-                <th>Documento de respaldo</th>
+                <th class="dn-col-doc">Documento de respaldo</th>
                 <th>Destino</th>
-                <th class="text-center" style="width:80px;">Bienes</th>
-                <th class="text-end" style="width:130px;">Valor ref.</th>
-                <th style="width:110px;">Estado</th>
+                <th class="text-center dn-ajustada">Bienes</th>
+                <th class="text-end dn-ajustada dn-col-valor">Valor ref.</th>
+                <th class="dn-ajustada">Estado</th>
             </tr>
         </thead>
     </table>
@@ -304,19 +500,24 @@
                     <button type="button" class="dn-paso" data-paso="4"><span class="dn-paso-num">4</span> Confirmar</button>
                 </div>
                 <div class="dn-avance"><span class="js-avance"></span></div>
-                <div class="sm-aviso sm-aviso-info mx-3 mt-3 mb-0 d-none js-banner-edicion"></div>
+                <div class="sm-aviso sm-aviso-info mx-3 mt-2 mb-0 py-2 d-none js-banner-edicion"></div>
+
+                <!-- Las etapas: lo único que se desplaza si la ventana es demasiado baja -->
+                <div class="dn-etapas js-etapas">
 
                 <!-- Paso 1: donante -->
                 <div class="dn-etapa" data-etapa="1">
-                    <div class="dn-etapa-tit">¿Quién dona?</div>
-                    <div class="dn-ayuda">Los datos del donante y del documento que respalda la entrega (nota, convenio o acta).</div>
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <div class="sm-segmento js-tipo" role="group" aria-label="Tipo de donante">
-                                <button type="button" data-tipo="INSTITUCION" class="activo"><i class="ti ti-building-community"></i> Institución</button>
-                                <button type="button" data-tipo="PERSONA"><i class="ti ti-user"></i> Persona</button>
-                            </div>
+                    <div class="dn-etapa-cab">
+                        <div>
+                            <div class="dn-etapa-tit">¿Quién dona?</div>
+                            <div class="dn-ayuda">Los datos del donante y del documento que respalda la entrega (nota, convenio o acta).</div>
                         </div>
+                        <div class="sm-segmento js-tipo" role="group" aria-label="Tipo de donante">
+                            <button type="button" data-tipo="INSTITUCION" class="activo"><i class="ti ti-building-community"></i> Institución</button>
+                            <button type="button" data-tipo="PERSONA"><i class="ti ti-user"></i> Persona</button>
+                        </div>
+                    </div>
+                    <div class="row g-3">
                         <div class="col-md-8">
                             <label class="sm-label"><span class="js-lbl-nombre">Nombre de la institución</span> <span class="sm-req">*</span></label>
                             <div class="sm-campo"><i class="ti ti-heart-handshake"></i>
@@ -351,16 +552,18 @@
                         </div>
                         <div class="col-12">
                             <label class="sm-label">Observación</label>
-                            <textarea class="sm-input dn-sin-mayus" data-sm-mayus="no" name="observacion" rows="2" style="min-height:70px" placeholder="Condiciones de la donación, quién la gestionó…"></textarea>
+                            <textarea class="sm-input dn-sin-mayus dn-obs" data-sm-mayus="no" name="observacion" rows="2" placeholder="Condiciones de la donación, quién la gestionó…"></textarea>
                         </div>
                     </div>
                 </div>
 
                 <!-- Paso 2: destino -->
                 <div class="dn-etapa" data-etapa="2">
-                    <div class="dn-etapa-tit">¿Dónde quedan los bienes?</div>
-                    <div class="dn-ayuda">Todos los bienes del acta quedan en esta oficina, a cargo de este responsable. Después se pueden asignar o transferir como cualquier activo.</div>
-                    <div class="row g-3">
+                    <div class="dn-ocultar-en-alta">
+                        <div class="dn-etapa-tit">¿Dónde quedan los bienes?</div>
+                        <div class="dn-ayuda">Todos los bienes del acta quedan en esta oficina, a cargo de este responsable. Después se pueden asignar o transferir como cualquier activo.</div>
+                    </div>
+                    <div class="row g-3 dn-ocultar-en-alta">
                         <div class="col-md-6">
                             <label class="sm-label">Predio <span class="sm-req">*</span></label>
                             <select class="js-predio" name="idPredio"><option value=""></option></select>
@@ -370,7 +573,7 @@
                             <label class="sm-label">Oficina <span class="sm-req">*</span></label>
                             <div class="dn-con-boton">
                                 <div><select class="js-oficina" name="idOficina" disabled><option value=""></option></select></div>
-                                <button type="button" class="dn-icono-btn js-alta-oficina" style="height:44px;width:44px" disabled
+                                <button type="button" class="dn-icono-btn grande js-alta-oficina" disabled
                                         title="Crear una oficina nueva en este predio"><i class="ti ti-plus"></i></button>
                             </div>
                         </div>
@@ -378,11 +581,17 @@
                             <label class="sm-label">Responsable que recibe <span class="sm-req">*</span></label>
                             <div class="dn-con-boton">
                                 <div><select class="js-responsable" name="idResponsable" disabled><option value=""></option></select></div>
-                                <button type="button" class="dn-icono-btn js-alta-resp" style="height:44px;width:44px" disabled
+                                <button type="button" class="dn-icono-btn grande js-alta-resp" disabled
                                         title="Registrar un responsable nuevo en esta oficina"><i class="ti ti-user-plus"></i></button>
                             </div>
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-6">
+                            <label class="sm-label">Financiador <small class="text-muted">(opcional)</small></label>
+                            <select class="js-financiador" name="idOrganismoFinanciero"><option value=""></option></select>
+                        </div>
+                    </div>
+                    <!-- Altas rápidas: mientras una está abierta ocupa el lugar de los campos -->
+                    <div>
                             <!-- Alta rápida de oficina -->
                             <div class="sm-subformulario dn-sub-alta js-sub-oficina d-none">
                                 <div class="sm-subformulario-cab"><i class="ti ti-door"></i>
@@ -431,16 +640,11 @@
                                     <button type="button" class="sm-btn js-resp-crear" data-subir="true"><i class="ti ti-cloud-upload"></i> Crear y subir al VSIAF</button>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="sm-label">Financiador <small class="text-muted">(opcional)</small></label>
-                            <select class="js-financiador" name="idOrganismoFinanciero"><option value=""></option></select>
-                        </div>
                     </div>
-                    <div class="sm-aviso sm-aviso-aviso mt-3 mb-0 d-none js-nota-destino"><i class="ti ti-lock"></i>
-                        <div>Algunos bienes de esta acta ya tienen movimientos (asignación, transferencia, levantamiento o faltante):
+                    <div class="sm-aviso sm-aviso-aviso mt-3 mb-0 py-2 d-none js-nota-destino dn-ocultar-en-alta"><i class="ti ti-lock"></i>
+                        <div class="small">Algunos bienes de esta acta ya tienen movimientos (asignación, transferencia, levantamiento o faltante):
                             el destino no se cambia desde aquí. Muévalos con Transferencias o Asignaciones.</div></div>
-                    <div class="dn-info">
+                    <div class="dn-info dn-ocultar-en-alta">
                         <i class="ti ti-barcode"></i>
                         <div>
                             <div class="small text-muted">Los códigos de esta donación empezarán así:</div>
@@ -452,26 +656,30 @@
 
                 <!-- Paso 3: bienes -->
                 <div class="dn-etapa" data-etapa="3">
-                    <div class="d-flex align-items-start gap-2 flex-wrap mb-2">
-                        <div class="me-auto">
-                            <div class="dn-etapa-tit">¿Qué bienes se reciben?</div>
-                            <div class="dn-ayuda mb-0">Una tarjeta por tipo de bien. Con cantidad mayor a 1 se crea un activo por unidad, cada uno con su código y, si la tiene, su serie.</div>
-                        </div>
-                        <div class="dn-totales js-totales"></div>
+                    <!-- Carrusel: un bien a la vez; las fichas de arriba pasan de uno a otro -->
+                    <div class="dn-carrusel">
+                        <div class="dn-etapa-tit">¿Qué bienes se reciben?</div>
+                        <i class="ti ti-info-circle dn-ayuda-icono" tabindex="0"
+                           title="Una tarjeta por tipo de bien. Con cantidad mayor a 1 se crea un activo por unidad, cada uno con su código y, si la tiene, su serie."></i>
+                        <div class="dn-chips-bienes js-chips" role="tablist" aria-label="Bienes de esta donación"></div>
+                        <button type="button" class="dn-agregar js-agregar" title="Agregar otro bien (Alt+N)"><i class="ti ti-plus"></i> Agregar bien</button>
                     </div>
                     <div class="js-bienes"></div>
-                    <button type="button" class="dn-agregar js-agregar"><i class="ti ti-plus"></i> Agregar otro bien <small class="fw-normal">(Alt+N)</small></button>
                 </div>
 
                 <!-- Paso 4: confirmar -->
                 <div class="dn-etapa" data-etapa="4">
                     <div class="dn-etapa-tit">Revise antes de registrar</div>
-                    <div class="dn-ayuda">Los códigos son los que corresponden ahora; si otro usuario registra antes, se usan los siguientes libres.</div>
+                    <div class="dn-ayuda">Los códigos son los que corresponden ahora; si otro usuario registra antes, se usan los siguientes libres.
+                        <span class="text-nowrap"><i class="ti ti-cloud-off"></i> Quedan <b>ACTIVOS</b> en el SCIAF y no se envían al VSIAF.</span></div>
                     <div class="js-resumen"></div>
                 </div>
 
+                </div><!-- /.js-etapas -->
+
                 <div class="dn-pie">
                     <span class="dn-atajo d-none d-md-inline"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> siguiente · <kbd>Alt</kbd>+<kbd>N</kbd> otro bien</span>
+                    <div class="dn-totales js-totales"></div>
                     <button type="button" class="sm-btn sm-btn-neutro js-cancelar"><i class="ti ti-x"></i> Cancelar</button>
                     <button type="button" class="sm-btn sm-btn-neutro js-atras"><i class="ti ti-arrow-left"></i> Atrás</button>
                     <button type="button" class="sm-btn js-siguiente">Siguiente <i class="ti ti-arrow-right"></i></button>
@@ -498,13 +706,20 @@
             <span class="dn-bien-num js-num">1</span>
             <span class="dn-bien-tit js-tit">Bien nuevo</span>
             <span class="dn-rango vacio js-rango">elija el grupo contable</span>
+            <button type="button" class="dn-candado js-nota-vida d-none"></button>
+            <div class="dn-secciones" role="tablist" aria-label="Secciones del bien">
+                <button type="button" class="activo" data-sec="datos"><i class="ti ti-forms"></i> Datos</button>
+                <button type="button" data-sec="detalle"><i class="ti ti-list-details"></i> Detalle</button>
+                <button type="button" data-sec="fotos"><i class="ti ti-photo"></i> Fotos<span class="dn-sec-largo"> y resultado</span></button>
+            </div>
             <button type="button" class="dn-icono-btn js-duplicar" title="Duplicar este bien (registro rápido de uno parecido)"><i class="ti ti-copy"></i></button>
             <button type="button" class="dn-icono-btn peligro js-quitar" title="Quitar este bien"><i class="ti ti-trash"></i></button>
-            <button type="button" class="dn-icono-btn js-contraer" title="Contraer / expandir"><i class="ti ti-chevron-down"></i></button>
         </div>
         <div class="dn-bien-cuerpo">
+            <!-- Datos -->
+            <div class="dn-sec visible" data-sec="datos">
             <div class="row g-2">
-                <div class="col-lg-4 col-md-6">
+                <div class="col-lg-5 col-md-6">
                     <label class="sm-label">Grupo contable <span class="sm-req">*</span></label>
                     <select class="js-grupo"><option value=""></option></select>
                 </div>
@@ -512,14 +727,14 @@
                     <label class="sm-label">Auxiliar <small class="text-muted">(opcional)</small></label>
                     <div class="dn-con-boton">
                         <div><select class="js-auxiliar" disabled><option value=""></option></select></div>
-                        <button type="button" class="dn-icono-btn js-nuevo-aux" style="height:44px;width:44px" title="Crear un auxiliar en este predio y grupo" disabled><i class="ti ti-plus"></i></button>
+                        <button type="button" class="dn-icono-btn grande js-nuevo-aux" title="Crear un auxiliar en este predio y grupo" disabled><i class="ti ti-plus"></i></button>
                     </div>
                 </div>
-                <div class="col-lg-4 col-md-6">
+                <div class="col-lg-3 col-md-3 col-6">
                     <label class="sm-label">Estado de conservación</label>
                     <select class="sm-select js-estado"></select>
                 </div>
-                <div class="col-lg-3 col-md-6 col-6">
+                <div class="col-lg-3 col-md-3 col-6">
                     <label class="sm-label">Cantidad <span class="sm-req">*</span></label>
                     <div class="dn-cantidad">
                         <button type="button" class="js-menos" aria-label="Uno menos">−</button>
@@ -527,15 +742,15 @@
                         <button type="button" class="js-mas" aria-label="Uno más">+</button>
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-6 col-6">
+                <div class="col-lg-3 col-md-3 col-6">
                     <label class="sm-label">Valor unitario (Bs)</label>
                     <input type="number" class="sm-input js-valor text-end" min="0" step="0.01" placeholder="0.00" />
                 </div>
-                <div class="col-lg-3 col-md-6 col-6">
+                <div class="col-lg-3 col-md-3 col-6">
                     <label class="sm-label">Vida útil (años)</label>
                     <input type="number" class="sm-input js-vida text-center" min="0" max="100" />
                 </div>
-                <div class="col-lg-3 col-md-6 col-6">
+                <div class="col-lg-3 col-6 d-md-none d-lg-block">
                     <label class="sm-label">Subtotal</label>
                     <div class="sm-input dn-sin-mayus js-subtotal text-end fw-bold" style="background:var(--sm-superficie-2)">Bs 0,00</div>
                 </div>
@@ -545,27 +760,32 @@
                     <div class="invalid-feedback">Escriba qué es el bien.</div>
                 </div>
             </div>
+            </div>
 
-            <div class="dn-sub"><i class="ti ti-list-details"></i> Detalle</div>
+            <!-- Detalle -->
+            <div class="dn-sec" data-sec="detalle">
             <div class="row g-2">
-                <div class="col-lg-4 col-md-6"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" /></div>
-                <div class="col-lg-4 col-md-6"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" /></div>
-                <div class="col-lg-4 col-md-6"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" /></div>
+                <div class="col-md-4"><label class="sm-label">Marca</label><input type="text" class="sm-input js-marca" maxlength="80" /></div>
+                <div class="col-md-4"><label class="sm-label">Modelo</label><input type="text" class="sm-input js-modelo" maxlength="80" /></div>
+                <div class="col-md-4"><label class="sm-label">Color</label><input type="text" class="sm-input js-color" maxlength="60" /></div>
                 <div class="col-lg-6 col-md-6"><label class="sm-label">Material</label><input type="text" class="sm-input js-material" maxlength="80" placeholder="Ej: MADERA, METAL, PLÁSTICO" /></div>
                 <div class="col-lg-6 col-md-6"><label class="sm-label">Medidas</label><input type="text" class="sm-input js-medidas" maxlength="80" placeholder="Ej: 120 X 60 X 75 CM" /></div>
                 <div class="col-md-6">
-                    <label class="sm-label">Series <small class="text-muted">(una por línea, en el orden de las unidades)</small></label>
-                    <textarea class="sm-input js-series" rows="2" style="min-height:64px" placeholder="Pegue aquí las series, una por línea"></textarea>
-                    <div class="dn-series-info js-series-info">Sin series.</div>
+                    <label class="sm-label"><span class="text-nowrap">Series</span> <span class="dn-series-info js-series-info">Sin series.</span></label>
+                    <textarea class="sm-input js-series" rows="2" style="min-height:64px" placeholder="Pegue aquí las series, una por línea, en el orden de las unidades"></textarea>
+                    <div class="dn-series-mapa js-series-mapa"></div>
                 </div>
                 <div class="col-md-6">
                     <label class="sm-label">Características adicionales</label>
                     <textarea class="sm-input js-caract" rows="2" style="min-height:64px" maxlength="4000" placeholder="Accesorios, capacidad, estado al recibirlo…"></textarea>
                 </div>
             </div>
-            <div class="dn-sub"><i class="ti ti-photo"></i> Fotos <small class="fw-normal text-muted text-lowercase">(hasta 3; se ponen a cada unidad de este bien, después cada activo cambia las suyas en el detalle)</small></div>
-            <div class="small text-muted d-none js-fotos-nota"><i class="ti ti-info-circle"></i> Las fotos de este bien se agregan o quitan en el detalle del acta.</div>
-            <div class="sm-aviso sm-aviso-aviso py-2 mb-2 d-none js-nota-vida"></div>
+            </div>
+
+            <!-- Fotos y resultado -->
+            <div class="dn-sec" data-sec="fotos">
+            <div class="small text-muted mb-2 js-fotos-ayuda"><i class="ti ti-photo"></i> Hasta 3 fotos; se ponen a cada unidad de este bien y después cada activo cambia las suyas en el detalle.</div>
+            <div class="small text-muted mb-2 d-none js-fotos-nota"><i class="ti ti-info-circle"></i> Las fotos de este bien se agregan o quitan en el detalle del acta.</div>
             <div class="dn-fotos js-fotos">
                 <label class="dn-foto-add js-foto-add" title="Agregar fotos (JPG, PNG o WEBP)">
                     <input type="file" class="d-none js-foto-input" accept="image/jpeg,image/png,image/webp" multiple />
@@ -575,6 +795,7 @@
             <div class="dn-previa">
                 <span class="dn-largo js-largo">0 / 1024</span>
                 <b>Así quedará la descripción del activo:</b><br><span class="js-previa">—</span>
+            </div>
             </div>
         </div>
     </div>
@@ -588,12 +809,15 @@
     const INICIAL = /*[[${inicial}]]*/ {};
     const $raiz = $('#modDonacion');
     const esc = SciafModulo.escapar;
+    /** Para valores dentro de un atributo entre comillas (title): escapar no convierte las comillas. */
+    function escAttr(t) { return esc(t).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     const $listado = $raiz.find('.js-listado');
     const $tablaActas = $raiz.find('.js-tabla-actas');
     const $panelReg = $raiz.find('.js-panel-registro');
     const $panel = $raiz.find('.js-panel');
     const $form = $raiz.find('.js-asistente');
+    const $etapas = $raiz.find('.js-etapas');
     const $exito = $raiz.find('.js-exito');
     const $modal = $raiz.find('.js-modal-acta');
     const $detalle = $raiz.find('.js-detalle');
@@ -675,6 +899,7 @@
     function iniciarTabla() {
         tabla = SciafModulo.tabla({
             tabla: $tablaActas,
+            minFilas: 3,
             buscador: $raiz.find('.js-buscar'),
             largo: $raiz.find('.js-largo'),
             dt: {
@@ -690,15 +915,17 @@
                 },
                 columns: [
                     { data: 'numero', render: function (v) { return '<span class="dn-num-acta"><i class="ti ti-gift"></i> ' + esc(v) + '</span>'; } },
-                    { data: 'fecha', render: function (v) { return esc(fechaBonita(v)); } },
+                    { data: 'fecha', className: 'dn-col-fecha dn-nowrap', render: function (v) { return esc(fechaBonita(v)); } },
                     { data: null, render: function (d, t, a) {
                         const ic = a.donanteTipo === 'PERSONA' ? 'ti-user' : 'ti-building-community';
-                        return '<i class="ti ' + ic + ' text-muted"></i> <span class="dn-don-nombre sm-mayus">' + esc(a.donante) + '</span>'; } },
-                    { data: 'documentoRespaldo', render: function (v) { return v ? esc(v) : '<span class="text-muted">—</span>'; } },
+                        return '<span class="dn-don" title="' + escAttr(a.donante) + '"><i class="ti ' + ic + ' text-muted"></i> <span class="dn-don-nombre sm-mayus">' + esc(a.donante) + '</span></span>'; } },
+                    { data: 'documentoRespaldo', className: 'dn-col-doc', render: function (v) {
+                        return v ? '<span class="dn-una" title="' + escAttr(v) + '">' + esc(v) + '</span>' : '<span class="text-muted">—</span>'; } },
                     { data: null, render: function (d, t, a) {
-                        return esc(a.oficina || '—') + (a.predio ? '<br><small class="text-muted">' + esc(a.predio) + '</small>' : ''); } },
+                        return '<span class="dn-una" title="' + escAttr((a.oficina || '—') + (a.predio ? ' · ' + a.predio : '')) + '">' + esc(a.oficina || '—')
+                            + (a.predio ? '<small class="text-muted">' + esc(a.predio) + '</small>' : '') + '</span>'; } },
                     { data: 'cantidad', className: 'text-center', render: function (v) { return '<b>' + esc(v || 0) + '</b>'; } },
-                    { data: 'valor', className: 'text-end', render: function (v) { return esc(bs(v)); } },
+                    { data: 'valor', className: 'text-end dn-nowrap dn-col-valor', render: function (v) { return esc(bs(v)); } },
                     { data: 'estado', render: function (v) {
                         return v === 'ANULADA' ? '<span class="dn-anulada">ANULADA</span>' : '<span class="dn-vigente">VIGENTE</span>'; } }
                 ]
@@ -728,7 +955,10 @@
         $v.removeClass('dn-vista');
         void $v[0].offsetWidth;          // reinicia la animación de entrada
         $v.addClass('dn-vista');
+        // Con el asistente abierto la cabecera se achica (sin totales ni «Nueva donación»).
+        $raiz.toggleClass('dn-en-form', cual !== 'listado');
         $panel.scrollTop(0);
+        $etapas.scrollTop(0);
         if (cual === 'listado' && tabla) tabla.columns.adjust();
         // El alto del asistente se mide ahora que se ve (oculto, al abrir el módulo, tomaba
         // toda la ventana y el pie con los botones quedaba fuera de la vista).
@@ -765,12 +995,22 @@
         $form.find('.js-atras').toggleClass('d-none', n === 1);
         $form.find('.js-siguiente').toggleClass('d-none', n === 4);
         $form.find('.js-registrar').toggleClass('d-none', n !== 4);
+        $form.find('.dn-pie').toggleClass('en-bienes', n >= 3);
         if (n === 3 && !$bienes.children().length) agregarBien();
+        if (n === 3 && !$bienes.children('.dn-bien.activo').length) activarBien($bienes.children('.dn-bien').first());
         if (n === 4) { pintarResumen(); calcularCodigos().then(pintarResumen); }
-        $panel.scrollTop(0);
+        $etapas.scrollTop(0);
+        // El pie cambia de alto entre pasos (totales en el 3): se vuelve a medir la etapa.
+        ajustarPanel();
         setTimeout(function () {
             const $f = $form.find('.dn-etapa.visible').find('input:visible, textarea:visible').filter(function () { return !this.value; }).first();
-            if ($f.length && n !== 4) $f.trigger('focus');
+            if ($f.length && n !== 4) { $f.trigger('focus'); return; }
+            // Si el foco quedó en el paso oculto (o en un botón ya oculto), el navegador lo manda a
+            // <body>, fuera del módulo, y los atajos dejan de responder: pasa al paso nuevo.
+            const af = document.activeElement;
+            if (!$raiz[0].contains(af) || !$(af).is(':visible:not(:disabled)')) {
+                $form.find('.dn-etapa.visible').attr('tabindex', '-1')[0].focus({ preventScroll: true });
+            }
         }, 60);
     }
 
@@ -804,17 +1044,23 @@
                 const $b = $(this);
                 const b = bienes[i];
                 const mal = [];
-                if (!marcar($b.find('.js-grupo'), !b.idGrupoContable)) mal.push('grupo contable');
-                if (!marcar($b.find('.js-desc'), !b.descripcion)) mal.push('descripción');
-                if (!marcar($b.find('.js-cantidad'), !(b.cantidad >= 1 && b.cantidad <= 200))) mal.push('cantidad (1 a 200)');
-                if (!marcar($b.find('.js-valor'), b.valorUnitario != null && b.valorUnitario < 0)) mal.push('valor');
+                const secs = {};   // sección de la tarjeta donde está cada error
+                if (!marcar($b.find('.js-grupo'), !b.idGrupoContable)) { mal.push('grupo contable'); secs.datos = true; }
+                if (!marcar($b.find('.js-desc'), !b.descripcion)) { mal.push('descripción'); secs.datos = true; }
+                if (!marcar($b.find('.js-cantidad'), !(b.cantidad >= 1 && b.cantidad <= 200))) { mal.push('cantidad (1 a 200)'); secs.datos = true; }
+                if (!marcar($b.find('.js-valor'), b.valorUnitario != null && b.valorUnitario < 0)) { mal.push('valor'); secs.datos = true; }
                 const ser = b.series;
-                if (!marcar($b.find('.js-series'), ser.length > b.cantidad || repetidas(ser).length)) mal.push('series');
-                if (descripcionDe(b, ser.reduce(function (x, y) { return y.length > x.length ? y : x; }, '')).length > MAX_DESC) mal.push('descripción demasiado larga');
-                if (mal.length && !primero) primero = { $b: $b, i: i + 1, mal: mal };
+                if (!marcar($b.find('.js-series'), ser.length > b.cantidad || repetidas(ser).length)) { mal.push('series'); secs.detalle = true; }
+                if (descripcionDe(b, ser.reduce(function (x, y) { return y.length > x.length ? y : x; }, '')).length > MAX_DESC) { mal.push('descripción demasiado larga'); secs.fotos = true; }
+                $b.data('mal', mal.length > 0);
+                $b.find('.dn-secciones button').each(function () { $(this).toggleClass('mal', !!secs[this.dataset.sec]); });
+                if (mal.length && !primero) primero = { $b: $b, i: i + 1, mal: mal, sec: secs.datos ? 'datos' : secs.detalle ? 'detalle' : 'fotos' };
             });
+            pintarChips();
             if (primero) {
-                primero.$b.removeClass('contraido')[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // Carrusel: se muestra el bien con el error, en la sección del primer campo que falla.
+                activarBien(primero.$b);
+                seccionBien(primero.$b, primero.sec);
                 avisoFalta('Bien ' + primero.i + ': revise ' + primero.mal.join(', ') + '.');
                 return false;
             }
@@ -850,6 +1096,9 @@
     // Atajos de teclado (solo con el asistente a la vista)
     $raiz.on('keydown', function (e) {
         if ($form.hasClass('d-none')) return;
+        // Con un select2 enfocado o abierto, no: select2 toma el Enter sin mirar Ctrl (abre la
+        // lista o ELIGE la opción resaltada) y se avanzaría con un dato que nadie vio.
+        if ($(e.target).closest('.select2-container, .select2-dropdown').length || $raiz.find('.select2-container--open').length) return;
         if (e.ctrlKey && e.key === 'Enter') {
             e.preventDefault();
             if (st.paso < 4) $form.find('.js-siguiente').trigger('click');
@@ -964,17 +1213,26 @@
         }
     }, s2));
 
-    function cerrarAltas() { $subOfi.addClass('d-none'); $subResp.addClass('d-none'); }
+    function cerrarAltas() {
+        $subOfi.addClass('d-none'); $subResp.addClass('d-none');
+        $form.find('.dn-etapa[data-etapa="2"]').removeClass('dn-con-alta');
+    }
+    /** Abre un alta en el lugar de los campos del destino (así el paso no se desplaza). */
+    function abrirAlta($sub) {
+        $subOfi.add($subResp).not($sub).addClass('d-none');
+        $sub.removeClass('d-none');
+        $form.find('.dn-etapa[data-etapa="2"]').addClass('dn-con-alta');
+        $etapas.scrollTop(0);
+    }
     $raiz.on('click', '.js-sub-cerrar', cerrarAltas);
 
     $raiz.on('click', '.js-alta-oficina', async function () {
         const p = predioPorId[$predio.val()];
         if (!p) return;
-        $subResp.addClass('d-none');
         $subOfi.find('.js-sub-ofi-predio').text(p.nombre);
         $subOfi.find('.js-ofi-nombre').val('');
         $subOfi.find('.js-ofi-cuenta').text('0 / 65');
-        $subOfi.removeClass('d-none');
+        abrirAlta($subOfi);
         $subOfi.find('.js-ofi-nombre').trigger('focus');
         try {
             const r = await SciafModulo.pedir('/administracion/oficina/siguiente-codigo/' + p.id, { metodo: 'GET' });
@@ -1013,12 +1271,11 @@
 
     $raiz.on('click', '.js-alta-resp', async function () {
         if (!$oficina.val()) return;
-        $subOfi.addClass('d-none');
         $subResp.find('.js-sub-resp-ofi').text(textoSel($oficina));
         $subResp.find('input').val('');
         $cargo.val(null).trigger('change');
         $subResp.find('.js-resp-cuenta').text('0 / 35');
-        $subResp.removeClass('d-none');
+        abrirAlta($subResp);
         $subResp.find('.js-resp-ci').trigger('focus');
         try {
             const r = await SciafModulo.pedir('/administracion/responsable/obtener-siguiente-codigo-funcionario?idOficina=' + $oficina.val(), { metodo: 'GET' });
@@ -1154,10 +1411,10 @@
             $b.find('.js-caract').val(d.caracteristicas || '');
             cargarAuxiliares($b, d.idAuxiliar);
         }
+        activarBien($b);
         renumerar();
         refrescarBien($b);
         actualizarCodigos();
-        $b[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         setTimeout(function () { $b.find(desde ? '.js-desc' : '.js-grupo').first().each(function () { if (desde) this.focus(); else $(this).select2('open'); }); }, 250);
         return $b;
     }
@@ -1166,6 +1423,52 @@
         const $todos = $bienes.children('.dn-bien');
         $todos.each(function (i) { $(this).find('.js-num').text(i + 1); });
         $todos.find('.js-quitar').prop('disabled', $todos.length <= 1);
+        pintarChips();
+    }
+
+    // ── Carrusel: un bien a la vez (así el paso entra en la ventana sin desplazarse) ──
+
+    /** Muestra ese bien y oculta los demás; sus datos siguen en el formulario. */
+    function activarBien($b) {
+        if (!$b || !$b.length) return;
+        $bienes.children('.dn-bien').not($b).removeClass('activo');
+        $b.addClass('activo');
+        pintarChips();
+    }
+
+    /** Sección visible de la tarjeta: datos, detalle o fotos. */
+    function seccionBien($b, sec) {
+        $b.find('.dn-secciones button').each(function () { $(this).toggleClass('activo', this.dataset.sec === sec); });
+        $b.find('.dn-sec').each(function () { $(this).toggleClass('visible', this.dataset.sec === sec); });
+    }
+
+    /** Fichas de arriba: una por bien, con su número y lo que es; en rojo si tiene algo por revisar. */
+    function pintarChips() {
+        const $chips = $form.find('.js-chips');
+        const $todos = $bienes.children('.dn-bien');
+        // Si el foco estaba en una ficha (clic o teclado), vuelve a la ficha activa: si no, se
+        // pierde en <body> y dejan de andar Ctrl+Enter y Alt+N.
+        const conFoco = $chips[0].contains(document.activeElement);
+        let activa = null;
+        $chips.empty();
+        $todos.each(function (i) {
+            const $b = $(this);
+            const desc = mayus($b.find('.js-desc').val());
+            const $c = $('<button type="button" class="dn-chip-bien" role="tab">')
+                .attr('data-i', i).attr('title', (i + 1) + '. ' + (desc || 'Bien nuevo'))
+                .attr('aria-selected', $b.hasClass('activo') ? 'true' : 'false')
+                .toggleClass('activo', $b.hasClass('activo')).toggleClass('mal', !!$b.data('mal'))
+                .append($('<b>').text(i + 1), $('<span>').text(desc || 'Bien nuevo'));
+            $chips.append($c);
+            if ($b.hasClass('activo')) activa = $c[0];
+        });
+        // La ficha del bien a la vista, dentro de la franja (sin mover la página).
+        if (activa) {
+            const caja = $chips[0];
+            if (activa.offsetLeft < caja.scrollLeft) caja.scrollLeft = activa.offsetLeft - 4;
+            else if (activa.offsetLeft + activa.offsetWidth > caja.scrollLeft + caja.clientWidth) caja.scrollLeft = activa.offsetLeft + activa.offsetWidth - caja.clientWidth + 4;
+            if (conFoco) activa.focus({ preventScroll: true });
+        }
     }
 
     function leerBien($b) {
@@ -1218,8 +1521,10 @@
         else if (rep.length) $si.addClass('mal').text('Serie repetida: ' + rep[0]);
         else if (ser.length > b.cantidad) $si.addClass('mal').text(ser.length + ' líneas de serie para ' + b.cantidad + ' unidad(es): sobran ' + (ser.length - b.cantidad) + '.');
         else $si.removeClass('mal').text(con + ' de ' + b.cantidad + ' unidad(es) con serie.');
+        $si.attr('title', $si.text());
         // En edición: qué código lleva cada línea (las series van por posición).
         const cods = $b.data('codigos');
+        const $mapa = $b.find('.js-series-mapa').empty().removeAttr('title');
         if (cods && cods.length) {
             const vivas = $b.data('unidadesConVida') || [];
             const partes = [];
@@ -1227,13 +1532,14 @@
                 const cod = k < cods.length ? cods[k].substring(cods[k].lastIndexOf('-') + 1) : 'nuevo';
                 partes.push('línea ' + (k + 1) + ' → ' + cod + (vivas[k] ? ' (no cambia)' : ''));
             }
-            $si.append($('<div class="text-muted">').text(partes.join(' · ')));
+            $mapa.text(partes.join(' · ')).attr('title', partes.join('\n'));
         }
         const larga = ser.reduce(function (x, y) { return y.length > x.length ? y : x; }, '');
         const desc = descripcionDe(b, larga || null);
         $b.find('.js-previa').text(desc || '—');
         $b.find('.js-largo').text(desc.length + ' / ' + MAX_DESC).toggleClass('excede', desc.length > MAX_DESC);
         pintarTotalesBienes();
+        pintarChips();
     }
 
     function pintarTotalesBienes() {
@@ -1317,15 +1623,27 @@
         if (b.descripcion && !await sciafConfirmar({ titulo: '¿Quitar este bien?', texto: esc(b.descripcion), aceptar: 'Quitar', peligrosa: true })) return;
         $b.addClass('saliendo');
         setTimeout(function () {
+            // El carrusel pasa al bien siguiente (o al anterior si era el último).
+            const $vecino = $b.next('.dn-bien').length ? $b.next('.dn-bien') : $b.prev('.dn-bien');
             $b.find('select').each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
             liberarFotos($b);
             $b.remove();
+            if ($b.hasClass('activo')) activarBien($vecino);
             renumerar();
             pintarTotalesBienes();
             actualizarCodigos();
         }, 240);
     });
-    $raiz.on('click', '.js-contraer', function () { $(this).closest('.dn-bien').toggleClass('contraido'); });
+    $raiz.on('click', '.js-chips .dn-chip-bien', function () {
+        activarBien($bienes.children('.dn-bien').eq(Number(this.dataset.i)));
+    });
+    $raiz.on('click', '.dn-secciones button', function () {
+        seccionBien($(this).closest('.dn-bien'), this.dataset.sec);
+    });
+    // Aviso de unidades con movimientos (edición): el texto completo en una ventana.
+    $raiz.on('click', '.js-nota-vida', function () {
+        Swal.fire({ icon: 'info', title: 'Unidades con movimientos', html: $(this).data('html') || '' });
+    });
     $raiz.on('click', '.js-menos, .js-mas', function () {
         const $c = $(this).closest('.dn-cantidad').find('.js-cantidad');
         const $bien = $(this).closest('.dn-bien');
@@ -1343,6 +1661,7 @@
     });
     $raiz.on('input change', '.dn-bien input, .dn-bien textarea, .dn-bien .js-estado', function () {
         const $b = $(this).closest('.dn-bien');
+        $b.data('mal', false);
         refrescarBien($b);
         if ($(this).hasClass('js-cantidad')) actualizarCodigos();
     });
@@ -1384,22 +1703,22 @@
                 + '<td class="text-center">' + b.cantidad + '</td><td class="text-end">' + esc(bs((b.valorUnitario || 0) * b.cantidad)) + '</td></tr>';
         });
         const tipo = st.tipo === 'PERSONA' ? 'Persona' : 'Institución';
-        const campo = function (et, v) { return '<div class="dn-campo"><small>' + et + '</small><span>' + (v ? esc(v) : '—') + '</span></div>'; };
+        const campo = function (et, v) { return '<div class="dn-campo"><small>' + et + '</small><span title="' + escAttr(v || '') + '">' + (v ? esc(v) : '—') + '</span></div>'; };
         $form.find('.js-resumen').html(
             '<div class="dn-tarjetas">'
-            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-heart-handshake"></i> Donante</div>'
+            // Los totales van en el pie (como en el paso 3): dos tarjetas anchas, sin cortar los nombres.
+            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-heart-handshake"></i> Donante</div><div class="dn-tarjeta-campos">'
             + campo(tipo, mayus($form.find('[name=donanteNombre]').val()))
             + campo(st.tipo === 'PERSONA' ? 'C.I.' : 'NIT', mayus($form.find('[name=donanteDocumento]').val()))
-            + campo('Fecha', fechaBonita($form.find('[name=fechaDonacion]').val()))
-            + campo('Documento de respaldo', mayus($form.find('[name=documentoRespaldo]').val())) + '</div>'
-            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-map-pin"></i> Destino</div>'
-            + campo('Predio', textoSel($predio)) + campo('Oficina', textoSel($oficina))
-            + campo('Responsable', textoSel($resp)) + campo('Financiador', textoSel($fin)) + '</div>'
-            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-sum"></i> Totales</div>'
-            + campo('Bienes', String(bienes.length)) + campo('Unidades (activos que se crean)', String(unidades))
-            + campo('Valor referencial', bs(valor))
-            + '<div class="sm-aviso sm-aviso-info mt-2 mb-0 py-2"><i class="ti ti-cloud-off"></i><div class="small">Quedan <b>ACTIVOS</b> en el SCIAF. No se envían al VSIAF.</div></div></div>'
+            + campo('Documento de respaldo', mayus($form.find('[name=documentoRespaldo]').val()))
+            + campo('Fecha', fechaBonita($form.find('[name=fechaDonacion]').val())) + '</div></div>'
+            + '<div class="dn-tarjeta"><div class="dn-tarjeta-cab"><i class="ti ti-map-pin"></i> Destino</div><div class="dn-tarjeta-campos">'
+            + campo('Oficina', textoSel($oficina)) + campo('Predio', textoSel($predio))
+            + campo('Responsable', textoSel($resp)) + campo('Financiador', textoSel($fin)) + '</div></div>'
             + '</div>'
+            // En tablet y celular el pie no muestra todos los totales: aquí, en una línea.
+            + '<div class="dn-resumen-totales d-lg-none"><i class="ti ti-sum"></i> <b>' + bienes.length + '</b> bien(es) · <b>' + unidades
+            + '</b> activo(s) que se crean · valor referencial <b>' + esc(bs(valor)) + '</b></div>'
             + '<div class="dn-tabla-caja"><table class="dn-tabla"><thead><tr><th>#</th><th>Código(s)</th><th>Descripción</th><th>Grupo</th><th class="text-center">Cant.</th><th class="text-end">Subtotal</th></tr></thead><tbody>'
             + filas + '</tbody></table></div>');
     }
@@ -1495,6 +1814,7 @@
         $bienes.find('select').each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
         $bienes.children('.dn-bien').each(function () { liberarFotos($(this)); });
         $bienes.empty();
+        pintarChips();
         ponerTipo('INSTITUCION');
         $form.find('[name=fechaDonacion]').val(hoyLocal()).attr('max', hoyLocal());
         $predio.val(null).trigger('change.select2');
@@ -1502,7 +1822,7 @@
         $resp.val(null).empty().prop('disabled', true).trigger('change.select2');
         $fin.val(null).trigger('change.select2');
         $form.find('.js-alta-oficina, .js-alta-resp').prop('disabled', true);
-        $form.find('.js-sub-oficina, .js-sub-resp').addClass('d-none');
+        cerrarAltas();
         pintarPrefijo();
         $form.find('.js-resumen').empty();
         $form.find('.js-totales').empty();
@@ -1865,7 +2185,7 @@
             $b.find('.js-series').val((it.series || []).join('\n'));
             $b.data('itemOriginal', it.item).data('codigos', it.codigos || []).data('conVida', it.conVida || 0)
               .data('cantidadOriginal', it.cantidad).data('grupoOriginal', it.idGrupoContable);
-            $b.find('.js-fotos, .js-foto-add').addClass('d-none');
+            $b.find('.js-fotos, .js-foto-add, .js-fotos-ayuda').addClass('d-none');
             $b.find('.js-fotos-nota').removeClass('d-none');
             $b.data('unidadesConVida', it.unidadesConVida || []);
             if (it.conVida > 0 || soloDatos) {
@@ -1874,13 +2194,18 @@
                 $b.data('cantidadMinima', it.cantidad);
             }
             if (it.conVida > 0) {
-                $b.find('.js-nota-vida').removeClass('d-none').html('<i class="ti ti-lock"></i><div class="small">' + esc(it.conVida)
-                    + ' unidad(es) ya tienen movimientos (se movieron, se dieron de baja o están en un acta): <b>no se modifican</b> al guardar; '
-                    + 'corríjalas desde Registro de activos. Tampoco se puede cambiar el grupo contable ni bajar la cantidad de ' + esc(it.cantidad) + '.</div>');
+                // En la cabecera de la tarjeta, un candado; el aviso completo se abre con un clic.
+                $b.find('.js-nota-vida').removeClass('d-none')
+                    .attr('title', 'Unidades con movimientos: no se modifican al guardar (clic para ver el detalle)')
+                    .data('html', esc(it.conVida)
+                        + ' unidad(es) ya tienen movimientos (se movieron, se dieron de baja o están en un acta): <b>no se modifican</b> al guardar; '
+                        + 'corríjalas desde Registro de activos. Tampoco se puede cambiar el grupo contable ni bajar la cantidad de ' + esc(it.cantidad) + '.')
+                    .html('<i class="ti ti-lock"></i> ' + esc(it.conVida) + ' con movimientos');
             }
             refrescarBien($b);
         });
         renumerar();
+        activarBien($bienes.children('.dn-bien').first());
         mostrar('asistente');
         irAPaso(1);
         actualizarCodigos();
@@ -1991,6 +2316,28 @@
     reiniciarAsistente();
     iniciarTabla();
     mostrar('listado');
-    ajustarPanel = SciafModulo.ajustarAlto($panel, 12);
+    // Solo la etapa se mide (y se desplaza si la ventana es muy baja): los pasos y el pie con
+    // los botones quedan siempre a la vista. La pantalla de éxito, igual.
+    const ajustarEtapas = SciafModulo.ajustarAlto($etapas, 12);
+    const ajustarExito = SciafModulo.ajustarAlto($exito, 12);
+    ajustarPanel = function () {
+        if (!$form.hasClass('d-none')) ajustarEtapas();
+        if (!$exito.hasClass('d-none')) ajustarExito();
+    };
+    // Si la cabecera cambia de alto sin que cambie la ventana (se abre o cierra el menú lateral,
+    // carga la fuente, se parte en otra línea), se vuelve a medir lo que se ve.
+    if (window.ResizeObserver) {
+        let altoCab = 0, espera = null;
+        new ResizeObserver(function (e) {
+            const h = Math.round(e[0].contentRect.height);
+            if (h === altoCab) return;
+            altoCab = h;
+            clearTimeout(espera);
+            espera = setTimeout(function () {
+                if (!$panelReg.hasClass('d-none')) { ajustarPanel(); return; }
+                try { window.dispatchEvent(new Event('resize')); } catch (e) { /* navegador viejo */ }
+            }, 120);
+        }).observe($raiz.find('.sm-cabecera')[0]);
+    }
 })();
 </script>
