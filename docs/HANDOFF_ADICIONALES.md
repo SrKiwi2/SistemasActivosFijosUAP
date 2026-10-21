@@ -180,3 +180,18 @@ teclas reales (CDP `Input.dispatchKeyEvent`).
 
 1. En Consulta, un adicional sin código no lleva la pastilla «ADICIONAL» (se reconoce por el
    código; haría falta mandar la procedencia en `ActivoDTO`).
+
+## Registro por lotes (21-oct-2026)
+
+- El alta permite agregar hasta 20 lotes y 200 bienes en total. Cada lote conserva sus propios
+  datos, cantidad, códigos antiguos, series, fotos, grupo contable, predio, oficina y responsable.
+  Al agregar otro se heredan clasificación y destino para agilizar registros repetidos; se pueden
+  cambiar y volver a cualquier lote antes de guardar. La confirmación muestra el resumen de todos.
+- `POST /administracion/adicional/api/registrar-lotes` recibe `AdicionalLotesRequest` con un token
+  de operación y la lista de `AdicionalRequest`. El servicio valida todos antes de guardar y usa
+  una sola transacción, el candado de correlativos existente y un token distinto por lote para
+  reintentos. Devuelve los activos agrupados por lote para colocar las fotos de cada uno.
+- Compila con JDK 21; el JavaScript pasa `node --check`. Pasaron
+  `ReporteAdicionalServiceTest` y `WordInternoTransferenciaServiceTest`. No se probó en vivo ni
+  contra PostgreSQL. El test `WordActaSmokeTest` falla por una dependencia nula en
+  `WordAsignacionActivoService` (fuera de este módulo).

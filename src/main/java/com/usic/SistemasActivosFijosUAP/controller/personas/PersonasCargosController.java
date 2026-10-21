@@ -292,7 +292,7 @@ public class PersonasCargosController {
         try {
             var r = service.juntarCustodias(PersonasCargosService.aLong(cuerpo.get("idQueda")),
                     PersonasCargosService.aLong(cuerpo.get("idSobra")), RolesSciaf.usuarioDe(request));
-            return ResponseEntity.ok(Map.of("ok", true, "msg", r.mensaje()));
+            return ResponseEntity.ok(Map.of("ok", true, "completo", r.completo(), "msg", r.mensaje()));
         } catch (IllegalArgumentException | IllegalStateException
                  | com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException e) {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));

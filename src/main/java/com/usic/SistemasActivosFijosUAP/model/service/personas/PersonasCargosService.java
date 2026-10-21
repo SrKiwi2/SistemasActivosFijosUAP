@@ -902,6 +902,11 @@ public class PersonasCargosService implements EjecutorAutorizacion {
         if (!suyos.containsAll(idsActivos)) {
             throw new IllegalArgumentException("Algún bien marcado ya no está a cargo de ese registro: vuelva a abrir la lista.");
         }
+        Persona principal = personaDao.findById(idPrincipal).orElseThrow(() -> new IllegalArgumentException("La persona ya no existe."));
+        if (IdentidadPersona.numeroCi(principal.getCi(), responsableGestionService.ciInvalidos()) == null) {
+            throw new IllegalArgumentException("Los faltantes se registran a nombre de la persona con C.I.: abra la ficha de la "
+                    + "persona que tiene C.I. (y súmele este registro), o cárguele el C.I. en «Datos de la persona» y aplique primero.");
+        }
         List<Long> vinculadas = idPersonaFila.equals(idPrincipal) ? List.of() : List.of(idPersonaFila);
         RegistrarFaltantesRequest req = new RegistrarFaltantesRequest(idPrincipal, idsActivos, documento, null, observacion,
                 null, vinculadas, null, null, null, null);

@@ -18,6 +18,12 @@ public interface IHallazgoInventarioDao extends JpaRepository<HallazgoInventario
 
     List<HallazgoInventario> findByInventarioIdInventario(Long idInventario);
 
+    /** Faltantes vigentes de las actas de una persona que todavía no tienen custodio, en un predio. */
+    @Query("select h from HallazgoInventario h where h.responsableCustodia is null and h.acta.persona.idPersona = :idPersona"
+            + " and h.estadoHallazgo in ('ABIERTO', 'EN_CUSTODIA') and h.estado = 'ACTIVO'"
+            + " and h.activo.oficina.predio.idPredio = :idPredio")
+    List<HallazgoInventario> sinCustodioDeLaPersona(@Param("idPersona") Long idPersona, @Param("idPredio") Long idPredio);
+
     /** Faltantes que van o están en un registro de la oficina de faltantes. */
     List<HallazgoInventario> findByResponsableCustodiaIdResponsable(Long idResponsable);
 

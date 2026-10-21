@@ -24,6 +24,7 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOrganismoFinancieroService;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalRequest;
+import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalLotesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
@@ -132,6 +133,23 @@ public class AdicionalController {
                                            HttpServletRequest request) {
         if (!puede(request)) return sinPermiso();
         return ResponseEntity.ok(adicionalService.previsualizar(idPredio, idOficina, idGrupo, cantidad, RolesSciaf.usuarioDe(request), opciones(request)));
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/registrar-lotes")
+    @ResponseBody
+    public ResponseEntity<?> registrarLotes(@RequestBody AdicionalLotesRequest req, HttpServletRequest request) {
+        Usuario u = RolesSciaf.usuarioDe(request);
+        try {
+            List<List<Map<String, Object>>> lotes = adicionalService.registrarLotes(req, u, opciones(request));
+            List<Map<String, Object>> creados = lotes.stream().flatMap(List::stream).toList();
+            actividadService.registrar(u, ActividadService.MOD_ACTIVO, ActividadService.ACC_REGISTRO, "ADICIONALES",
+                    "Registró " + creados.size() + " activo(s) adicional(es) en " + lotes.size() + " lote(s)", creados.size(), null);
+            return ResponseEntity.ok(Map.of("ok", true, "lotes", lotes, "activos", creados,
+                    "msg", creados.size() + " activo(s) adicional(es) registrado(s) en " + lotes.size() + " lote(s)."));
+        } catch (Exception e) {
+            return error(e, "el registro por lotes");
+        }
     }
 
     @ValidarUsuarioAutenticado

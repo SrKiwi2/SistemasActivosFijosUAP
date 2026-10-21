@@ -578,7 +578,11 @@
                         const quien = x.idPersona === f.principal.id ? '' : ' <span class="sm-pastilla sm-pastilla-info">se suma</span>';
                         let accion;
                         // Oficina de faltantes: un solo registro por persona. El que sobra se junta con el que queda.
-                        const queda = x.esCustodia ? (lista.find(z => z.esCustodia && z.idPersona === f.principal.id) || lista.find(z => z.esCustodia)) : null;
+                        // Queda el de la persona con C.I. (la principal si lo tiene); el servidor lo vuelve a exigir.
+                        const ciDe = id => { const q = [f.principal].concat(f.secundarias).find(z => z.id === id); return q && q.ci; };
+                        const custodias = lista.filter(z => z.esCustodia);
+                        const queda = x.esCustodia ? (custodias.find(z => z.idPersona === f.principal.id && ciDe(z.idPersona))
+                            || custodias.find(z => ciDe(z.idPersona)) || custodias.find(z => z.idPersona === f.principal.id) || custodias[0]) : null;
                         if (queda && queda.idResponsable !== x.idResponsable) {
                             accion = aplicaDirecto
                                 ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-rep-juntar" data-sobra="' + x.idResponsable
@@ -628,7 +632,7 @@
             try {
                 const j = await SciafModulo.pedirJson(URL + '/repetidos/juntar', { json: { idQueda: queda.idResponsable, idSobra: sobra.idResponsable } });
                 if (!j.ok) throw new Error(j.msg);
-                Swal.fire({ icon: 'success', title: 'Registros juntados', text: j.msg });
+                Swal.fire({ icon: j.completo === false ? 'warning' : 'success', title: 'Registros juntados', text: j.msg });
                 await cargarFicha();
             } catch (e) { SciafModulo.avisarError(e, 'No se pudieron juntar'); }
         });

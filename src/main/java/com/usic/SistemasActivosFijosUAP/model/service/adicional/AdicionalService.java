@@ -35,6 +35,7 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoFotoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalRequest;
+import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalLotesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ActivoAdicional;
 import com.usic.SistemasActivosFijosUAP.model.entity.ActivoFoto;
@@ -303,8 +304,38 @@ public class AdicionalService {
         String token = limpiar(req == null ? null : req.getToken());
         if (token != null && token.length() > 40) throw new IllegalArgumentException("Marca de registro inválida.");
         Datos d = validar(req, null);
-
         adicionalDao.turno(TURNO_ADICIONALES);
+        return registrarValidado(d, token, usuario);
+    }
+
+    /** Todos los lotes se validan y guardan en una sola transacción. El token permite reintentar. */
+    @Transactional
+    public List<List<Map<String, Object>>> registrarLotes(AdicionalLotesRequest req, Usuario usuario, Object opciones) {
+        exigirPermiso(usuario, opciones);
+        if (req == null || req.getLotes() == null || req.getLotes().isEmpty() || req.getLotes().size() > 20)
+            throw new IllegalArgumentException("Registre entre 1 y 20 lotes.");
+        String token = limpiar(req.getToken());
+        if (token == null || token.length() > 32)
+            throw new IllegalArgumentException("Marca de registro de lotes inválida.");
+        List<Datos> lotes = new ArrayList<>();
+        int total = 0;
+        for (int i = 0; i < req.getLotes().size(); i++) {
+            try {
+                Datos d = validar(req.getLotes().get(i), null);
+                total += d.cantidad;
+                if (total > TOPE_UNIDADES) throw new IllegalArgumentException("El total supera " + TOPE_UNIDADES + " bienes.");
+                lotes.add(d);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Lote " + (i + 1) + ": " + e.getMessage(), e);
+            }
+        }
+        adicionalDao.turno(TURNO_ADICIONALES);
+        List<List<Map<String, Object>>> resultado = new ArrayList<>();
+        for (int i = 0; i < lotes.size(); i++) resultado.add(registrarValidado(lotes.get(i), token + "-" + i, usuario));
+        return resultado;
+    }
+
+    private List<Map<String, Object>> registrarValidado(Datos d, String token, Usuario usuario) {
         if (token != null) {
             List<ActivoAdicional> previos = adicionalDao.findByTokenRegistro(token);
             if (!previos.isEmpty()) {

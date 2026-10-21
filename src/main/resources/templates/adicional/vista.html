@@ -165,6 +165,10 @@
     .adi-pantalla.adi-en-form .sm-cabecera { margin-bottom: .6rem; }
     .adi-pantalla .js-panel-form .sm-detalle-head { padding: .7rem 1.1rem; }
     .adi-pantalla .js-panel-form .sm-detalle-head .sm-modal-titulo { font-size: 1.2rem; }
+    .adi-lotes { display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.3rem .7rem; border-bottom:1px solid var(--sm-borde-fuerte); }
+    .adi-lotes .sm-btn { padding:.25rem .5rem; }
+    .adi-lotes .js-lote-indicador { font-weight:700; min-width:85px; text-align:center; }
+    .adi-lotes.d-none { display:none; }
 
     /* Tabla: filas de alto parejo (la descripción en 2 líneas, la ubicación en 1 + responsable) */
     .adi-pantalla .js-tabla td { vertical-align: middle; }
@@ -364,6 +368,13 @@
                 <h5 class="sm-modal-titulo js-form-titulo">Registre lo que sepa del bien</h5>
                 <small>Ningún dato es obligatorio. Solo escriba el nombre o el código antiguo para poder reconocerlo.</small></div>
         </div>
+        <div class="adi-lotes js-lotes d-none" aria-label="Lotes de esta alta">
+            <button type="button" class="sm-btn sm-btn-neutro js-lote-prev" title="Lote anterior"><i class="ti ti-chevron-left"></i></button>
+            <span class="js-lote-indicador" aria-live="polite">Lote 1 de 1</span>
+            <button type="button" class="sm-btn sm-btn-neutro js-lote-next" title="Lote siguiente"><i class="ti ti-chevron-right"></i></button>
+            <button type="button" class="sm-btn sm-btn-suave js-lote-add" title="Agregar otro lote con su propio grupo y destino"><i class="ti ti-plus"></i> Lote</button>
+            <button type="button" class="sm-btn sm-btn-neutro js-lote-remove" title="Quitar este lote"><i class="ti ti-trash"></i></button>
+        </div>
         <!-- Pasos: nada es obligatorio, se puede ir a cualquiera y guardar desde cualquiera -->
         <div class="adi-pasos" role="tablist" aria-label="Partes del registro">
             <button type="button" class="adi-paso" data-paso="1"><span class="adi-paso-num">1</span><span class="adi-paso-txt">El bien</span></button>
@@ -532,6 +543,7 @@
             <button type="button" class="sm-btn sm-btn-neutro js-cancelar" aria-label="Cancelar"><i class="ti ti-x"></i><span class="adi-l-largo"> Cancelar</span></button>
             <button type="button" class="sm-btn sm-btn-neutro js-atras" aria-label="Paso anterior" title="Paso anterior"><i class="ti ti-arrow-left"></i></button>
             <button type="button" class="sm-btn sm-btn-neutro js-siguiente" title="Paso siguiente (Ctrl+Enter)"><span class="adi-l-largo">Siguiente </span><i class="ti ti-arrow-right"></i></button>
+            <button type="button" class="sm-btn sm-btn-neutro js-lote-add" title="Agregar otro lote con su propio grupo y destino"><i class="ti ti-plus"></i><span class="adi-l-largo"> Agregar lote</span></button>
             <button type="button" class="sm-btn sm-btn-suave js-guardar-otro" title="Guarda y deja la clasificación y la ubicación para cargar el siguiente"><i class="ti ti-repeat"></i><span class="adi-l-largo"> Guardar y registrar otro</span><span class="adi-l-corto"> Guardar y otro</span></button>
             <button type="button" class="sm-btn sm-btn-exito js-guardar"><i class="ti ti-device-floppy"></i> Guardar</button>
         </div>
@@ -604,7 +616,7 @@
     const predioPorId = {}, grupoPorId = {};
     PREDIOS.forEach(function (p) { predioPorId[p.id] = p; });
     GRUPOS.forEach(function (g) { grupoPorId[g.id] = g; });
-    const st = { edicion: null, enviando: false, token: null, fotos: [], paso: 1 };
+    const st = { edicion: null, enviando: false, token: null, fotos: [], paso: 1, lotes: [], loteActual: 0, tokenLotes: null, cambiandoLote: false };
     const URL_OBJ = window.URL || window.webkitURL;
 
     // ── utilidades ──
@@ -1128,50 +1140,157 @@
         refrescar();
         actualizarCodigo();
         irAPaso(1);
+        pintarLotes();
     }
+
+    function pintarLotes() {
+        const total = st.lotes.length || 1;
+        $form.find('.js-lotes').toggleClass('d-none', st.edicion || total < 2);
+        $form.find('.js-lote-indicador').text('Lote ' + (st.loteActual + 1) + ' de ' + total);
+        $form.find('.js-lote-prev').prop('disabled', st.loteActual === 0 || st.cambiandoLote);
+        $form.find('.js-lote-next').prop('disabled', st.loteActual >= total - 1 || st.cambiandoLote);
+        $form.find('.js-lote-remove').prop('disabled', total < 2 || st.cambiandoLote);
+        $form.find('.js-lote-add').toggleClass('d-none', !!st.edicion).prop('disabled', total >= 20 || st.cambiandoLote);
+    }
+    function tomarLote() {
+        const datos = leer();
+        const responsable = $resp.select2('data')[0];
+        return { datos: datos, fotos: st.fotos, oficinaTexto: $oficina.select2('data')[0]?.text || '',
+            responsable: responsable && responsable.id ? { id: responsable.id, text: responsable.text } : null };
+    }
+    async function abrirLote(indice) {
+        if (st.cambiandoLote || indice === st.loteActual || indice < 0 || indice >= st.lotes.length) return;
+        if (st.loteActual >= 0) st.lotes[st.loteActual] = tomarLote();
+        st.fotos = []; // Las fotos del lote guardado conservan sus URL hasta guardar o quitarlo.
+        st.cambiandoLote = true;
+        pintarLotes();
+        try {
+            const lote = st.lotes[indice], d = lote.datos;
+            reiniciar(false);
+            st.loteActual = indice;
+            st.fotos = lote.fotos;
+            const campos = { '.js-desc': d.descripcion, '.js-antiguos': (d.codigosAntiguos || []).join('\n'),
+                '.js-series': (d.series || []).join('\n'), '.js-cantidad': d.cantidad,
+                '.js-fecha': d.fechaAdquisicion, '.js-valor': d.valorUnitario, '.js-vida': d.vidaUtil,
+                '.js-marca': d.marca, '.js-modelo': d.modelo, '.js-color': d.color, '.js-material': d.material,
+                '.js-medidas': d.dimensiones, '.js-caract': d.caracteristicas, '.js-obs': d.observacion };
+            Object.entries(campos).forEach(function ([selector, valor]) { $form.find(selector).val(valor == null ? '' : valor); });
+            $predio.val(d.idPredio || null).trigger('change.select2');
+            $grupo.val(d.idGrupoContable || null).trigger('change.select2');
+            $fin.val(d.idOrganismoFinanciero || null).trigger('change.select2');
+            $estado.val(d.idEstadoActivo || '');
+            if (d.idPredio) {
+                await cargarOficinas(d.idPredio, d.idOficina);
+                if (d.idResponsable && lote.responsable) $resp.prop('disabled', false)
+                    .append(new Option(lote.responsable.text, lote.responsable.id, true, true)).trigger('change.select2');
+                await cargarAuxiliares(d.idAuxiliar);
+            }
+            pintarFotos(); refrescar(); actualizarCodigo(); irAPaso(1);
+        } finally { st.cambiandoLote = false; pintarLotes(); }
+    }
+    function soltarLotes() {
+        st.lotes.forEach(function (l) { (l.fotos || []).forEach(function (f) { try { URL_OBJ.revokeObjectURL(f.url); } catch (e) {} }); });
+        st.lotes = []; st.loteActual = 0; st.tokenLotes = null;
+        pintarLotes();
+    }
+    $raiz.on('click', '.js-lote-add', function () {
+        if (st.edicion || st.enviando || st.cambiandoLote || st.lotes.length >= 20) return;
+        if (!st.lotes.length) { st.tokenLotes = nuevoToken().replace(/-/g, '').slice(0, 32); st.lotes = [tomarLote()]; }
+        else st.lotes[st.loteActual] = tomarLote();
+        const origen = st.lotes[st.loteActual].datos;
+        st.lotes.push({ datos: { cantidad: 1, idPredio: origen.idPredio, idOficina: origen.idOficina,
+            idResponsable: origen.idResponsable, idGrupoContable: origen.idGrupoContable,
+            idAuxiliar: origen.idAuxiliar, idEstadoActivo: origen.idEstadoActivo,
+            idOrganismoFinanciero: origen.idOrganismoFinanciero, fechaAdquisicion: origen.fechaAdquisicion },
+            fotos: [], oficinaTexto: st.lotes[st.loteActual].oficinaTexto,
+            responsable: st.lotes[st.loteActual].responsable });
+        abrirLote(st.lotes.length - 1);
+    });
+    $raiz.on('click', '.js-lote-prev', function () { abrirLote(st.loteActual - 1); });
+    $raiz.on('click', '.js-lote-next', function () { abrirLote(st.loteActual + 1); });
+    $raiz.on('click', '.js-lote-remove', function () {
+        if (st.enviando || st.cambiandoLote || st.lotes.length < 2) return;
+        const destino = Math.min(st.loteActual, st.lotes.length - 2);
+        st.lotes[st.loteActual] = tomarLote();
+        const quitado = st.lotes.splice(st.loteActual, 1)[0];
+        st.fotos = [];
+        (quitado.fotos || []).forEach(function (f) { URL_OBJ.revokeObjectURL(f.url); });
+        st.loteActual = -1;
+        abrirLote(destino);
+    });
 
     $raiz.on('click', '.js-nuevo', function () {
         if (!$panel.hasClass('d-none') && !st.edicion) return;
-        reiniciar(false);
+        soltarLotes(); reiniciar(false);
         mostrar('form');
         setTimeout(function () { $form.find('.js-desc').trigger('focus'); }, 80);
     });
-    $raiz.on('click', '.js-cancelar', function () { reiniciar(false); mostrar('listado'); });
+    $raiz.on('click', '.js-cancelar', function () { soltarLotes(); reiniciar(false); mostrar('listado'); });
 
     async function guardar(otro) {
-        if (st.enviando) return;
+        if (st.enviando || st.cambiandoLote) return;
         const d = leer();
         // Cada aviso lleva al paso donde está el dato que falta o sobra.
         const enPaso = function (n, sel) { irAPaso(n, n < st.paso); setTimeout(function () { $form.find(sel).trigger('focus'); }, 60); };
-        if (!d.descripcion && !d.codigosAntiguos.some(Boolean)) { aviso('Escriba al menos el nombre o descripción, o el código antiguo.'); enPaso(1, '.js-desc'); return; }
-        if (!d.descripcion && d.codigosAntiguos.filter(Boolean).length < d.cantidad) { aviso('Sin descripción, cada unidad necesita su código antiguo.'); enPaso(2, '.js-antiguos'); return; }
-        if (d.codigosAntiguos.length > d.cantidad || d.series.length > d.cantidad) {
-            aviso('Hay más líneas de código antiguo o serie que unidades.');
-            enPaso(2, d.codigosAntiguos.length > d.cantidad ? '.js-antiguos' : '.js-series'); return;
+        const lotes = st.lotes.length ? (st.lotes[st.loteActual] = tomarLote(), st.lotes) : [{ datos: d, fotos: st.fotos }];
+        for (let i = 0; i < lotes.length; i++) {
+            const x = lotes[i].datos;
+            let error = '', paso = 1, campo = '.js-desc';
+            if (!x.descripcion && !(x.codigosAntiguos || []).some(Boolean)) error = 'Escriba el nombre o el código antiguo.';
+            else if (!x.descripcion && (x.codigosAntiguos || []).filter(Boolean).length < x.cantidad) {
+                error = 'Sin descripción, cada unidad necesita su código antiguo.'; paso = 2; campo = '.js-antiguos';
+            } else if ((x.codigosAntiguos || []).length > x.cantidad || (x.series || []).length > x.cantidad) {
+                error = 'Hay más líneas de código antiguo o serie que unidades.'; paso = 2;
+                campo = (x.codigosAntiguos || []).length > x.cantidad ? '.js-antiguos' : '.js-series';
+            }
+            if (error) {
+                aviso((lotes.length > 1 ? 'Lote ' + (i + 1) + ': ' : '') + error);
+                if (i !== st.loteActual && st.lotes.length) await abrirLote(i);
+                enPaso(paso, campo); return;
+            }
         }
+        const totalBienes = lotes.reduce(function (s, l) { return s + l.datos.cantidad; }, 0);
+        if (totalBienes > 200) { aviso('El total no puede superar 200 bienes.'); return; }
+        const resumen = lotes.length > 1 ? '<div style="text-align:left;max-height:230px;overflow:auto">'
+            + lotes.map(function (l, i) {
+                const x = l.datos, grupo = grupoPorId[x.idGrupoContable], predio = predioPorId[x.idPredio];
+                return '<div style="padding:.35rem 0;border-bottom:1px solid #ddd"><b>Lote ' + (i + 1) + ' · ' + x.cantidad + ' bien(es)</b> — '
+                    + esc(x.descripcion || x.codigosAntiguos.find(Boolean) || 'Sin descripción') + '<br><small>'
+                    + esc(grupo ? grupo.cod + ' ' + grupo.nombre : 'Sin grupo') + ' · '
+                    + esc(l.oficinaTexto || (predio ? predio.nombre : 'Sin predio ni oficina'))
+                    + (l.responsable ? ' · ' + esc(l.responsable.text) : '') + '</small></div>';
+            }).join('') + '</div>' : '';
         const ed = st.edicion;
         const ok = await sciafConfirmar(ed ? {
             titulo: '¿Guardar los cambios?', texto: 'Se corrige el activo ' + (ed.codigo ? '<b>' + esc(ed.codigo) + '</b>' : '<b>sin código</b>') + '.', aceptar: 'Sí, guardar'
         } : {
-            titulo: d.cantidad > 1 ? '¿Registrar ' + d.cantidad + ' activos adicionales?' : '¿Registrar el activo adicional?',
-            texto: 'Quedan solo en el SCIAF (no van al VSIAF).' + ($predio.val() && $grupo.val() ? '' : '<br><small>Sin predio y grupo contable no reciben código nuevo todavía.</small>'),
+            titulo: lotes.length > 1 ? '¿Registrar ' + totalBienes + ' bienes en ' + lotes.length + ' lotes?'
+                : d.cantidad > 1 ? '¿Registrar ' + d.cantidad + ' activos adicionales?' : '¿Registrar el activo adicional?',
+            texto: resumen + 'Quedan solo en el SCIAF (no van al VSIAF).'
+                + (lotes.length > 1 || ($predio.val() && $grupo.val()) ? '' : '<br><small>Sin predio y grupo contable no reciben código nuevo todavía.</small>'),
             aceptar: 'Sí, registrar'
         });
         if (!ok) return;
-        const fotos = st.fotos.slice();
         st.enviando = true;
         $form.find('.js-guardar, .js-guardar-otro').prop('disabled', true);
         try {
-            const r = await SciafModulo.pedirJson(ed ? URL + '/api/activo/' + ed.id + '/editar' : URL + '/api/registrar', { json: d });
+            const porLotes = !ed && lotes.length > 1;
+            const r = await SciafModulo.pedirJson(ed ? URL + '/api/activo/' + ed.id + '/editar'
+                : porLotes ? URL + '/api/registrar-lotes' : URL + '/api/registrar',
+                { json: porLotes ? { token: st.tokenLotes, lotes: lotes.map(function (l) { return l.datos; }) } : d });
             if (!r.ok) throw new Error(r.msg || 'No se pudo guardar.');
             let msg = r.msg;
-            if (!ed && fotos.length && (r.activos || []).length) {
+            if (!ed && lotes.some(function (l) { return l.fotos.length; }) && (r.activos || []).length) {
                 try {
-                    const fd = new FormData();
-                    r.activos.forEach(function (a) { fd.append('idsActivo', a.idActivo); });
-                    fotos.forEach(function (f) { fd.append('fotos', f.blob, f.nombre); });
-                    const rf = await SciafModulo.pedirJson(URL + '/api/fotos', { datos: fd });
-                    if (!rf.ok) throw new Error(rf.msg);
+                    for (let i = 0; i < lotes.length; i++) {
+                        if (!lotes[i].fotos.length) continue;
+                        const fd = new FormData();
+                        const activos = porLotes ? r.lotes[i] : r.activos;
+                        activos.forEach(function (a) { fd.append('idsActivo', a.idActivo); });
+                        lotes[i].fotos.forEach(function (f) { fd.append('fotos', f.blob, f.nombre); });
+                        const rf = await SciafModulo.pedirJson(URL + '/api/fotos', { datos: fd });
+                        if (!rf.ok) throw new Error(rf.msg);
+                    }
                 } catch (ef) {
                     if (!ef.sesionPerdida) msg += ' Las fotos NO se guardaron (' + (ef.message || 'error') + '): agréguelas desde el detalle.';
                 }
@@ -1184,9 +1303,9 @@
             const codigos = (r.activos || []).map(function (a) { return a.codigo || (a.codigoAntiguo ? 'ant. ' + a.codigoAntiguo : 'sin código'); });
             Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: esc(msg),
                 text: codigos.length ? codigos.slice(0, 6).join(' · ') + (codigos.length > 6 ? ' …' : '') : '', showConfirmButton: false, timer: 5000 });
-            if (ed) { reiniciar(false); mostrar('listado'); abrirDetalle(ed.id); }
-            else if (otro) { reiniciar(true); setTimeout(function () { $form.find('.js-desc').trigger('focus'); }, 80); }
-            else { reiniciar(false); mostrar('listado'); }
+            if (ed) { soltarLotes(); reiniciar(false); mostrar('listado'); abrirDetalle(ed.id); }
+            else if (otro) { soltarLotes(); reiniciar(true); setTimeout(function () { $form.find('.js-desc').trigger('focus'); }, 80); }
+            else { soltarLotes(); reiniciar(false); mostrar('listado'); }
         } catch (e) {
             if (!e.sesionPerdida) Swal.fire('No se guardó', esc(e.message || 'Intente de nuevo.')
                 + (ed ? '' : '<br><small>Puede volver a pulsar «Guardar»: si ya se había guardado, no se duplica.</small>'), 'error');
@@ -1391,6 +1510,7 @@
         bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
         reiniciar(false);
         st.edicion = { id: d.idActivo, codigo: d.codigo, idPredio: d.idPredio, idGrupo: d.idGrupoContable, conVida: !!d.conVida };
+        pintarLotes();
         $form.find('.js-form-kicker').text('Corregir activo adicional');
         $form.find('.js-form-titulo').html(codigoHtml(d.codigo) + (d.codigoAntiguo ? ' <span class="adi-antiguo">Cód. antiguo ' + esc(d.codigoAntiguo) + '</span>' : ''));
         $form.find('.js-bloque-cantidad, .js-seccion-fotos, .js-guardar-otro').addClass('d-none');

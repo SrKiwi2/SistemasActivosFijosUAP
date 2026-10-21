@@ -26,6 +26,7 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IHallazgoInventarioDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.ActaFaltante;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
+import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.DbfColaOrden;
 import com.usic.SistemasActivosFijosUAP.model.entity.HallazgoInventario;
 import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
@@ -71,6 +72,7 @@ public class EnvioCustodiaService {
 
     private final IHallazgoInventarioDao hallazgoDao;
     private final com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao activoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao responsableDao;
     private final com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService responsableGestionService;
     private final IResponsableService responsableService;
     private final IDbfColaOrdenDao colaDao;
@@ -320,6 +322,9 @@ public class EnvioCustodiaService {
         for (HallazgoInventario h : hallazgoDao.bloquear(ids)) {
             // Se relee con el bloqueo: pudo anularse el acta o cambiar el paso mientras tanto.
             if (!ESPERANDO_ALTA.equals(h.getEstadoEnvio())) continue;
+            // «Juntar» pudo cambiar su custodio entre el agrupado y este paso: va en el próximo ciclo.
+            if (h.getResponsableCustodia() == null || !idCustodio.equals(h.getResponsableCustodia().getIdResponsable())
+                    || !custodio.isEsCustodia()) continue;
             Activo a = h.getActivo();
             String problema = problemaParaTrasladar(h, a, predio);
             if (problema != null) {
@@ -533,7 +538,7 @@ public class EnvioCustodiaService {
 
     // ── Juntar dos registros de la misma persona en una oficina de faltantes ──
 
-    public record Junta(int bienes, int faltantes, String mensaje) {}
+    public record Junta(int bienes, int faltantes, boolean completo, String mensaje) {}
 
     /**
      * Una persona, un registro en la oficina de faltantes (Saul, 21-oct-2026). Cuando la misma
@@ -547,24 +552,69 @@ public class EnvioCustodiaService {
         if (idQueda == null || idSobra == null || idQueda.equals(idSobra)) {
             throw new ReglaNegocioException("Elija dos registros distintos de la oficina de faltantes.");
         }
+        // Si el que queda está inactivo en el VSIAF, primero se reactiva allá (la orden de RESP
+        // queda antes que las de ACTUAL en la cola).
+        custodiaService.reactivarEnVsiafSiInactivo(idQueda);
         int[] n = new int[2];
         String referencia = enTransaccion(() -> {
-            Responsable queda = responsableService.findByIdWithRelations(idQueda);
-            Responsable sobra = responsableService.findByIdWithRelations(idSobra);
+            // Mismo candado que cualquier otro cambio sobre estas filas: dos «Juntar» cruzados o
+            // un doble clic no pasan los dos.
+            List<Responsable> par = responsableDao.bloquear(List.of(idQueda, idSobra));
+            Responsable queda = par.stream().filter(r -> r.getIdResponsable().equals(idQueda)).findFirst().orElse(null);
+            Responsable sobra = par.stream().filter(r -> r.getIdResponsable().equals(idSobra)).findFirst().orElse(null);
             if (queda == null || sobra == null) throw new ReglaNegocioException("Uno de los registros ya no existe.");
             Oficina of = queda.getOficina();
             if (of == null || sobra.getOficina() == null || !of.getIdOficina().equals(sobra.getOficina().getIdOficina())
                     || !of.isEsCustodia() || !queda.isEsCustodia() || !sobra.isEsCustodia()) {
-                throw new ReglaNegocioException("Los dos registros tienen que estar en la misma oficina de faltantes.");
+                throw new ReglaNegocioException("Los dos registros tienen que estar en la misma oficina de faltantes (y no haberse juntado ya).");
             }
             if (!"ACTIVO".equals(queda.getEstado())) {
                 throw new ReglaNegocioException("El registro que queda está deshabilitado: habilítelo primero.");
             }
-            if (vsiafApoyoNecesitaAlta(queda)) {
+            Persona pq = queda.getPersona(), ps = sobra.getPersona();
+            java.util.Set<String> inv = custodiaService.ciInvalidos();
+            if (pq == null || ps == null || !CustodiaFaltantesService.mismaPersonaParaJuntar(pq, ps, inv)) {
+                throw new ReglaNegocioException("No parecen la misma persona (C.I. distinto o nombre distinto): no se juntan.");
+            }
+            boolean ciQueda = com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(pq.getCi(), inv) != null;
+            boolean ciSobra = com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(ps.getCi(), inv) != null;
+            if (!ciQueda && ciSobra) {
+                throw new ReglaNegocioException("Tiene que quedar el registro de la persona con C.I. (cód. " + sobra.getCodigoFuncionario() + ").");
+            }
+            // Tiene que existir ya en el VSIAF (confirmado, o con su reactivación en la cola).
+            String enVsiaf = custodiaService.estadoEnVsiaf(idQueda).codigo();
+            if (!VsiafApoyoService.EST_VSIAF.equals(enVsiaf) && !VsiafApoyoService.EST_EN_COLA.equals(enVsiaf)) {
                 throw new ReglaNegocioException("El registro que queda todavía no está confirmado en el VSIAF: espere y reintente.");
             }
-            List<Activo> activos = activoDao.findByResponsableIdResponsable(idSobra).stream()
-                    .filter(a -> Activo.ESTADO_ACTIVO.equals(a.getEstado())).toList();
+
+            List<Activo> todos = activoDao.findByResponsableIdResponsable(idSobra);
+            List<String> problemas = new ArrayList<>();
+            for (Activo a : todos) {
+                if ("ELIMINADO".equals(a.getEstado())) continue;
+                if (!Activo.ESTADO_ACTIVO.equals(a.getEstado())) problemas.add(a.getCodigo() + ": está " + a.getEstado());
+                else if (Boolean.TRUE.equals(a.getBloqueado())) problemas.add(a.getCodigo() + ": está bloqueado");
+            }
+            if (!problemas.isEmpty()) {
+                throw new ReglaNegocioException("No se juntó nada. Resuelva primero:\n• " + String.join("\n• ", problemas));
+            }
+            List<Activo> activos = todos.stream().filter(a -> Activo.ESTADO_ACTIVO.equals(a.getEstado())).toList();
+
+            // Faltantes vigentes que van o están en el que sobra, y los de sus actas que todavía
+            // no tienen custodio en este predio (si no, el próximo ciclo revivía al que sobra).
+            List<Long> idsH = new ArrayList<>();
+            hallazgoDao.findByResponsableCustodiaIdResponsable(idSobra).stream()
+                    .filter(h -> ControlActivosService.ABIERTO.equals(h.getEstadoHallazgo())
+                            || ControlActivosService.EN_CUSTODIA.equals(h.getEstadoHallazgo()))
+                    .forEach(h -> idsH.add(h.getIdHallazgo()));
+            hallazgoDao.sinCustodioDeLaPersona(ps.getIdPersona(), of.getPredio().getIdPredio())
+                    .forEach(h -> idsH.add(h.getIdHallazgo()));
+            if (!idsH.isEmpty()) {
+                for (HallazgoInventario h : hallazgoDao.bloquear(idsH)) {
+                    h.setResponsableCustodia(queda);
+                    n[1]++;
+                }
+            }
+
             String usuario = autor != null ? autor.getUsuario() : "SISTEMA";
             LocalDate hoy = LocalDate.now();
             LocalDateTime ahora = LocalDateTime.now();
@@ -584,44 +634,40 @@ public class EnvioCustodiaService {
                 a.setSincVsiafMensaje(null);
                 a.setSincVsiafFecha(ahora);
             }
-            // Los faltantes (abiertos, en camino o en custodia) pasan al registro que queda.
-            for (HallazgoInventario h : hallazgoDao.findByResponsableCustodiaIdResponsable(idSobra)) {
-                h.setResponsableCustodia(queda);
-                n[1]++;
-            }
+            // Deja de ser custodia: una persona tiene un solo registro de custodia por oficina
+            // (uk_resp_custodia_persona), y así después se puede unificar a las dos personas.
+            sobra.setEsCustodia(false);
+            responsableService.save(sobra);
+            n[0] = acos.size();
             if (!acos.isEmpty()) {
                 transferenciaService.registrarTransferencia(acos, "INTERNA", of, queda,
                         autor != null ? autor.getIdUsuario() : null, usuario,
                         "Juntar registros de faltantes de la misma persona",
                         "Juntar registros de faltantes", null);
+                // Último paso: si la orden no se puede dejar, la excepción deshace todo lo anterior.
                 Predio predio = of.getPredio();
                 actualDbfWriterService.actualizarLoteTransferencias(activos,
                         predio.getEntidad().getEntidadCodigo(), predio.getUnidad(), usuario);
             }
-            // Deja de ser custodia: una persona tiene un solo registro de custodia por oficina
-            // (uk_resp_custodia_persona), y así se puede unificar después.
-            sobra.setEsCustodia(false);
-            responsableService.save(sobra);
-            n[0] = acos.size();
             return OficinaGestionService.referencia(of) + " / " + sobra.getCodigoFuncionario() + " → " + queda.getCodigoFuncionario();
         });
-        // Ya vacío: se deshabilita aquí y en el VSIAF (API_ESTADO 3). La orden de RESP va después
-        // de las de ACTUAL en la cola.
+        // Ya vacío: se deshabilita aquí y en el VSIAF (API_ESTADO 3). Su orden de RESP queda
+        // después de las de ACTUAL en la cola.
+        boolean completo = true;
         String baja;
         try {
-            baja = responsableGestionService.aplicarEstado(idSobra, false, autor).msg();
+            com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService.Resultado r = responsableGestionService.aplicarEstado(idSobra, false, autor);
+            completo = r.vsiafOk();
+            baja = r.msg();
         } catch (Exception e) {
-            baja = "No se pudo deshabilitar el registro que sobra: " + e.getMessage() + " (hágalo desde Responsables).";
+            completo = false;
+            baja = "El registro que sobra quedó vacío pero NO se deshabilitó: " + e.getMessage()
+                    + " Deshabilítelo desde Responsables.";
         }
         actividadService.registrar(autor, ActividadService.MOD_TRANSFERENCIA, ActividadService.ACC_MOVIMIENTO,
                 referencia, "Juntó registros de faltantes de la misma persona (" + referencia + "): " + n[0]
                         + " bien(es), " + n[1] + " faltante(s)", n[0], null);
-        return new Junta(n[0], n[1], "Listo: " + n[0] + " bien(es) y " + n[1] + " faltante(s) pasaron al registro que queda. " + baja);
-    }
-
-    private boolean vsiafApoyoNecesitaAlta(Responsable r) {
-        VsiafApoyoService.EstadoVsiaf e = custodiaService.estadoEnVsiaf(r.getIdResponsable());
-        return !VsiafApoyoService.EST_VSIAF.equals(e.codigo());
+        return new Junta(n[0], n[1], completo, n[0] + " bien(es) y " + n[1] + " faltante(s) pasaron al registro que queda. " + baja);
     }
 
     private <T> T enTransaccion(Supplier<T> trabajo) {

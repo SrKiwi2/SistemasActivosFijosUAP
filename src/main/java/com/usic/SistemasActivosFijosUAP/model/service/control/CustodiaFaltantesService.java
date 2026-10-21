@@ -73,6 +73,7 @@ public class CustodiaFaltantesService {
     private final VsiafApoyoService vsiafApoyoService;
     private final ActividadService actividadService;
     private final PlatformTransactionManager txManager;
+    private final ResponsableGestionService responsableGestionService;
 
     /** Qué va a pasar al enviar a custodia un bien de este responsable (para la confirmación). */
     public record Prevision(Long idPredio, String unidad, String oficina, boolean creaOficina,
@@ -307,13 +308,15 @@ public class CustodiaFaltantesService {
         }
 
         List<Candidato> out = new ArrayList<>();
+        Set<String> inv = ciInvalidos();
         for (Responsable r : filas) {
+            if (esJuntado(r)) continue;
             Persona p = r.getPersona();
             Long idP = p != null ? p.getIdPersona() : null;
             String coincidencia;
             if (idP != null && idP.equals(principal.getIdPersona())) coincidencia = MISMA_PERSONA;
             // Mismo C.I. = la misma persona registrada dos veces: se usa su registro (no se crea otro).
-            else if (r.isEsCustodia() && numeroCi(principal) != null && numeroCi(principal).equals(numeroCi(p))) coincidencia = MISMA_PERSONA;
+            else if (r.isEsCustodia() && p != null && mismaPersonaPorCi(p, principal, inv)) coincidencia = MISMA_PERSONA;
             else if (idP != null && idsPersonas.contains(idP))       coincidencia = OTRO_REGISTRO;
             else if (p != null && nombres.contains(nombreNormalizado(p))) coincidencia = MISMO_NOMBRE;
             else                                                       coincidencia = OTRO;
@@ -619,23 +622,73 @@ public class CustodiaFaltantesService {
      * persona registrada dos veces): nunca se crea un segundo registro para el mismo C.I.
      */
     private Responsable responsableDe(Oficina oficina, Persona persona) {
-        List<Responsable> filas = responsableDao.findByOficinaIdOficina(oficina.getIdOficina());
-        Responsable propio = filas.stream()
-                .filter(r -> r.getPersona() != null
-                        && Objects.equals(r.getPersona().getIdPersona(), persona.getIdPersona()))
-                .findFirst().orElse(null);
-        if (propio != null) return propio;
-        String ci = numeroCi(persona);
-        if (ci == null) return null;
-        return filas.stream()
-                .filter(r -> r.isEsCustodia() && r.getPersona() != null && ci.equals(numeroCi(r.getPersona())))
-                .min(Comparator.comparing((Responsable r) -> "ACTIVO".equals(r.getEstado()) ? 0 : 1)
+        Set<String> inv = ciInvalidos();
+        // Un registro ya juntado (dejó de ser custodia y quedó deshabilitado) no se revive nunca.
+        List<Responsable> filas = responsableDao.findByOficinaIdOficina(oficina.getIdOficina()).stream()
+                .filter(r -> !esJuntado(r)).toList();
+        Comparator<Responsable> preferido = Comparator
+                .comparing((Responsable r) -> r.isEsCustodia() && "ACTIVO".equals(r.getEstado()) ? 0 : 1)
+                .thenComparing(Responsable::getIdResponsable);
+        // 1) Un registro de custodia vigente: el propio o el de la misma persona por C.I.
+        Responsable vigente = filas.stream()
+                .filter(r -> r.isEsCustodia() && "ACTIVO".equals(r.getEstado()) && r.getPersona() != null
+                        && (Objects.equals(r.getPersona().getIdPersona(), persona.getIdPersona())
+                            || mismaPersonaPorCi(r.getPersona(), persona, inv)))
+                .min(Comparator.comparing((Responsable r) ->
+                        Objects.equals(r.getPersona().getIdPersona(), persona.getIdPersona()) ? 0 : 1)
                         .thenComparing(Responsable::getIdResponsable))
                 .orElse(null);
+        if (vigente != null) return vigente;
+        // 2) El propio en cualquier estado (se reactiva), y si no, el de su mismo C.I.
+        Responsable propio = filas.stream()
+                .filter(r -> r.getPersona() != null && Objects.equals(r.getPersona().getIdPersona(), persona.getIdPersona()))
+                .min(preferido).orElse(null);
+        if (propio != null) return propio;
+        return filas.stream()
+                .filter(r -> r.isEsCustodia() && r.getPersona() != null && mismaPersonaPorCi(r.getPersona(), persona, inv))
+                .min(preferido).orElse(null);
     }
 
-    private static String numeroCi(Persona p) {
-        return p == null ? null : com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(p.getCi(), java.util.Set.of());
+    /** Registro que «Juntar» dejó vacío: ya no es custodia y está deshabilitado. */
+    static boolean esJuntado(Responsable r) {
+        return !r.isEsCustodia() && ResponsableGestionService.ESTADO_INACTIVO.equals(r.getEstado())
+                && r.getOficina() != null && r.getOficina().isEsCustodia();
+    }
+
+    /** C.I. que no identifican (parámetro personas.ci_invalidos), los mismos que usa la sync. */
+    public Set<String> ciInvalidos() {
+        return responsableGestionService.ciInvalidos();
+    }
+
+    private String numeroCi(Persona p) {
+        return p == null ? null : com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(p.getCi(), ciInvalidos());
+    }
+
+    /**
+     * La misma persona registrada dos veces: mismo número de C.I. (válido) y el nombre con al
+     * menos dos palabras en común (un C.I. repetido por error no junta a dos funcionarios).
+     */
+    static boolean mismaPersonaPorCi(Persona a, Persona b, Set<String> inv) {
+        String ca = com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(a.getCi(), inv);
+        String cb = com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(b.getCi(), inv);
+        return ca != null && ca.equals(cb) && palabrasEnComun(a, b) >= 2;
+    }
+
+    /**
+     * Para «Juntar»: la misma persona en dos registros. Los C.I. no pueden chocar (si los dos
+     * tienen, iguales) y el nombre tiene al menos dos palabras en común.
+     */
+    public static boolean mismaPersonaParaJuntar(Persona a, Persona b, Set<String> inv) {
+        if (Objects.equals(a.getIdPersona(), b.getIdPersona())) return true;
+        String ca = com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(a.getCi(), inv);
+        String cb = com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(b.getCi(), inv);
+        if (ca != null && cb != null && !ca.equals(cb)) return false;
+        return palabrasEnComun(a, b) >= 2;
+    }
+
+    private static long palabrasEnComun(Persona a, Persona b) {
+        Set<String> pa = new HashSet<>(java.util.Arrays.asList(nombreNormalizado(a).split(" ")));
+        return java.util.Arrays.stream(nombreNormalizado(b).split(" ")).filter(w -> w.length() > 1 && pa.contains(w)).distinct().count();
     }
 
     /** CODRESP siguiente dentro de la oficina (cuenta también los dados de baja: en el VSIAF siguen). */

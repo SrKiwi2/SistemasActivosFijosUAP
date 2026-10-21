@@ -303,7 +303,7 @@ public class ActaFaltanteService {
                 .orElseThrow(() -> new ReglaNegocioException("La persona no existe."));
         // Una persona, un registro en la oficina de faltantes (Saul, 21-oct-2026): se la encuentra
         // por su C.I. Sin C.I. se duplicaba (un registro por cada «persona» sin unificar).
-        if (com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(persona.getCi(), Set.of()) == null) {
+        if (com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(persona.getCi(), custodiaService.ciInvalidos()) == null) {
             throw new ReglaNegocioException(persona.getNombreCompleto() + " no tiene C.I.: los faltantes se registran a nombre "
                     + "de la persona con C.I. Si es la misma, búsquela por su C.I. y sume este registro («sumar otro registro»), "
                     + "o cárguele el C.I. en Responsables / Personas y cargos.");

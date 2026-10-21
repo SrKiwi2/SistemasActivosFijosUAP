@@ -268,4 +268,9 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
      */
     @Query("select count(a) from Activo a where a.responsable.idResponsable = :idResponsable and (a.estado is null or a.estado <> 'ELIMINADO')")
     long contarActivosAsignados(@Param("idResponsable") Long idResponsable);
+
+    /** Los responsables indicados, bloqueados hasta el fin de la transacción (en orden de id). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Responsable r where r.idResponsable in :ids order by r.idResponsable")
+    List<Responsable> bloquear(@Param("ids") java.util.Collection<Long> ids);
 }
