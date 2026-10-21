@@ -26,7 +26,7 @@ public interface IResponsableService extends IServiceGenerico<Responsable, Long>
     
     Optional<Responsable> findByOficinaAndPersona(Oficina oficina, Persona persona);
     List<Responsable> saveAll(Iterable<Responsable> responsables);
-    Page<IResposableDao.ResponsableRow> datatable(String q, Long oficinaId, String estado, Pageable pageable);
+    Page<IResposableDao.ResponsableRow> datatable(String q, Long oficinaId, String estado, String bienes, Pageable pageable);
     long countActivos();
     Page<RespOption> search(@Param("term") String term, Pageable pageable);
 

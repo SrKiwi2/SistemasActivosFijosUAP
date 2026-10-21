@@ -89,6 +89,10 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         Short  getApiEstado();
         Boolean getPendienteDbf();
         String getEstado();
+        /** Bienes a cargo (los mismos que impiden deshabilitar). */
+        Long getBienes();
+        Boolean getEsCustodia();
+        Boolean getEsDuplicados();
     }
 
     // total sin filtro (ACTIVO)
@@ -110,7 +114,10 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
             pr.unidad                 as unidadCodigo,
             r.api_estado              as apiEstado,
             r.pendiente_dbf           as pendienteDbf,
-            r._estado                 as estado
+            r._estado                 as estado,
+            (SELECT count(*) FROM activo a WHERE a.id_responsable = r.id_responsable AND (a._estado IS NULL OR a._estado <> 'ELIMINADO')) as bienes,
+            r.es_custodia             as esCustodia,
+            r.es_duplicados           as esDuplicados
 
         FROM responsable r
         LEFT JOIN persona  p ON p.id_persona = r.id_persona
@@ -120,6 +127,9 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
         WHERE (r._estado = :estado OR (:estado = 'TODOS' AND r._estado IN ('ACTIVO', 'INACTIVO')))
             AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
+            AND ( :bienes = 'TODOS'
+                  OR (:bienes = 'SIN' AND NOT EXISTS (SELECT 1 FROM activo a WHERE a.id_responsable = r.id_responsable AND (a._estado IS NULL OR a._estado <> 'ELIMINADO')))
+                  OR (:bienes = 'CON' AND EXISTS (SELECT 1 FROM activo a WHERE a.id_responsable = r.id_responsable AND (a._estado IS NULL OR a._estado <> 'ELIMINADO'))) )
             AND (
                 :q IS NULL OR :q = '' OR
                 r.codigo_funcionario      ILIKE CONCAT('%', :q, '%') OR
@@ -143,6 +153,9 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
         WHERE (r._estado = :estado OR (:estado = 'TODOS' AND r._estado IN ('ACTIVO', 'INACTIVO')))
             AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
+            AND ( :bienes = 'TODOS'
+                  OR (:bienes = 'SIN' AND NOT EXISTS (SELECT 1 FROM activo a WHERE a.id_responsable = r.id_responsable AND (a._estado IS NULL OR a._estado <> 'ELIMINADO')))
+                  OR (:bienes = 'CON' AND EXISTS (SELECT 1 FROM activo a WHERE a.id_responsable = r.id_responsable AND (a._estado IS NULL OR a._estado <> 'ELIMINADO'))) )
             AND (
                 :q IS NULL OR :q = '' OR
                 r.codigo_funcionario      ILIKE CONCAT('%', :q, '%') OR
@@ -157,7 +170,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         """,
         nativeQuery = true)
     Page<ResponsableRow> datatable(@Param("q") String q, @Param("oficinaId") Long oficinaId,
-                                   @Param("estado") String estado, Pageable pageable);
+                                   @Param("estado") String estado, @Param("bienes") String bienes, Pageable pageable);
 
     /** MODLO REGISTRO RESPONSBALE */
     Optional<Responsable> findByCodigoFuncionario(String codigoFuncionario);

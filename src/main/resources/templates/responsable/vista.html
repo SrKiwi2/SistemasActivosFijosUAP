@@ -64,6 +64,14 @@
                 <option value="">Todas las oficinas</option>
             </select>
         </div>
+        <div class="sm-segmento js-f-bienes" role="group" aria-label="Bienes a cargo">
+            <button type="button" class="activo" data-bienes="TODOS">Todos</button>
+            <button type="button" data-bienes="CON" title="Con bienes a cargo">Con bienes</button>
+            <button type="button" data-bienes="SIN" title="Sin bienes a cargo: se pueden deshabilitar">Sin bienes</button>
+        </div>
+        <button type="button" class="sm-btn sm-btn-sm sm-btn-peligro js-lote d-none" th:if="${esAdmin}">
+            <i class="ti ti-user-off"></i> Deshabilitar marcados (<span class="js-lote-n">0</span>)
+        </button>
         <div class="sm-segmento js-f-estado" role="group" aria-label="Estado">
             <button type="button" class="activo" data-estado="ACTIVO" title="Responsables habilitados">Activos</button>
             <button type="button" data-estado="INACTIVO" title="Deshabilitados: en el VSIAF con API_ESTADO 3">Deshabilitados</button>
@@ -89,11 +97,13 @@
     <table class="table sm-tabla align-middle js-tabla">
         <thead>
             <tr>
+                <th th:if="${esAdmin}" style="width:34px;"><input type="checkbox" class="form-check-input js-marcar-pagina" title="Marcar los de esta página que se pueden deshabilitar"></th>
                 <th style="width:60px;">#</th>
                 <th style="width:80px;">Cód.</th>
                 <th>Responsable</th>
                 <th>Oficina</th>
                 <th style="width:190px;">Cargo</th>
+                <th style="width:110px;">Bienes</th>
                 <th style="width:150px;">VSIAF</th>
                 <th th:if="${esAdmin}" style="width:210px;">Registro / modificación</th>
                 <th class="text-end" style="width:200px;">Opciones</th>
@@ -214,16 +224,30 @@
                 '</div>';
         }
 
-        let estadoFiltro = 'ACTIVO';
+        let estadoFiltro = 'ACTIVO', bienesFiltro = 'TODOS';
+        // Marcados para deshabilitar en lote: se recuerdan entre páginas (id cifrado → nombre).
+        const marcados = new Map();
+        function puedeLote(r) { return r.habilitado && !r.especial && !Number(r.bienes); }
+        function pintarLote() {
+            $raiz.find('.js-lote').toggleClass('d-none', marcados.size === 0);
+            $raiz.find('.js-lote-n').text(marcados.size);
+        }
         const columnas = [
             { data: null, className: 'sm-num', render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1 },
             { data: 'codFun', render: v => '<span class="sm-codigo">' + esc(v || '—') + '</span>' },
             { data: null, render: (d, t, r) => celdaResponsable(r) },
             { data: 'oficina', render: v => '<span class="sm-sub">' + esc(v || '—') + '</span>' },
             { data: 'cargo', render: v => v ? '<span class="sm-mayus">' + esc(v) + '</span>' : '<span class="sm-sub">—</span>' },
+            { data: 'bienes', render: v => Number(v) > 0
+                ? '<span class="sm-pastilla sm-pastilla-info"><i class="ti ti-package"></i> ' + esc(v) + '</span>'
+                : '<span class="sm-pastilla sm-pastilla-linea" title="No tiene bienes a cargo"><i class="ti ti-package-off"></i> Sin bienes</span>' },
             { data: null, render: (d, t, r) => celdaVsiaf(r) }
         ];
         if (ES_ADMIN) columnas.push({ data: null, render: (d, t, r) => celdaAuditoria(r) });
+        if (ES_ADMIN) columnas.unshift({ data: null, orderable: false, render: (d, t, r) => puedeLote(r)
+            ? '<input type="checkbox" class="form-check-input js-marca" data-id="' + esc(r.idEnc) + '" data-nombre="' + esc(nombreCompleto(r)) + '"'
+                + (marcados.has(r.idEnc) ? ' checked' : '') + ' title="Marcar para deshabilitar">'
+            : '' });
         columnas.push({ data: null, className: 'text-end', render: (d, t, r) => celdaAcciones(r) });
 
         const tabla = SciafModulo.tabla({
@@ -239,7 +263,7 @@
                 ajax: {
                     url: URL + '/api/datatables',
                     type: 'POST',
-                    data: d => { d.oficinaId = $fOficina.val() || ''; d.estado = estadoFiltro; }
+                    data: d => { d.oficinaId = $fOficina.val() || ''; d.estado = estadoFiltro; d.bienes = bienesFiltro; }
                 },
                 columns: columnas,
                 language: { sEmptyTable: 'No hay responsables. Pulse «Nuevo responsable».' }
@@ -252,6 +276,51 @@
         }
 
         $fOficina.on('change', function () { if (tabla) tabla.ajax.reload(); });
+        $raiz.on('click', '.js-f-bienes button', function () {
+            $raiz.find('.js-f-bienes button').removeClass('activo');
+            $(this).addClass('activo');
+            bienesFiltro = this.dataset.bienes;
+            if (tabla) tabla.ajax.reload();
+        });
+        $raiz.on('change', '.js-marca', function () {
+            if (this.checked) marcados.set(this.dataset.id, this.dataset.nombre); else marcados.delete(this.dataset.id);
+            pintarLote();
+        });
+        $raiz.on('change', '.js-marcar-pagina', function () {
+            const si = this.checked;
+            $raiz.find('.js-marca').each(function () { if (this.checked !== si) $(this).prop('checked', si).trigger('change'); });
+        });
+        $raiz.on('click', '.js-lote', async function () {
+            const ids = Array.from(marcados.keys());
+            if (!ids.length) return;
+            const nombres = Array.from(marcados.values());
+            const si = await window.sciafConfirmar({
+                titulo: '¿Deshabilitar ' + ids.length + ' responsable(s)?',
+                texto: 'Todos <b>sin bienes</b>. Dejan de salir en los buscadores y en el VSIAF quedan <b>inactivos</b>. Se pueden volver a habilitar.'
+                    + '<div class="text-start small mt-2" style="max-height:160px;overflow:auto;">' + nombres.map(n => '• ' + esc(n)).join('<br>') + '</div>',
+                aceptar: 'Sí, deshabilitar'
+            });
+            if (!si) return;
+            const $b = $(this), html = $b.html();
+            $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Deshabilitando…');
+            try {
+                const datos = new URLSearchParams();
+                ids.forEach(id => datos.append('ids', id));
+                const j = await SciafModulo.pedirJson(URL + '/estado/lote', { datos: datos.toString() });
+                if (!j.ok) throw new Error(j.msg);
+                marcados.clear();
+                pintarLote();
+                $raiz.find('.js-marcar-pagina').prop('checked', false);
+                Swal.fire({ icon: (j.saltados || []).length ? 'warning' : 'success', title: 'Listo', html: esc(j.msg)
+                    + ((j.saltados || []).length ? '<div class="text-start small mt-2" style="max-height:160px;overflow:auto;">'
+                        + j.saltados.map(x => '• ' + esc(x)).join('<br>') + '</div>' : '') });
+                recargar();
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se pudo deshabilitar');
+            } finally {
+                $b.prop('disabled', false).html(html);
+            }
+        });
         $raiz.on('click', '.js-f-estado button', function () {
             $raiz.find('.js-f-estado button').removeClass('activo');
             $(this).addClass('activo');

@@ -173,6 +173,7 @@ public class ResponsableController {
             @RequestParam(name = "search[value]", required = false) String search,
             @RequestParam(name = "oficinaId", required = false) Long oficinaId,
             @RequestParam(name = "estado", required = false, defaultValue = "ACTIVO") String estado,
+            @RequestParam(name = "bienes", required = false, defaultValue = "TODOS") String bienes,
             HttpServletRequest request) {
 
         // Auditoría (quién registró / modificó): solo ADMINISTRADOR / SUPER USUARIO, y ni se envía a los demás.
@@ -182,7 +183,8 @@ public class ResponsableController {
         int page = Math.max(start, 0) / Math.max(size, 1);
         Pageable pageable = PageRequest.of(page, size);
         Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId,
-                "INACTIVO".equals(estado) || "TODOS".equals(estado) ? estado : "ACTIVO", pageable);
+                "INACTIVO".equals(estado) || "TODOS".equals(estado) ? estado : "ACTIVO",
+                "SIN".equals(bienes) || "CON".equals(bienes) ? bienes : "TODOS", pageable);
 
         List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
 
@@ -225,6 +227,9 @@ public class ResponsableController {
             m.put("idResponsable", row.getIdResponsable());
             m.put("existeEnDbf", enDbf);
             m.put("habilitado", !"INACTIVO".equals(row.getEstado()));
+            m.put("bienes", row.getBienes() != null ? row.getBienes() : 0L);
+            // Oficina de faltantes o de duplicados: se manejan desde sus módulos, no en lote.
+            m.put("especial", Boolean.TRUE.equals(row.getEsCustodia()) || Boolean.TRUE.equals(row.getEsDuplicados()));
 
             VsiafApoyoService.EstadoVsiaf est = estados.get(row.getIdResponsable());
             m.put("estadoVsiaf", est != null ? est.codigo() : VsiafApoyoService.EST_VSIAF);
@@ -963,6 +968,51 @@ public class ResponsableController {
             log.error("Error cambiando el estado del responsable", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Deshabilita de una vez varios responsables sin bienes (pedido de Saul, 21-oct-2026). Solo
+     * administradores; cada uno pasa por las mismas reglas que el botón individual (sin bienes,
+     * UPDATE con API_ESTADO 3 al VSIAF). Los que no se pueden se informan y se saltan.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/estado/lote")
+    @ResponseBody
+    public ResponseEntity<?> deshabilitarEnLote(HttpServletRequest request, @RequestParam("ids") List<String> idsEnc) {
+        if (!esAdmin(request)) {
+            return ResponseEntity.status(403).body(Map.of("ok", false, "msg", "Solo ADMINISTRADOR o SUPER USUARIO."));
+        }
+        if (idsEnc == null || idsEnc.isEmpty()) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Marque al menos uno."));
+        if (idsEnc.size() > 200) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "Hasta 200 por vez: se marcaron " + idsEnc.size() + "."));
+        }
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        int hechos = 0, sinVsiaf = 0;
+        List<String> saltados = new ArrayList<>();
+        for (String idEnc : idsEnc) {
+            String ref = idEnc;
+            try {
+                Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+                Responsable resp = responsableGestionService.buscar(id);
+                ref = ResponsableGestionService.referencia(resp);
+                if (resp.isEsCustodia() || resp.isEsDuplicados()) {
+                    saltados.add(ref + ": es de la oficina de faltantes o de duplicados");
+                    continue;
+                }
+                ResponsableGestionService.Resultado r = responsableGestionService.cambiarEstado(id, false, usuario);
+                hechos++;
+                if (!r.vsiafOk()) sinVsiaf++;
+            } catch (IllegalArgumentException | IllegalStateException e) {
+                saltados.add(ref + ": " + e.getMessage());
+            } catch (Exception e) {
+                log.error("Error deshabilitando responsable en lote", e);
+                saltados.add(ref + ": error inesperado");
+            }
+        }
+        String msg = hechos + " responsable(s) deshabilitado(s)."
+                + (sinVsiaf > 0 ? " " + sinVsiaf + " no llegaron al VSIAF (reenvíelos desde la lista)." : "")
+                + (saltados.isEmpty() ? "" : " No se tocaron " + saltados.size() + ".");
+        return ResponseEntity.ok(Map.of("ok", true, "msg", msg, "hechos", hechos, "saltados", saltados));
     }
 
     // =========================================================================

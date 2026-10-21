@@ -1167,7 +1167,18 @@
                     }
                     if (h.estadoEnvio === 'ENVIADO' || h.estadoEnvio === 'ESPERANDO_ALTA') n.enTraslado++;
                 }
+                // Notificación más reciente de la persona (el id crece con la emisión, igual que el número).
+                if (h.idActa && (!g.ultimaActa || h.idActa > g.ultimaActa)) g.ultimaActa = h.idActa;
             });
+
+            // Pedido de Saul (21-oct-2026): por número de notificación, las más recientes arriba.
+            // Sin notificación (faltantes abiertos sin notificar) al final, por nombre.
+            orden.sort(function (a, b) {
+                var na = personas[a].ultimaActa || 0, nb = personas[b].ultimaActa || 0;
+                if (na !== nb) return nb - na;
+                return String(personas[a].nombre).localeCompare(String(personas[b].nombre));
+            });
+            orden.forEach(function (k) { personas[k].notifs.sort(function (x, y) { return y.idActa - x.idActa; }); });
 
             $('#cf-n-abiertos').text(abiertos);
             $('#cf-n-custodia').text(custodia);
@@ -1562,6 +1573,8 @@
                        (a.personaNombre || '').toLowerCase().indexOf(q) !== -1 ||
                        (a.personaCi || '').toLowerCase().indexOf(q) !== -1;
             });
+            // Las más recientes arriba (el id crece con la emisión, igual que el número).
+            lista.sort(function (x, y) { return (y.idActa || 0) - (x.idActa || 0); });
             $('#cf-actas-conteo').text(lista.length + ' acta(s)');
             if (!lista.length) {
                 $('#cf-actas-cuerpo').html('<tr><td colspan="7" class="text-center text-muted py-4">Sin actas.</td></tr>');
