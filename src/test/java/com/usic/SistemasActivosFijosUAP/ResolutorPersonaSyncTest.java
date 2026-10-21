@@ -102,6 +102,30 @@ class ResolutorPersonaSyncTest {
     }
 
     @Test
+    void ciRecienEscritoEnElVsiafLaFilaSigueAlCi() {
+        Persona richardSinCi = persona(189, "RICHARD", "ROJAS", "LOPEZ", null);
+        Persona richardConCi = persona(275, "RICHARD", "ROJAS", "LOPEZ", "1769812");
+        Escenario e = new Escenario(richardSinCi, richardConCi);
+        // Saul le pone en el VSIAF el C.I. que ya tiene otra persona: pasa a ella.
+        assertEquals(275L, e.r.resolver("RICHARD ROJAS LOPEZ", "1769812", 189L, true).getIdPersona());
+
+        // C.I. que nadie tiene: la primera fila crea la persona con ese C.I. y las demás se suman.
+        Persona ana = persona(10, "ANA", "PEREZ", "LIMA", null);
+        Escenario e2 = new Escenario(ana);
+        Persona nueva = e2.r.resolver("ANA PEREZ LIMA", "4444445", 10L, true);
+        assertNotEquals(10L, nueva.getIdPersona());
+        assertEquals("4444445", nueva.getCi());
+        assertEquals(nueva.getIdPersona(), e2.r.resolver("ANA PEREZ LIMA", "4444445 LP", 10L, true).getIdPersona());
+        assertNull(ana.getCi());   // la vieja no se toca: queda para darla de baja
+        assertEquals(2, e2.contador("filasQueSiguieronSuCiNuevo"));
+
+        // Un nombre especial no sigue ningún C.I.
+        Persona dev = persona(586, "NANCY", "ACUNA", "DEVOLUCION", null);
+        Escenario e3 = new Escenario(dev);
+        assertEquals(586L, e3.r.resolver("NANCY ACUNA DEVOLUCION", "5555555", 586L, true).getIdPersona());
+    }
+
+    @Test
     void ciDistintoNoSeJuntaSoloCreaOtra() {
         Escenario e = new Escenario(persona(43, "ALVARO MARCELO", "CACERES", "BEJARANO", "7479551"));
         Persona p = e.r.resolver("ALVARO MARCELO CACERES BEJARANO", "7479561", null);

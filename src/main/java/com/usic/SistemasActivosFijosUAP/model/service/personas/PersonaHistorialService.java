@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.usic.SistemasActivosFijosUAP.model.dao.IPersonaCambioDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.PersonaCambio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
@@ -73,6 +74,50 @@ public class PersonaHistorialService {
             log.warn("[PERSONAS] No se pudo anotar el cambio de la persona {} en el historial: {}",
                     despues == null ? null : despues.getIdPersona(), e.getMessage());
         }
+    }
+
+    /**
+     * Una fila de responsable pasó de una persona a otra fuera del módulo (Responsables:
+     * se le puso el C.I. de una persona que ya existía). No falla nunca.
+     */
+    public void registrarPaseDeFila(Long idResponsable, String referencia, Persona antes, Persona despues,
+                                    Cargo cargo, Usuario autor, String origen) {
+        try {
+            PersonaCambio c = nuevo(nuevoLote(), despues.getIdPersona(), PersonaCambio.TIPO_SEPARACION, autor, origen);
+            c.setIdResponsable(idResponsable);
+            c.setReferencia(referencia);
+            c.setAntes(json(fila(antes, cargo == null ? null : cargo.getNombre(), cargo == null ? null : cargo.getIdCargo())));
+            c.setDespues(json(fila(despues, cargo == null ? null : cargo.getNombre(), cargo == null ? null : cargo.getIdCargo())));
+            dao.save(c);
+        } catch (Exception e) {
+            log.warn("[PERSONAS] No se pudo anotar el pase de la fila {} en el historial: {}", idResponsable, e.getMessage());
+        }
+    }
+
+    /** El cargo de una fila cambió porque se cambió en otra oficina de la misma persona. No falla nunca. */
+    public void registrarCargoDeFila(String lote, Long idResponsable, String referencia, Persona persona,
+                                     Long idCargoAntes, String cargoAntes, Cargo cargoDespues, Usuario autor, String origen) {
+        try {
+            PersonaCambio c = nuevo(lote, persona.getIdPersona(), PersonaCambio.TIPO_CARGO, autor, origen);
+            c.setIdResponsable(idResponsable);
+            c.setReferencia(referencia);
+            c.setAntes(json(fila(persona, cargoAntes, idCargoAntes)));
+            c.setDespues(json(fila(persona, cargoDespues.getNombre(), cargoDespues.getIdCargo())));
+            dao.save(c);
+        } catch (Exception e) {
+            log.warn("[PERSONAS] No se pudo anotar el cargo de la fila {} en el historial: {}", idResponsable, e.getMessage());
+        }
+    }
+
+    /** Mismo formato que las filas de «Personas y cargos» (idPersona, nomresp, ci, cargo, idCargo). */
+    private static Map<String, Object> fila(Persona p, String cargo, Long idCargo) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("idPersona", p == null ? null : p.getIdPersona());
+        m.put("nomresp", p == null ? null : nombreDe(p).replaceAll(" · C\\.I\\. .*$", ""));
+        m.put("ci", p == null ? null : p.getCi());
+        m.put("cargo", cargo);
+        m.put("idCargo", idCargo);
+        return m;
     }
 
     public PersonaCambio nuevo(String lote, Long idPersona, String tipo, Usuario autor, String origen) {

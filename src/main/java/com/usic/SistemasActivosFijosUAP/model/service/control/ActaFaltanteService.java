@@ -284,6 +284,11 @@ public class ActaFaltanteService {
      * @throws ReglaNegocioException con todo lo que falta o sobra
      */
     private Preparado preparar(RegistrarFaltantesRequest req, String encabezado) {
+        return preparar(req, encabezado, true);
+    }
+
+    /** @param exigePlazo las notificaciones lo llevan; el acta de regularización no */
+    private Preparado preparar(RegistrarFaltantesRequest req, String encabezado, boolean exigePlazo) {
         if (req == null || req.idPersona() == null) throw new ReglaNegocioException("Indique la persona.");
         List<Long> ids = req.idsActivos() == null ? List.of()
                 : req.idsActivos().stream().filter(Objects::nonNull).distinct().toList();
@@ -291,7 +296,7 @@ public class ActaFaltanteService {
         if (ids.size() > TOPE_BIENES) {
             throw new ReglaNegocioException("Un acta admite hasta " + TOPE_BIENES + " bienes; se eligieron " + ids.size() + ".");
         }
-        if (req.plazoDias() == null || req.plazoDias() < 1 || req.plazoDias() > PLAZO_MAXIMO) {
+        if (exigePlazo && (req.plazoDias() == null || req.plazoDias() < 1 || req.plazoDias() > PLAZO_MAXIMO)) {
             throw new ReglaNegocioException("Escriba el plazo para responder, en días hábiles (de 1 a " + PLAZO_MAXIMO + ").");
         }
         Persona persona = personaDao.findById(req.idPersona())
@@ -353,6 +358,110 @@ public class ActaFaltanteService {
             throw new ReglaNegocioException(encabezado + "\n• " + String.join("\n• ", problemas));
         }
         return new Preparado(persona, ordenados, previos, idsPersonas, destinos);
+    }
+
+    // ── Regularización con traslado: faltantes viejos en un registro repetido ─────
+
+    /**
+     * Faltante que el VSIAF tenía cargado, por la práctica vieja, en un segundo registro de la
+     * misma persona dentro de la misma oficina (a veces con un punto al final del nombre). Lo
+     * pasa «Personas y cargos» antes de unificar: acta de regularización (AR, sin plazo) y
+     * traslado a la oficina de faltantes del predio, como un faltante directo.
+     */
+    public static final String ORIGEN_REPETIDO = "REPETIDO";
+
+    /** AR que trasladó los bienes a la custodia (registro repetido): se anula como una notificación. */
+    private boolean conTraslado(ActaFaltante acta) {
+        try {
+            return json.readTree(acta.getContenido()).path("conTraslado").asBoolean(false);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Emite el acta AR y pide el traslado a la custodia. Mismas validaciones que
+     * {@link #registrar} (bienes a cargo de la persona o de sus registros sumados, sin otra
+     * acta pendiente, destino en cada predio), sin plazo.
+     */
+    public Registro regularizarRepetido(RegistrarFaltantesRequest req, Usuario autor) {
+        Creada creada = enTransaccion(() -> crearRegularizacionRepetido(req, autor));
+        actividadService.registrar(autor, ActividadService.MOD_ACTIVO, ActividadService.ACC_REGISTRO,
+                creada.numero(), "Regularizó " + creada.idsHallazgo().size() + " faltante(s) de un registro repetido de "
+                        + creada.persona() + " (acta " + creada.numero() + ", con traslado a la custodia)" + creada.detalle(),
+                creada.idsHallazgo().size(), creada.idActa());
+        envioService.iniciar(creada.idsHallazgo(), autor, creada.conHomonimoPermitido());
+        return new Registro(creada.idActa(), creada.numero(), creada.idsHallazgo().size(),
+                "Acta de regularización " + creada.numero() + " con " + creada.idsHallazgo().size()
+                        + " bien(es). El traslado a la oficina de faltantes continuará cuando el worker confirme.");
+    }
+
+    private Creada crearRegularizacionRepetido(RegistrarFaltantesRequest req, Usuario autor) {
+        Preparado p = preparar(req, "No se registró nada. Revise estos bienes:", false);
+        LocalDateTime ahora = LocalDateTime.now();
+        ActaFaltante acta = armarActa(req, p, autor, ahora);
+        acta.setContenido("{}");
+        acta.setHashContenido("-");
+        actaDao.saveAndFlush(acta);
+
+        acta.setNumero(numeroDe(ActaFaltante.TIPO_REGULARIZACION, ahora, acta.getIdActa()));
+        String contenido = contenido(acta, p.persona(), p.ordenados(), ActaFaltante.TIPO_REGULARIZACION,
+                Activo::getOficina, null);
+        try {
+            // Marca que distingue esta AR de la de históricos: esta sí mueve los bienes.
+            com.fasterxml.jackson.databind.node.ObjectNode n =
+                    (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(contenido);
+            n.put("conTraslado", true);
+            contenido = json.writeValueAsString(n);
+        } catch (Exception e) {
+            throw new IllegalStateException("No se pudo armar el contenido del acta: " + e.getMessage(), e);
+        }
+        acta.setContenido(contenido);
+        acta.setHashContenido(sha256(contenido));
+
+        List<Long> idsHallazgo = new ArrayList<>();
+        Set<Long> conHomonimoPermitido = new HashSet<>();
+        Set<Long> reactivados = new HashSet<>();
+        for (Activo a : p.ordenados()) {
+            HallazgoInventario h = p.previos().get(a.getIdActivo());
+            if (h == null) {
+                h = new HallazgoInventario();
+                h.setTipoHallazgo(ControlActivosService.TIPO_FALTANTE);
+                h.setEstadoHallazgo(ControlActivosService.ABIERTO);
+                h.setActivo(a);
+                h.setCodigoFisico(a.getCodigo());
+                h.setDescripcionFisica(recortar(a.getDescripcion(), 1024));
+                h.setEstado("ACTIVO");
+                if (autor != null) h.setRegistroIdUsuario(autor.getIdUsuario());
+            }
+            if (h.getOrigen() == null) {
+                // Uno que ya venía de un levantamiento conserva su origen: al anular el acta vuelve a abierto.
+                h.setOrigen(ORIGEN_REPETIDO);
+                h.setDescripcionDiscrepancia("Faltante antiguo cargado en un registro repetido de la persona; "
+                        + "regularizado en el acta " + acta.getNumero());
+            }
+            if (h.getResponsable() == null) h.setResponsable(a.getResponsable());
+            if (h.getOficinaOrigen() == null) h.setOficinaOrigen(a.getOficina());
+            h.setActa(acta);
+            h.setDocumentoRespaldo(acta.getDocumentoRespaldo());
+            h.setFechaDocumento(acta.getFechaDocumento());
+            h.setEstadoEnvio(EnvioCustodiaService.ESPERANDO_ALTA);
+            h.setMensajeEnvio(null);
+            CustodiaFaltantesService.Destino destino = p.destinos().get(a.getOficina().getPredio().getIdPredio());
+            if (destino != null && destino.custodio() != null) {
+                Responsable custodio = destino.custodio();
+                if (reactivados.add(custodio.getIdResponsable())) custodiaService.reactivarSiHaceFalta(custodio, autor);
+                h.setResponsableCustodia(custodio);
+            }
+            hallazgoDao.save(h);
+            idsHallazgo.add(h.getIdHallazgo());
+            if (destino != null && destino.permitirHomonimo()) conHomonimoPermitido.add(h.getIdHallazgo());
+        }
+        hallazgoDao.flush();
+        log.info("[ACTA-FALTANTES] {} (registro repetido, con traslado) para {} con {} bien(es)",
+                acta.getNumero(), acta.getPersonaNombre(), p.ordenados().size());
+        return new Creada(acta.getIdActa(), acta.getNumero(), acta.getPersonaNombre(), idsHallazgo,
+                conHomonimoPermitido, detalleMonitoreo(p));
     }
 
     /**
@@ -1479,7 +1588,8 @@ public class ActaFaltanteService {
                 if (autor != null) acta.setModificacionIdUsuario(autor.getIdUsuario());
                 return acta.getNumero();
             }
-            if (acta.esRegularizacion()) {
+            boolean conTraslado = conTraslado(acta);
+            if (acta.esRegularizacion() && !conTraslado) {
                 // No movió nada: se puede anular mientras ningún faltante se haya resuelto.
                 long resueltos = hs.stream().filter(h -> ControlActivosService.RESUELTO.equals(h.getEstadoHallazgo())).count();
                 if (resueltos > 0) {
@@ -1505,7 +1615,7 @@ public class ActaFaltanteService {
                 h.setMensajeEnvio(null);
                 h.setResponsableCustodia(null);
                 if (ControlActivosService.ORIGEN_DIRECTO.equals(h.getOrigen())
-                        || ORIGEN_HISTORICO.equals(h.getOrigen())) {
+                        || ORIGEN_HISTORICO.equals(h.getOrigen()) || ORIGEN_REPETIDO.equals(h.getOrigen())) {
                     // El histórico vuelve a "sin registro": el bien nunca se movió.
                     h.setEstadoHallazgo(ANULADO);
                 } else {
@@ -1640,9 +1750,11 @@ public class ActaFaltanteService {
         LocalDateTime inicioPlazo = null, reiteraAFecha = null;
         String reiteraA = null;
         Integer numeroReiterativa = acta.getNumeroReiterativa();
+        boolean conTraslado = false;
         try {
             JsonNode raiz = json.readTree(acta.getContenido());
             if (raiz.hasNonNull("tipo")) tipo = raiz.path("tipo").asText(tipo);
+            conTraslado = raiz.path("conTraslado").asBoolean(false);
             JsonNode not = raiz.path("notificacion");
             if (not.hasNonNull("plazoDiasHabiles")) {
                 plazo = not.path("plazoDiasHabiles").asInt();
@@ -1693,7 +1805,7 @@ public class ActaFaltanteService {
                 Objects.equals(sha256(acta.getContenido()), acta.getHashContenido()), predios, tipo,
                 plazo, ciudad, firmante, unidadDestino, inicioPlazo,
                 numeroReiterativa != null && numeroReiterativa > 0 ? numeroReiterativa : null, reiteraA, reiteraAFecha,
-                reiteradaPor, unificaA, unificadaEn);
+                reiteradaPor, unificaA, unificadaEn, conTraslado);
     }
 
     private static LocalDateTime fechaHora(String s) {

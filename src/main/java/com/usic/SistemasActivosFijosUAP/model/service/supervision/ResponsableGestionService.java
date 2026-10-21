@@ -23,6 +23,9 @@ import com.usic.SistemasActivosFijosUAP.model.service.VsiafApoyoService;
 import com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona;
 import com.usic.SistemasActivosFijosUAP.model.service.personas.PersonaHistorialService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IParametroSistemaDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IPersonasDao;
+import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
+import com.usic.SistemasActivosFijosUAP.model.entity.PersonaCambio;
 import com.usic.SistemasActivosFijosUAP.model.entity.ParametroSistema;
 
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,7 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
 
     public static final String TIPO_MODIFICAR = "RESP_MODIFICAR";
     public static final String TIPO_ELIMINAR = "RESP_ELIMINAR";
+    public static final String TIPO_ESTADO = "RESP_ESTADO";
 
     private final IResponsableService responsableService;
     private final IPersonaService personaService;
@@ -47,6 +51,7 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
     private final ActividadService actividadService;
     private final IParametroSistemaDao parametroDao;
     private final PersonaHistorialService personaHistorial;
+    private final IPersonasDao personasDao;
 
     /** Datos del formulario de edición. */
     public record DatosResponsable(Long idResponsable, String ci, Short codExp, String codigoFuncionario,
@@ -148,6 +153,12 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
         if (nueva == null || !"ACTIVO".equals(nueva.getEstado())) {
             throw new IllegalArgumentException("La oficina indicada no existe.");
         }
+        // Una persona por C.I.: si se le pone el C.I. de otra, la fila pasa a ella con sus datos.
+        Persona duena = duenaDelCiNuevo(r, d);
+        if (duena != null && !IdentidadPersona.nombresEquivalentes(nombreNormal(duena), nombreNormal(d))) {
+            throw new IllegalArgumentException("El C.I. " + duena.getCi() + " ya es de " + duena.getNombreCompleto()
+                    + ". Si es la misma persona, use «Cargar sus datos»; si no, revise el C.I.");
+        }
         if (cambiaClave(r, d)) {
             // En ACTUAL.DBF los bienes apuntan al responsable por CODOFIC+CODRESP.
             long activos = responsableDao.contarActivosAsignados(r.getIdResponsable());
@@ -175,6 +186,8 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
         }
         if (p != null && !Objects.equals(p.getCi(), ResponsableAltaService.limpiar(d.ci()))) {
             c.add("C.I.: " + p.getCi() + " → " + d.ci());
+            Persona duena = duenaDelCiNuevo(r, d);
+            if (duena != null) c.add("La oficina pasa a " + duena.getNombreCompleto() + " (ya tiene ese C.I.)");
         }
         Long idOficinaActual = r.getOficina() != null ? r.getOficina().getIdOficina() : null;
         if (!Objects.equals(idOficinaActual, d.idOficina())) {
@@ -205,29 +218,35 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
                 VsiafApoyoService.TABLA_RESP, r.getIdResponsable(), r.isPendienteDbf());
 
         Persona persona = r.getPersona();
-        // Registro "comodín" de la sincronización (sin C.I. válido, compartido con otros
-        // responsables): corregirlo aquí cambiaría también a los demás funcionarios que cuelgan
-        // de él. Este responsable pasa a su propia persona (la que ya tenga ese C.I., o una nueva).
-        if (!esIdentificable(persona) && tieneOtrosResponsables(persona, r)
+        Persona personaAntes = persona;
+        String cargoAntes = r.getCargo() != null ? r.getCargo().getNombre() : null;
+        Persona duena = duenaDelCiNuevo(r, d);
+        boolean pasaAOtra = duena != null;
+        if (pasaAOtra) {
+            // Se le puso el C.I. de otra persona (validarModificacion comprobó que el nombre
+            // cuadra): la fila pasa a ella en vez de crear un segundo registro con el mismo C.I.
+            // Los datos de esa persona no se tocan desde aquí. La que deja tampoco; si se queda
+            // sin oficinas, «Personas y cargos» la lista para la baja.
+            persona = duena;
+        } else if (!esIdentificable(persona) && tieneOtrosResponsables(persona, r)
                 && !Objects.equals(nombreYCi(persona), nombreYCi(d))) {
-            String ciNuevo = ResponsableAltaService.limpiar(d.ci());
-            Persona porCi = ciNuevo != null ? personaService.buscarPersonaPorCI(ciNuevo) : null;
-            if (porCi != null && !porCi.getIdPersona().equals(persona.getIdPersona())) {
-                persona = porCi;
-            } else {
-                persona = new Persona();
-                persona.setEstado("ACTIVO");
-            }
+            // Registro "comodín" de la sincronización (sin C.I. válido, compartido con otros
+            // responsables): corregirlo aquí cambiaría también a los demás funcionarios que
+            // cuelgan de él. Este responsable pasa a su propia persona, nueva.
+            persona = new Persona();
+            persona.setEstado("ACTIVO");
         }
         String nombreYCiAntes = nombreYCi(persona);
         boolean identificableAntes = esIdentificable(persona);
         Map<String, Object> fotoAntes = persona.getIdPersona() != null ? PersonaHistorialService.foto(persona) : null;
-        persona.setNombre(ResponsableAltaService.mayus(d.nombre()));
-        persona.setPaterno(ResponsableAltaService.mayus(d.paterno()));
-        persona.setMaterno(ResponsableAltaService.mayus(d.materno()));
-        persona.setCi(ResponsableAltaService.limpiar(d.ci()));
-        persona.setCorreo(ResponsableAltaService.limpiar(d.correo()));
-        persona = personaService.save(persona);
+        if (!pasaAOtra) {
+            persona.setNombre(ResponsableAltaService.mayus(d.nombre()));
+            persona.setPaterno(ResponsableAltaService.mayus(d.paterno()));
+            persona.setMaterno(ResponsableAltaService.mayus(d.materno()));
+            persona.setCi(ResponsableAltaService.limpiar(d.ci()));
+            persona.setCorreo(ResponsableAltaService.limpiar(d.correo()));
+            persona = personaService.save(persona);
+        }
         r.setPersona(persona);
         if (fotoAntes != null && !Objects.equals(nombreYCiAntes, nombreYCi(persona))) {
             personaHistorial.registrarDatos(fotoAntes, persona, autor, PersonaHistorialService.ORIGEN_RESPONSABLE);
@@ -242,6 +261,10 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
         r.setUsuario(usuarioNombre);
         if (autor != null) r.setModificacionIdUsuario(autor.getIdUsuario());
         responsableService.save(r);
+        if (personaAntes != null && !personaAntes.getIdPersona().equals(persona.getIdPersona())) {
+            personaHistorial.registrarPaseDeFila(r.getIdResponsable(), referencia(r), personaAntes, persona,
+                    r.getCargo(), autor, PersonaHistorialService.ORIGEN_RESPONSABLE);
+        }
 
         Responsable cargado = buscar(r.getIdResponsable());
         // Si nunca llegó al VSIAF (o el worker rechazó el alta), no hay fila que actualizar.
@@ -253,10 +276,16 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
                 referencia(cargado), "Modificó al responsable " + referencia(cargado) + ": " + cambios,
                 cargado.getIdResponsable());
 
-        // La misma persona puede ser responsable en otras oficinas: allá también cambia.
-        Propagacion otras = Objects.equals(nombreYCiAntes, nombreYCi(persona))
+        // La misma persona puede ser responsable en otras oficinas: allá también cambian el
+        // nombre / C.I. y el cargo (una persona, un cargo: fase 8 del plan de personas).
+        Cargo cargoNuevo = cargado.getCargo();
+        // Al pasar a otra persona, el cargo de esta oficina queda como el de la persona.
+        boolean cambioCargo = cargoNuevo != null && (pasaAOtra || !Objects.equals(cargoAntes, cargoNuevo.getNombre()));
+        boolean cambioDatos = !Objects.equals(nombreYCiAntes, nombreYCi(persona));
+        Propagacion otras = !cambioDatos && !cambioCargo
                 ? Propagacion.VACIA
-                : propagarPersona(persona.getIdPersona(), cargado.getIdResponsable(), autor, identificableAntes);
+                : propagarPersona(persona.getIdPersona(), cargado.getIdResponsable(), autor,
+                        identificableAntes || esIdentificable(persona), cambioCargo ? cargoNuevo : null, cambioDatos);
         String extra = otras.nada() ? "" : " Otras oficinas de la misma persona: " + otras.mensaje();
         return new Resultado(envio.ok() && !otras.conProblemas(), "Responsable modificado. " + envio.mensaje() + extra);
     }
@@ -280,10 +309,25 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
      */
     public Propagacion propagarPersona(Long idPersona, Long excluirIdResponsable, Usuario autor,
                                        boolean identificableAntes) {
+        return propagarPersona(idPersona, excluirIdResponsable, autor, identificableAntes, null, true);
+    }
+
+    /**
+     * @param cargoNuevo   si no es null, también se pone este cargo en las otras oficinas (una
+     *                     persona, un cargo) y queda en el historial de la persona.
+     * @param cambioDatos  cambió el nombre / C.I.: se reenvían todas. Si no, solo las que
+     *                     cambian de cargo (las demás ya dicen lo mismo en el VSIAF).
+     * <p>
+     * Las filas de la persona que en el VSIAF no tienen C.I. también reciben el dato: si se
+     * saltaran, la sync las vería con el nombre viejo y las separaría en otra persona.
+     */
+    public Propagacion propagarPersona(Long idPersona, Long excluirIdResponsable, Usuario autor,
+                                       boolean identificableAntes, Cargo cargoNuevo, boolean cambioDatos) {
         if (idPersona == null) return Propagacion.VACIA;
         String usuarioNombre = autor != null ? autor.getUsuario() : "SISTEMA";
         int enviados = 0, pendientes = 0, omitidos = 0;
         List<String> fallidos = new ArrayList<>();
+        String lote = PersonaHistorialService.nuevoLote();
 
         for (Responsable base : responsableDao.findByPersonaIdPersona(idPersona)) {
             if (!"ACTIVO".equals(base.getEstado()) || base.getIdResponsable().equals(excluirIdResponsable)) continue;
@@ -292,6 +336,20 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
                 continue;
             }
             Responsable r = buscar(base.getIdResponsable());
+            boolean cambiaCargo = cargoNuevo != null
+                    && (r.getCargo() == null || !cargoNuevo.getIdCargo().equals(r.getCargo().getIdCargo()));
+            if (!cambioDatos && !cambiaCargo) continue;
+            if (cambiaCargo) {
+                String cargoAntes = r.getCargo() != null ? r.getCargo().getNombre() : null;
+                Long idCargoAntes = r.getCargo() != null ? r.getCargo().getIdCargo() : null;
+                r.setCargo(cargoNuevo);
+                r.setFechaUlt(LocalDate.now());
+                r.setUsuario(usuarioNombre);
+                if (autor != null) r.setModificacionIdUsuario(autor.getIdUsuario());
+                responsableService.save(r);
+                personaHistorial.registrarCargoDeFila(lote, r.getIdResponsable(), referencia(r), r.getPersona(),
+                        idCargoAntes, cargoAntes, cargoNuevo, autor, PersonaHistorialService.ORIGEN_RESPONSABLE);
+            }
             if (vsiafApoyoService.necesitaAlta(VsiafApoyoService.TABLA_RESP, r.getIdResponsable(), r.isPendienteDbf())) {
                 pendientes++;
                 continue;
@@ -299,10 +357,90 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
             VsiafApoyoService.Envio envio = vsiafApoyoService.actualizarResponsable(r, vsiafApoyoService.claveDe(r), usuarioNombre);
             if (envio.ok()) enviados++; else fallidos.add(referencia(r));
             actividadService.registrar(autor, ActividadService.MOD_RESPONSABLE, ActividadService.ACC_MODIFICACION,
-                    referencia(r), "Envió al VSIAF el nombre / C.I. corregido de " + referencia(r)
+                    referencia(r), "Envió al VSIAF los datos corregidos de la persona en " + referencia(r)
+                    + (cargoNuevo != null ? " (cargo " + cargoNuevo.getNombre() + ")" : "")
                     + (envio.ok() ? "" : " (falló: " + envio.mensaje() + ")"), r.getIdResponsable());
         }
         return new Propagacion(enviados, fallidos, pendientes, omitidos);
+    }
+
+    /**
+     * Personas ACTIVAS con ese C.I. (se compara el número, sin extensión ni complemento),
+     * la más antigua primero. Las marcas del VSIAF (DEVOLUCION, SIN DATOS…) no cuentan.
+     */
+    public List<Persona> personasConCi(String ci) {
+        Set<String> inv = ciInvalidos();
+        String numero = IdentidadPersona.numeroCi(ci, inv);
+        if (numero == null) return List.of();
+        return personasDao.conCiQueEmpiezaCon(numero).stream()
+                .filter(p -> numero.equals(IdentidadPersona.numeroCi(p.getCi(), inv)))
+                .filter(p -> !IdentidadPersona.esNombreEspecial(nombreNormal(p)))
+                .toList();
+    }
+
+    /**
+     * Si la edición le cambia el número de C.I. a la fila y ese número ya es de otra persona,
+     * esa persona. Null si el C.I. no cambió (editar un cargo nunca mueve la fila) o nadie lo tiene.
+     */
+    private Persona duenaDelCiNuevo(Responsable r, DatosResponsable d) {
+        Set<String> inv = ciInvalidos();
+        Persona actual = r.getPersona();
+        String antes = actual == null ? null : IdentidadPersona.numeroCi(actual.getCi(), inv);
+        String despues = IdentidadPersona.numeroCi(d.ci(), inv);
+        if (despues == null || despues.equals(antes)) return null;
+        Persona duena = duenaDelCi(d.ci());
+        if (duena == null || (actual != null && duena.getIdPersona().equals(actual.getIdPersona()))) return null;
+        return duena;
+    }
+
+    /** La persona dueña de ese C.I. (con varias, la más antigua: el resto se unifica en el módulo). */
+    public Persona duenaDelCi(String ci) {
+        List<Persona> l = personasConCi(ci);
+        return l.isEmpty() ? null : l.get(0);
+    }
+
+    /**
+     * Para «Modificar responsable»: quién tiene ese C.I., su cargo y sus oficinas, para
+     * ofrecer cargar sus datos. Null si nadie lo tiene.
+     */
+    public Map<String, Object> fichaPorCi(String ci, Long idResponsable) {
+        List<Persona> personas = personasConCi(ci);
+        if (personas.isEmpty()) return null;
+        Persona p = personas.get(0);
+        List<Responsable> filas = responsableDao.findByPersonaIdPersona(p.getIdPersona()).stream()
+                .filter(x -> "ACTIVO".equals(x.getEstado())).toList();
+        Map<String, Integer> cargos = new LinkedHashMap<>();
+        for (Responsable x : filas) {
+            if (x.getCargo() != null) cargos.merge(x.getCargo().getNombre(), 1, Integer::sum);
+        }
+        String cargo = cargos.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("");
+        Long idPersonaDeLaFila = null;
+        if (idResponsable != null) {
+            Responsable r = responsableDao.findById(idResponsable).orElse(null);
+            if (r != null && r.getPersona() != null) idPersonaDeLaFila = r.getPersona().getIdPersona();
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("idPersona", p.getIdPersona());
+        m.put("nombre", nvl(p.getNombre()));
+        m.put("paterno", nvl(p.getPaterno()));
+        m.put("materno", nvl(p.getMaterno()));
+        m.put("ci", nvl(p.getCi()));
+        m.put("nombreCompleto", nvl(p.getNombreCompleto()));
+        m.put("cargo", cargo);
+        m.put("cargosDistintos", cargos.size());
+        m.put("oficinas", filas.stream().limit(8).map(ResponsableGestionService::referencia).toList());
+        m.put("nOficinas", filas.size());
+        m.put("esLaMisma", p.getIdPersona().equals(idPersonaDeLaFila));
+        m.put("otrasConEseCi", personas.size() - 1);
+        return m;
+    }
+
+    private static String nombreNormal(Persona p) {
+        return IdentidadPersona.normalizarNombre(String.join(" ", nvl(p.getNombre()), nvl(p.getPaterno()), nvl(p.getMaterno())));
+    }
+
+    private static String nombreNormal(DatosResponsable d) {
+        return IdentidadPersona.normalizarNombre(String.join(" ", nvl(d.nombre()), nvl(d.paterno()), nvl(d.materno())));
     }
 
     /**
@@ -388,6 +526,71 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
                 : null;
     }
 
+    // ── Habilitar / deshabilitar (SCIAF y VSIAF) ────────────────────────────
+
+    /** En RESP.DBF: API_ESTADO 1 = activo, 3 = inactivo (Saul, 28-sep-2026). */
+    public static final short API_ACTIVO = 1;
+    public static final short API_INACTIVO = 3;
+    /** Responsable deshabilitado: en el VSIAF queda con API_ESTADO 3. */
+    public static final String ESTADO_INACTIVO = "INACTIVO";
+
+    /** Motivo por el que no se puede deshabilitar, o null si se puede. */
+    public String impideDeshabilitar(Responsable r) {
+        if (ESTADO_INACTIVO.equals(r.getEstado())) return "Ya está deshabilitado.";
+        long activos = responsableDao.contarActivosAsignados(r.getIdResponsable());
+        return activos > 0
+                ? String.format("Tiene %d activo(s) a cargo: no se puede deshabilitar. Transfiéralos primero "
+                        + "(si son faltantes, páselos a la oficina de faltantes).", activos)
+                : null;
+    }
+
+    /**
+     * Deshabilita (API_ESTADO 3) o habilita (1) al responsable en el SCIAF y manda el UPDATE al
+     * VSIAF. Deshabilitar solo sin bienes a cargo. La fila no se borra en ningún lado.
+     */
+    public Resultado cambiarEstado(Long id, boolean habilitar, Usuario autor) {
+        // /administracion/** es permitAll: el rol se exige aquí. Una solicitud aprobada entra por ejecutar().
+        if (!com.usic.SistemasActivosFijosUAP.config.RolesSciaf.esAdministrativo(autor)) {
+            throw new IllegalStateException("Solo ADMINISTRADOR o SUPER USUARIO; el resto envía una solicitud.");
+        }
+        return aplicarEstado(id, habilitar, autor);
+    }
+
+    /** Sin revisar el rol: solo para quien ya lo comprobó (solicitud aprobada, «Personas y cargos» al aplicar). */
+    public Resultado aplicarEstado(Long id, boolean habilitar, Usuario autor) {
+        Responsable r = buscar(id);
+        if (!"ACTIVO".equals(r.getEstado()) && !ESTADO_INACTIVO.equals(r.getEstado())) {
+            throw new IllegalArgumentException("El responsable fue eliminado del SCIAF: no se habilita ni deshabilita.");
+        }
+        if (habilitar) {
+            if ("ACTIVO".equals(r.getEstado())) throw new IllegalArgumentException("Ya está habilitado.");
+        } else {
+            String motivo = impideDeshabilitar(r);
+            if (motivo != null) throw new IllegalArgumentException(motivo);
+        }
+        String usuarioNombre = autor != null ? autor.getUsuario() : "SISTEMA";
+        VsiafApoyoService.ClaveResponsable clave = vsiafApoyoService.claveDe(r);
+        boolean necesitaAlta = vsiafApoyoService.necesitaAlta(VsiafApoyoService.TABLA_RESP, r.getIdResponsable(), r.isPendienteDbf());
+
+        r.setEstado(habilitar ? "ACTIVO" : ESTADO_INACTIVO);
+        r.setApiEstado(habilitar ? API_ACTIVO : API_INACTIVO);
+        r.setFechaUlt(LocalDate.now());
+        r.setUsuario(usuarioNombre);
+        if (autor != null) r.setModificacionIdUsuario(autor.getIdUsuario());
+        responsableService.save(r);
+
+        // Si nunca llegó al VSIAF no hay fila que actualizar (si después se reenvía, el UPDATE del reenvío lleva el estado).
+        VsiafApoyoService.Envio envio = necesitaAlta ? null
+                : vsiafApoyoService.actualizarResponsable(buscar(id), clave, usuarioNombre);
+        actividadService.registrar(autor, ActividadService.MOD_RESPONSABLE, ActividadService.ACC_MODIFICACION,
+                referencia(r), (habilitar ? "Habilitó" : "Deshabilitó") + " al responsable " + referencia(r)
+                + (envio == null ? " (aún no estaba en el VSIAF)" : envio.ok() ? "" : " (VSIAF: " + envio.mensaje() + ")"),
+                r.getIdResponsable());
+        String hecho = habilitar ? "Responsable habilitado." : "Responsable deshabilitado.";
+        if (envio == null) return new Resultado(true, hecho + " Todavía no estaba en el VSIAF.");
+        return new Resultado(envio.ok(), hecho + " " + envio.mensaje());
+    }
+
     /** "CAUN-5 / 3 JUAN PEREZ": oficina, código de funcionario y nombre. */
     public static String referencia(Responsable r) {
         String ofi = (r.getOficina() != null && r.getOficina().getPredio() != null)
@@ -429,13 +632,17 @@ public class ResponsableGestionService implements EjecutorAutorizacion {
 
     @Override
     public Set<String> tipos() {
-        return Set.of(TIPO_MODIFICAR, TIPO_ELIMINAR);
+        return Set.of(TIPO_MODIFICAR, TIPO_ELIMINAR, TIPO_ESTADO);
     }
 
     @Override
     public String ejecutar(String tipo, Map<String, Object> datos, Usuario autor) {
         if (TIPO_MODIFICAR.equals(tipo)) return modificar(conPersonaVigente(datos), autor).msg();
         if (TIPO_ELIMINAR.equals(tipo)) return eliminar(OficinaGestionService.aLong(datos.get("idResponsable")), autor).msg();
+        if (TIPO_ESTADO.equals(tipo)) {
+            return aplicarEstado(OficinaGestionService.aLong(datos.get("idResponsable")),
+                    Boolean.TRUE.equals(datos.get("habilitar")), autor).msg();
+        }
         throw new IllegalArgumentException("Tipo no soportado: " + tipo);
     }
 }

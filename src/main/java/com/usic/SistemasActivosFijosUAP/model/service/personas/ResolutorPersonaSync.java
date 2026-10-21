@@ -36,6 +36,9 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
  * <li><b>Nombres «especiales»</b> (DEVOLUCION, FALTANTES, ACEFALO…): una fila ya enlazada no
  *     se mueve; una nueva se enlaza solo por nombre exacto a una persona sin C.I. y nunca le
  *     guarda un C.I. (D8: los corrige Saul en el VSIAF).</li>
+ * <li><b>C.I. recién escrito en el VSIAF</b> (fase 8, 21-oct-2026): la fila sigue al C.I. —pasa a
+ *     la persona que lo tiene o a una nueva con él—. La persona sin C.I. que se queda sin
+ *     oficinas no se toca: el módulo la lista para darla de baja.</li>
  * </ol>
  */
 public class ResolutorPersonaSync {
@@ -55,6 +58,7 @@ public class ResolutorPersonaSync {
     private int creadas;
     private int nombresCompletados;
     private int redirigidasPorFusion;
+    private int siguieronCi;
     private int sugerenciasEnie;
     private int sugerenciasCompletarCi;
     private int sugerenciasMismoNombre;
@@ -87,6 +91,17 @@ public class ResolutorPersonaSync {
      * @param idPersonaActual  persona del responsable en el SCIAF (null si es nuevo)
      */
     public Persona resolver(String nombreDbf, String ciDbf, Long idPersonaActual) {
+        return resolver(nombreDbf, ciDbf, idPersonaActual, false);
+    }
+
+    /**
+     * @param ciRecienEscrito el C.I. de la fila cambió en el VSIAF desde la pasada anterior
+     *                        (alguien lo tecleó allá, p. ej. Saul completando C.I.). La fila
+     *                        sigue a ese C.I. aunque su persona actual (sin C.I.) tenga su
+     *                        mismo nombre: pasa a la persona con ese C.I. o a una nueva.
+     *                        Los C.I. que ya estaban no mueven nada (fase 8 del plan).
+     */
+    public Persona resolver(String nombreDbf, String ciDbf, Long idPersonaActual, boolean ciRecienEscrito) {
         String nombre = IdentidadPersona.normalizarNombre(nombreDbf);
         boolean especial = IdentidadPersona.esNombreEspecial(nombre);
         // Un nombre especial no se identifica por C.I. (si trae uno, es el de quien lo cargó).
@@ -98,9 +113,10 @@ public class ResolutorPersonaSync {
             actual = ESTADO_FUSIONADA.equals(antes == null ? null : antes.getEstado()) ? destinoDeFusion(antes) : antes;
             if (actual != null && actual != antes) redirigidasPorFusion++;
         }
-        if (actual != null && (especial || concuerda(actual, nombre, ci))) {
+        if (actual != null && (especial || concuerda(actual, nombre, ci, ciRecienEscrito))) {
             return conservar(actual, nombre, ci, especial);
         }
+        if (actual != null && ci != null && ciRecienEscrito) siguieronCi++;
 
         if (ci != null) {
             Persona conCi = elegir(porCi.get(ci));
@@ -142,14 +158,15 @@ public class ResolutorPersonaSync {
     // ── Reglas ────────────────────────────────────────────────────────────
 
     /** ¿La fila sigue describiendo a esta persona (o a una unificada en ella)? */
-    private boolean concuerda(Persona p, String nombre, String ci) {
+    private boolean concuerda(Persona p, String nombre, String ci, boolean ciRecienEscrito) {
         for (Persona q : conUnificadas(p)) {
             String ciQ = ciDe(q);
             if (ci != null) {
                 if (ci.equals(ciQ)) return true;
                 // Persona sin C.I. y mismo nombre, y nadie tiene ese C.I.: la fila se queda (no
                 // se le completa el C.I.: queda como sugerencia, ver conservar).
-                if (q == p && ciQ == null && elegir(porCi.get(ci)) == null
+                // Si el C.I. se acaba de escribir en el VSIAF, no: la fila sigue al C.I.
+                if (q == p && ciQ == null && !ciRecienEscrito && elegir(porCi.get(ci)) == null
                         && mismoNombre(q, nombre)) return true;
             } else if (nombre.isEmpty()) {
                 if (SIN_DATOS.equals(nombreDe(q))) return true;
@@ -334,6 +351,7 @@ public class ResolutorPersonaSync {
         m.put("personasCreadas", creadas);
         m.put("nombresCompletados", nombresCompletados);
         m.put("redirigidasPorFusion", redirigidasPorFusion);
+        m.put("filasQueSiguieronSuCiNuevo", siguieronCi);
         m.put("sugerenciasEnie", sugerenciasEnie);
         m.put("sugerenciasCompletarCi", sugerenciasCompletarCi);
         m.put("sugerenciasMismoNombre", sugerenciasMismoNombre);

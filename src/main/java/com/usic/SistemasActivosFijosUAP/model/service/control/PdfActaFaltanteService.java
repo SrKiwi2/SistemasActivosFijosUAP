@@ -122,7 +122,12 @@ public class PdfActaFaltanteService {
         encabezado(doc, acta);
         datos(doc, acta);
 
-        String texto = acta.esRegularizacion()
+        String texto = acta.esRegularizacion() && acta.conTraslado()
+                ? String.format("Se regularizan en el SCIAF los bienes detallados a continuación, que figuraban a cargo de %s "
+                    + "en un registro repetido de la misma oficina, donde se cargaban sus faltantes. Quedan registrados "
+                    + "como FALTANTES y se trasladan a la oficina de faltantes de su predio hasta que el caso se aclare.",
+                    acta.personaNombre())
+                : acta.esRegularizacion()
                 ? String.format("Se regularizan en el SCIAF los bienes detallados a continuación, que ya se encontraban "
                     + "registrados como FALTANTES en la oficina de faltantes de su predio a nombre de %s. Los bienes "
                     + "permanecen en esa oficina hasta que el caso se aclare. Cuando la oficina de origen no consta en "

@@ -42,6 +42,8 @@ public class PersonaCambio {
     public static final String TIPO_SEPARACION = "SEPARACION";
     /** Persona creada como destino de una separación (al revertir se da de baja). */
     public static final String TIPO_PERSONA_NUEVA = "PERSONA_NUEVA";
+    /** Persona sin oficinas dada de baja desde «Por arreglar» (fase 8). */
+    public static final String TIPO_BAJA_PERSONA = "BAJA_PERSONA";
     /** Prefijo de lo que hace una reversión (REVERSION+CARGO, REVERSION+FUSION_FILA…). */
     public static final String TIPO_REVERSION = "REVERSION";
 

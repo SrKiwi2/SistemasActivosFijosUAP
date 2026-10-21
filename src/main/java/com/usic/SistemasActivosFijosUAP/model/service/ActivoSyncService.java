@@ -377,7 +377,7 @@ public class ActivoSyncService {
         List<Responsable> responsables = entityManager.createQuery(
             "SELECT r FROM Responsable r " +
             "JOIN FETCH r.oficina o " +
-            "WHERE r.estado = 'ACTIVO' AND r.codigoFuncionario IS NOT NULL", Responsable.class)
+            "WHERE r.estado IN ('ACTIVO', 'INACTIVO') AND r.codigoFuncionario IS NOT NULL", Responsable.class)
             .getResultList();
 
         return responsables.stream().collect(Collectors.toMap(

@@ -26,6 +26,15 @@ public interface IPersonasDao extends JpaRepository <Persona, Long>{
     @Query("SELECT p FROM Persona p WHERE upper(trim(p.ci)) = :ci AND p.estado = 'ACTIVO'")
     List<Persona> listarPorCi(@Param("ci") String ciNormalizado);
 
+    /**
+     * Personas ACTIVAS cuyo C.I. empieza con esos dígitos (sin puntos ni espacios). Es un
+     * filtro grueso: el servicio se queda con las de número exacto ({@code IdentidadPersona.numeroCi}).
+     */
+    @Query(value = "SELECT * FROM persona p WHERE p._estado = 'ACTIVO' "
+            + "AND regexp_replace(p.ci, '[.\\s]', '', 'g') LIKE concat(:digitos, '%') ORDER BY p.id_persona",
+            nativeQuery = true)
+    List<Persona> conCiQueEmpiezaCon(@Param("digitos") String digitos);
+
     @Query("SELECT p FROM Persona p WHERE p.estado = 'ACTIVO'")
     List<Persona> listarPersonas();
 

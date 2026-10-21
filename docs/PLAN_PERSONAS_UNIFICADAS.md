@@ -608,6 +608,80 @@ la ficha). La pestaña de sugerencias automáticas de duplicados queda para desp
   de las 00/06/12/18 h. Arreglarlo de fondo (versión optimista) es un cambio aparte.
 - **Pruebas:** 82 en total (`PlanSeparacionTest` 11), pasan.
 
+### Fase 8 (21-oct-2026): «una persona, un cargo» — escrita, sin commitear ni probar en navegador
+
+Origen: Saul habló con la licenciada el 20-oct: **cada funcionario es una sola persona y
+tiene un solo cargo**. Si se modifica su nombre o su cargo, cambia en todas sus filas con el
+mismo C.I.; las filas sin C.I. no se tocan (Saul les irá poniendo el C.I.). Al escribir un
+C.I. en «Modificar», que busque si existe y cargue sus datos.
+
+Modelo: en el SCIAF, **una persona por C.I.**; cada oficina es una fila de `responsable`
+que apunta a esa persona (RESP.DBF repite nombre y C.I. en cada fila, eso está bien).
+
+Hecho:
+
+1. **La sync sigue el C.I. recién escrito en el VSIAF.** Columna nueva `responsable.ci_dbf`
+   (C.I. leído en la última pasada; `""` = vacío, `null` = aún no leído). Si cambió, la fila
+   pasa a la persona con ese C.I. o a una nueva con él (`ResolutorPersonaSync.resolver(...,
+   ciRecienEscrito)`). La primera pasada tras el despliegue solo anota `ci_dbf`: no mueve nada
+   (sí guarda todas las filas una vez). Los nombres especiales no siguen ningún C.I.
+   La persona que se queda sin oficinas no se toca: aparece en «Por arreglar».
+2. **Responsables → Modificar:** al cambiar el C.I. busca a la persona (por número, sin
+   extensión, sin reventar si hay dos). Si es de otra, carga su nombre y su cargo, y al guardar
+   **la fila pasa a esa persona** (antes se creaba un segundo registro con el mismo C.I.). Si el
+   nombre no cuadra con el de la dueña del C.I., se rechaza. Queda en el historial (SEPARACION).
+3. **Nombre / C.I. / cargo van a las otras oficinas** de la persona al guardar
+   (`propagarPersona(..., cargoNuevo, cambioDatos)`), solo las que cambian. Incluye las filas
+   de la persona que en el VSIAF no tienen C.I.: si se saltaran, la sync las vería con el
+   nombre viejo y las separaría en otra persona (hallazgo de la revisión). La fila solo pasa
+   a la dueña del C.I. si **se cambió** el número de C.I. (editar un cargo nunca la mueve), y
+   entonces no se tocan los datos de la dueña. Endpoint `buscar-por-ci` con sesión
+   obligatoria. Se quitó el «¿abrir Personas y cargos?» de después de guardar.
+4. **Módulo: un solo cargo.** Sin casillas por oficina: el cargo elegido va a todas; aviso
+   «tiene N cargos distintos». Sigue «es de esta persona» para homónimos.
+5. **Pestaña «Por arreglar»:** varios cargos (abrir ficha), C.I. repetido (abrir ficha con
+   todas sumadas para unificar) y sin oficinas (sin usuario ni actas/duplicados) con baja
+   lógica `ELIMINADO` solo para administradores (`BAJA_PERSONA` en el historial; no se revierte
+   desde Historial).
+6. **Arreglo de la ficha en blanco:** `SciafPrecarga.montar` vacía su contenedor y se montaba
+   sobre la ficha visible (2.ª persona elegida, sumar, Recargar → ficha borrada). Ahora va en
+   `.js-carga-ficha`.
+
+Pendiente: probar en navegador; decidir si se guarda también el NOMRESP leído (para listar
+oficinas con el nombre escrito distinto en el VSIAF); un solo Richard en buscadores, reportes y
+faltantes (parte E, otra fase).
+
+### Fase 9 (21-oct-2026): oficina repetida, habilitar/deshabilitar, faltantes antiguos — escrita y revisada, sin commitear ni probar en navegador
+
+Origen: Saul preguntó qué pasa si en una oficina hay dos Richard (uno con C.I. y otro sin) y
+se unen por error. Respuesta: casi siempre el segundo es donde el VSIAF le cargaba sus
+**faltantes** (práctica vieja: la misma persona, a veces con un punto al final). Medido en
+`bd_a3`: **118 oficinas** con la misma persona repetida (239 filas).
+
+1. **Habilitar / Deshabilitar responsable** (Responsables reemplaza «Eliminar»): estado
+   `INACTIVO` + `API_ESTADO 3` al VSIAF por la cola; habilitar = 1. Solo sin bienes. APOYO por
+   solicitud (`RESP_ESTADO`). Filtro Activos / Deshabilitados / Todos.
+2. **La sync espeja el VSIAF:** `API_ESTADO 3` → `INACTIVO`. Al desplegar, **382 filas** (todas
+   sin bienes) pasan a deshabilitadas — confirmado por Kevin.
+3. Consecuencias cubiertas (revisión): la sync de ACTUAL ya no ignora bienes de responsables
+   INACTIVO; un deshabilitado no es destino válido (`ReglasCustodia.motivoDestino`) ni sale en
+   los buscadores; un custodio inactivo en el VSIAF se reactiva allá antes del traslado; el
+   siguiente código de funcionario cuenta todas las filas (la función de la base solo contaba
+   ACTIVO y podía repetir un código que sigue en el VSIAF).
+4. **Oficina repetida** en la ficha (paso 1): por cada registro que sobra, «Son faltantes →
+   oficina de faltantes» (acta **AR con traslado**, sin plazo, a nombre de la principal;
+   `ActaFaltanteService.regularizarRepetido`, origen `REPETIDO`, `contenido.conTraslado`) o
+   «Deshabilitar este registro» si no tiene bienes (sin marcar al abrir; sale en la vista
+   previa). Al **unificar** no puede quedar una oficina con dos registros con bienes (los que van
+   en camino a la custodia no cuentan); si ya eran de la misma persona, solo aviso.
+5. Un registro con DEVOLUCION/FALTANTES en el nombre se puede **sumar** (aviso), nunca ser la
+   principal. «SIN DATOS» / sin nombre sigue sin poder sumarse.
+6. «Por arreglar»: listas «Oficina repetida» y «C.I. del VSIAF distinto» (filas cuyo C.I. en el
+   VSIAF no es el de su persona: cubre C.I. escritos allá antes de desplegar la fase 8).
+
+Pendiente: probar en navegador; los controladores viejos de formularios que crean
+responsables `INACTIVO` con API 1 (hoy 0 filas así) se verían como «Deshabilitado».
+
 ## 7. Fases
 
 | Fase | Qué | Escribe en producción |
@@ -680,3 +754,10 @@ Decididas por Kevin el 15-oct-2026:
   automáticos de la sync. Se listan aparte, sin tocarlos. Saul (15-oct): «devoluciones no
   deberían haber hecho eso, devengado tampoco», y faltantes ya tiene su circuito. Los
   corrige él en el VSIAF; cuando cambien allá, la sync los trae.
+
+- **D9 (20/21-oct-2026, Saul y la licenciada): una persona, un cargo.** Reemplaza las casillas
+  de D1: el cargo va a todas las oficinas. Cambiar nombre o cargo cambia todas las filas con
+  ese C.I.; las filas sin C.I. no se tocan. La sync **sigue el C.I. que Saul escribe en el
+  VSIAF** (cambia la regla del 15-oct solo para C.I. recién escritos; los que ya estaban no
+  mueven nada). Personas sin oficinas: baja en el SCIAF desde «Por arreglar»; el VSIAF no se
+  toca. Lo de un solo Richard en buscadores y reportes va en otra fase.

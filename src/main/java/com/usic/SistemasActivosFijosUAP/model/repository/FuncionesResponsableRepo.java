@@ -48,11 +48,18 @@ public class FuncionesResponsableRepo {
         return new PageImpl<>(data, pageable, total == null ? 0L : total);
     }
 
+    /**
+     * Siguiente código de funcionario de la oficina. No usa la función de la base
+     * (generar_codigo_funcionario_by_oficina), que solo cuenta los ACTIVO: en el VSIAF siguen las
+     * filas deshabilitadas (API_ESTADO 3) o dadas de baja en el SCIAF, y su código no se puede repetir.
+     */
     public String siguienteCodigoPorOficinaStr(Long idOficina) {
-        return jdbc.queryForObject(
-                "select generar_codigo_funcionario_by_oficina(?)::text",
-                String.class,
+        Integer max = jdbc.queryForObject(
+                "select coalesce(max(cast(codigo_funcionario as integer)), 0) from responsable"
+                        + " where id_oficina = ? and codigo_funcionario ~ '^[0-9]+$'",
+                Integer.class,
                 idOficina
         );
+        return String.valueOf((max == null ? 0 : max) + 1);
     }
 }

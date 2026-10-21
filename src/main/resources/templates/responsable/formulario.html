@@ -269,6 +269,22 @@
         if (!esEdicion) bloquearPersona(true);
 
         let ciBuscado = esEdicion ? ($ci.val() || '').trim() : null;
+        const ciOriginal = ($ci.val() || '').trim();
+        // Edición: si el C.I. nuevo ya es de otra persona, al guardar esta oficina pasa a ella
+        // (una persona por C.I.). Aquí se cargan sus datos y su cargo.
+        let otraPersona = null;
+        function cargarDatosDe(p) {
+            $('#respNombre').val(p.nombre || '');
+            $('#respPaterno').val(p.paterno || '');
+            $('#respMaterno').val(p.materno || '');
+            $persona.removeClass('is-invalid').trigger('input');
+            if (p.cargo) {
+                if (!$cargo.find('option').filter(function () { return this.value === p.cargo; }).length) {
+                    $cargo.append(new Option(p.cargo, p.cargo, false, false));
+                }
+                $cargo.val(p.cargo).trigger('change');
+            }
+        }
         async function buscarPersona() {
             const ci = ($ci.val() || '').trim();
             if (!ci) { $ci.addClass('is-invalid').trigger('focus'); return; }
@@ -276,9 +292,30 @@
             const html = $b.html();
             $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
             try {
-                const r = await SciafModulo.pedir(URL + '/api/personas/buscar-por-ci?ci=' + encodeURIComponent(ci), { metodo: 'GET' });
+                const r = await SciafModulo.pedir(URL + '/api/personas/buscar-por-ci?ci=' + encodeURIComponent(ci)
+                    + (esEdicion ? '&idEnc=' + encodeURIComponent($form.find('input[name="idResponsableEnc"]').val()) : ''), { metodo: 'GET' });
                 ciBuscado = ci;
-                if (r.ok) {
+                if (r.ok && esEdicion) {
+                    const p = await r.json();
+                    if (p.esLaMisma) {
+                        otraPersona = null;
+                        $estado.html('<span class="text-success"><i class="ti ti-circle-check"></i> Es la misma persona de este responsable.</span>');
+                        return;
+                    }
+                    otraPersona = p;
+                    cargarDatosDe(p);
+                    const ofis = (p.oficinas || []).map(esc).join(', ') + (p.nOficinas > (p.oficinas || []).length ? '…' : '');
+                    $estado.html('<div class="sm-aviso sm-aviso-info mt-1 mb-0"><i class="ti ti-user-check"></i><div>'
+                        + 'Este C.I. ya es de <b>' + esc(p.nombreCompleto) + '</b>'
+                        + (p.nOficinas ? ' (' + p.nOficinas + ' oficina(s): ' + ofis + ')' : '') + '.<br>'
+                        + 'Se cargaron su nombre' + (p.cargo ? ' y su cargo <b>' + esc(p.cargo) + '</b>' : '')
+                        + '. Al guardar, <b>esta oficina pasa a esa persona</b> (no se crea otra con el mismo C.I.).'
+                        + (p.cargosDistintos > 1 ? '<br><span class="text-warning">Tiene ' + p.cargosDistintos
+                            + ' cargos distintos en sus oficinas: el que quede aquí se pondrá en todas.</span>' : '')
+                        + (p.otrasConEseCi ? '<br><span class="text-warning">Hay ' + p.otrasConEseCi
+                            + ' registro(s) más con este C.I.: unifíquelos en «Personas y cargos».</span>' : '')
+                        + '</div></div>');
+                } else if (r.ok) {
                     const p = await r.json();
                     $('#respNombre').val(p.nombre || '');
                     $('#respPaterno').val(p.paterno || '');
@@ -289,7 +326,12 @@
                         + (esEdicion ? '' : ' Para corregirlos use el módulo Personas.') + '</span>');
                     $oficina.select2('open');
                 } else if (r.status === 404) {
-                    if (!esEdicion) { $persona.val(''); bloquearPersona(false); }
+                    otraPersona = null;
+                    if (esEdicion) {
+                        $estado.html('<span class="text-muted"><i class="ti ti-info-circle"></i> Ningún otro registro tiene este C.I.</span>');
+                        return;
+                    }
+                    $persona.val(''); bloquearPersona(false);
                     $estado.html('<span class="text-warning"><i class="ti ti-user-plus"></i> No está registrada: complete sus datos y se crea al guardar.</span>');
                     $('#respNombre').trigger('focus');
                 } else {
@@ -304,6 +346,13 @@
         $form.on('click', '.js-buscar-persona', buscarPersona);
         $ci.on('keydown', e => { if (e.key === 'Enter') buscarPersona(); });
         // Cambiar el C.I. después de buscar obliga a buscar de nuevo (en el alta).
+        // Edición: al dejar el campo con un C.I. distinto, se busca solo.
+        $ci.on('change', function () {
+            const ci = (this.value || '').trim();
+            if (!esEdicion) return;
+            if (ci && ci.toUpperCase() !== ciOriginal.toUpperCase()) buscarPersona();
+            else { otraPersona = null; $estado.empty(); }
+        });
         $ci.on('input', function () {
             if (esEdicion || ciBuscado === null) return;
             // Sin distinguir mayúsculas: la plantilla las convierte después de este aviso.
@@ -391,6 +440,7 @@
                 return {
                     titulo: esEdicion ? '¿Guardar los cambios?' : '¿Registrar al responsable?',
                     texto: '<b>' + esc(nombreCompleto()) + '</b><br>' + esc(ofi) + ' · ' + esc($cargo.val() || '')
+                        + avisoOtrasOficinas()
                         + '<br><small class="text-muted">Se guarda en el SCIAF y se envía al VSIAF.</small>',
                     aceptar: esEdicion ? 'Sí, guardar' : 'Sí, registrar'
                 };
@@ -437,36 +487,37 @@
                     Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg, timer: 5000, showConfirmButton: false });
                 } else if (res.vsiafOk === false) {
                     Swal.fire('Guardado, pero no llegó al VSIAF', res.msg, 'warning');
-                } else {
-                    ofrecerCargoEnOtrasOficinas();
+                } else if (res.msg && res.msg.indexOf('Otras oficinas') >= 0) {
+                    // Se aplicó también en sus otras oficinas: que se vea a cuántas llegó.
+                    Swal.fire('Responsable modificado', res.msg, 'success');
                 }
             }
         });
 
-        /* ── Cargo nuevo: ¿también en las otras oficinas de la persona? ──
-           Lleva a «Personas y cargos» con la persona y el cargo ya elegidos; allí se ve la
-           vista previa y se aplica a las oficinas que se marquen. */
-        function ofrecerCargoEnOtrasOficinas() {
-            const otras = Number($form.data('otras-oficinas')) || 0;
-            const idPersona = $form.data('id-persona');
+        /* ── Una persona, un cargo: el nombre / C.I. y el cargo van a sus otras oficinas ──
+           Lo hace el servidor al guardar (solo las que en el VSIAF tienen C.I.); aquí se avisa. */
+        function avisoOtrasOficinas() {
+            if (!esEdicion) return '';
             const cargo = ($cargo.val() || '').trim().toUpperCase();
             const original = String($form.data('cargo-original') || '').trim().toUpperCase();
-            if (!esEdicion || !otras || !idPersona || !cargo || cargo === original) return;
-            if (String($form.data('puede-personas-cargos')) !== 'true' || !window.cargarContenido) return;
-            Swal.fire({
-                icon: 'question',
-                title: 'Esta persona tiene ' + otras + ' oficina(s) más',
-                html: '¿Quiere poner el cargo <b>' + esc(cargo) + '</b> también en sus otras oficinas?'
-                    + '<br><small class="text-muted">Se abre «Personas y cargos» con la persona y el cargo elegidos; '
-                    + 'allí ve la vista previa y marca en qué oficinas aplicarlo.</small>',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, abrir Personas y cargos',
-                cancelButtonText: 'No, solo esta'
-            }).then(r => {
-                if (!r.isConfirmed) return;
-                window.cargarContenido('/administracion/personas-cargos/vista?persona=' + encodeURIComponent(idPersona)
-                    + '&cargo=' + encodeURIComponent(cargo));
-            });
+            if (otraPersona) {
+                // El servidor deja el cargo de esta oficina como el de la persona (en todas).
+                const distinto = cargo && (cargo !== String(otraPersona.cargo || '').toUpperCase() || otraPersona.cargosDistintos > 1);
+                return '<br><span class="text-primary">Esta oficina pasa a ' + esc(otraPersona.nombreCompleto)
+                    + (otraPersona.nOficinas && distinto
+                        ? '; el cargo <b>' + esc(cargo) + '</b> se pondrá en todas sus ' + otraPersona.nOficinas + ' oficina(s)' : '')
+                    + '.</span>';
+            }
+            const otras = Number($form.data('otras-oficinas')) || 0;
+            if (!otras) return '';
+            const cambios = [];
+            if (cargo && cargo !== original) cambios.push('el cargo <b>' + esc(cargo) + '</b>');
+            if (($ci.val() || '').trim().toUpperCase() !== ciOriginal.toUpperCase() || $('#respNombre, #respPaterno, #respMaterno').toArray().some(e => e.value.trim().toUpperCase() !== e.defaultValue.trim().toUpperCase())) {
+                cambios.push('el nombre y C.I.');
+            }
+            if (!cambios.length) return '';
+            return '<br><span class="text-primary">Esta persona tiene ' + otras + ' oficina(s) más: ' + cambios.join(' y ')
+                + ' se pondrá(n) también allá (en las que tienen C.I. en el VSIAF).</span>';
         }
 
         // Cursor listo para escribir.

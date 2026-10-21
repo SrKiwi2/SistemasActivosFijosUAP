@@ -236,7 +236,13 @@ public class EnvioCustodiaService {
         porCustodio.forEach((idCustodio, ids) -> {
             VsiafApoyoService.EstadoVsiaf estado = custodiaService.estadoEnVsiaf(idCustodio);
             switch (estado.codigo()) {
-                case VsiafApoyoService.EST_VSIAF -> trasladar(ids, idCustodio);
+                case VsiafApoyoService.EST_VSIAF -> {
+                    if (custodiaService.reactivarEnVsiafSiInactivo(idCustodio)) {
+                        anotar(ids, ESPERANDO_ALTA, "La custodia estaba inactiva en el VSIAF: se reactivó y se espera la confirmación.");
+                    } else {
+                        trasladar(ids, idCustodio);
+                    }
+                }
                 case VsiafApoyoService.EST_ERROR -> anotar(ids, ERROR,
                         "El VSIAF no aceptó la custodia: " + estado.detalle());
                 // PENDIENTE: el alta no llegó a encolarse; asegurar() la reenvía en el próximo ciclo.

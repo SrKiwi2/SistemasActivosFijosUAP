@@ -143,6 +143,32 @@ public class CustodiaFaltantesService {
      * responsable de custodia ({@code VSIAF} solo si los dos están confirmados). Antes de eso
      * no se puede encolar el traslado del bien (ver el aviso de la clase).
      */
+    /**
+     * Un custodio que en el VSIAF está inactivo (API_ESTADO 3: se deshabilitó al quedar vacío, o
+     * ya venía así) no puede recibir bienes: allá aparecerían en otro lado. Se lo reactiva en el
+     * SCIAF y en el VSIAF (UPDATE con API 1); el traslado espera a que el worker lo confirme.
+     *
+     * @return true si encoló la reactivación (el traslado tiene que esperar)
+     */
+    public boolean reactivarEnVsiafSiInactivo(Long idResponsableCustodia) {
+        Responsable r = enTransaccion(() -> {
+            Responsable x = responsableService.findByIdWithRelations(idResponsableCustodia);
+            if (x == null || x.getApiEstado() == null || x.getApiEstado() != ResponsableGestionService.API_INACTIVO) return null;
+            x.setApiEstado(ResponsableGestionService.API_ACTIVO);
+            x.setEstado("ACTIVO");
+            responsableDao.saveAndFlush(x);
+            return x;
+        });
+        if (r == null) return false;
+        if (!vsiafApoyoService.necesitaAlta(VsiafApoyoService.TABLA_RESP, r.getIdResponsable(), r.isPendienteDbf())) {
+            vsiafApoyoService.actualizarResponsable(responsableService.findByIdWithRelations(r.getIdResponsable()),
+                    vsiafApoyoService.claveDe(r), "SCIAF-CUSTODIA");
+        }
+        log.info("[CUSTODIA] Responsable de custodia {} estaba inactivo en el VSIAF: se reactiva antes del traslado",
+                r.getIdResponsable());
+        return true;
+    }
+
     public VsiafApoyoService.EstadoVsiaf estadoEnVsiaf(Long idResponsableCustodia) {
         return enTransaccion(() -> {
             Responsable r = responsableService.findByIdWithRelations(idResponsableCustodia);

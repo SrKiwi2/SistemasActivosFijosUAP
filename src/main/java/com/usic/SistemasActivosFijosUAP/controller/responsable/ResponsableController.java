@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -171,6 +172,7 @@ public class ResponsableController {
             @RequestParam(name = "length", defaultValue = "25") int length,
             @RequestParam(name = "search[value]", required = false) String search,
             @RequestParam(name = "oficinaId", required = false) Long oficinaId,
+            @RequestParam(name = "estado", required = false, defaultValue = "ACTIVO") String estado,
             HttpServletRequest request) {
 
         // Auditoría (quién registró / modificó): solo ADMINISTRADOR / SUPER USUARIO, y ni se envía a los demás.
@@ -179,7 +181,8 @@ public class ResponsableController {
         int size = (length < 0) ? 1000 : length;
         int page = Math.max(start, 0) / Math.max(size, 1);
         Pageable pageable = PageRequest.of(page, size);
-        Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId, pageable);
+        Page<IResposableDao.ResponsableRow> p = responsableService.datatable(search, oficinaId,
+                "INACTIVO".equals(estado) || "TODOS".equals(estado) ? estado : "ACTIVO", pageable);
 
         List<Map<String, Object>> data = new ArrayList<>(p.getNumberOfElements());
 
@@ -221,6 +224,7 @@ public class ResponsableController {
             m.put("cargo", nvl(row.getCargo()));
             m.put("idResponsable", row.getIdResponsable());
             m.put("existeEnDbf", enDbf);
+            m.put("habilitado", !"INACTIVO".equals(row.getEstado()));
 
             VsiafApoyoService.EstadoVsiaf est = estados.get(row.getIdResponsable());
             m.put("estadoVsiaf", est != null ? est.codigo() : VsiafApoyoService.EST_VSIAF);
@@ -621,7 +625,14 @@ public class ResponsableController {
                 // con ese lector, y cambiaría los bytes de filas que nadie tocó.
                 String nombreDbf = TextoVsiaf.repararEnieDos(f.getNombre());
                 String cargoDbf = TextoVsiaf.repararEnieDos(f.getCargo());
-                Persona persona = personas.resolver(nombreDbf, f.getCi(), idPersonaActual);
+                // ¿Le cambiaron el C.I. en el VSIAF desde la pasada anterior? Entonces la fila sigue
+                // a ese C.I. (fase 8). Sin lectura anterior (null) no se sabe: no se mueve nada.
+                String ciLeido = f.getCi() == null ? "" : f.getCi().trim();
+                String ciAnterior = responsable != null ? responsable.getCiDbf() : null;
+                boolean ciRecienEscrito = ciAnterior != null && !ciLeido.isEmpty()
+                        && !Objects.equals(IdentidadPersona.numeroCi(ciAnterior, ciInvalidos),
+                                           IdentidadPersona.numeroCi(ciLeido, ciInvalidos));
+                Persona persona = personas.resolver(nombreDbf, f.getCi(), idPersonaActual, ciRecienEscrito);
 
                 Cargo cargo = null;
                 if (cargoDbf != null && !cargoDbf.isBlank()) {
@@ -673,12 +684,20 @@ public class ResponsableController {
                 responsable.setUsuario(f.getUsuario());
                 responsable.setCodExp(f.getCodExp());
                 responsable.setApiEstado(f.getApiEstado());
-                responsable.setEstado("ACTIVO");
+                // API_ESTADO 3 = inactivo en el VSIAF: aquí queda deshabilitado (fase 9).
+                String estadoAntes = responsable.getEstado();
+                responsable.setEstado(f.getApiEstado() != null
+                        && f.getApiEstado() == ResponsableGestionService.API_INACTIVO
+                        ? ResponsableGestionService.ESTADO_INACTIVO : "ACTIVO");
+                boolean estadoCambio = !Objects.equals(estadoAntes, responsable.getEstado());
                 // Viene leído del DBF → por definición está en el VSIAF: no pendiente.
                 responsable.setPendienteDbf(false);
 
+                boolean ciDbfCambio = !Objects.equals(responsable.getCiDbf(), ciLeido);
+                responsable.setCiDbf(ciLeido);
+
                 String nuevoHash = responsable.calcularHash();
-                if (!esNuevo && !forzarCompleto) {
+                if (!esNuevo && !forzarCompleto && !ciDbfCambio && !estadoCambio) {
                     if (nuevoHash.equals(responsable.getHashDatos())) {
                         skipped++;
                         continue;
@@ -733,17 +752,18 @@ public class ResponsableController {
     }
 
     @GetMapping("/api/personas/buscar-por-ci")
+    @ValidarUsuarioAutenticado
     @ResponseBody
-    public ResponseEntity<?> buscarPersonaApi(@RequestParam String ci) {
-        Persona p = personaService.buscarPersonaPorCI(ci);
-        if (p != null) {
-            return ResponseEntity.ok(Map.of(
-                "nombre", p.getNombre(),
-                "paterno", p.getPaterno() != null ? p.getPaterno() : "",
-                "materno", p.getMaterno() != null ? p.getMaterno() : ""
-            ));
+    public ResponseEntity<?> buscarPersonaApi(@RequestParam String ci,
+                                              @RequestParam(required = false) String idEnc) {
+        // Por número de C.I. (sin extensión) y sin reventar si hay dos personas con el mismo:
+        // devuelve la más antigua, su cargo y sus oficinas (Modificar ofrece cargar sus datos).
+        Long idResponsable = null;
+        if (idEnc != null && !idEnc.isBlank()) {
+            try { idResponsable = Long.parseLong(Encriptar.decrypt(idEnc)); } catch (Exception e) { /* sin fila: solo busca */ }
         }
-        return ResponseEntity.notFound().build();
+        Map<String, Object> p = responsableGestionService.fichaPorCi(ci, idResponsable);
+        return p != null ? ResponseEntity.ok(p) : ResponseEntity.notFound().build();
     }
 
     @GetMapping("/api/cargos/search")
@@ -907,6 +927,40 @@ public class ResponsableController {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido.getMessage()));
         } catch (Exception e) {
             log.error("Error eliminando responsable", e);
+            return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Deshabilita (API_ESTADO 3) o habilita (1) al responsable, en el SCIAF y en el VSIAF.
+     * Deshabilitar solo sin bienes a cargo. Sin rol administrativo va como solicitud con motivo.
+     */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/estado/{id}")
+    @ResponseBody
+    public ResponseEntity<?> cambiarEstadoResponsable(@PathVariable("id") String idEnc, HttpServletRequest request,
+            @RequestParam boolean habilitar, @RequestParam(required = false) String motivo) {
+        Usuario usuario = (Usuario) request.getSession().getAttribute("usuario");
+        try {
+            Long id = Long.parseLong(Encriptar.decrypt(idEnc));
+            Responsable resp = responsableGestionService.buscar(id);
+            if (!habilitar) {
+                String impide = responsableGestionService.impideDeshabilitar(resp);
+                if (impide != null) return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", impide));
+            }
+            if (!esAdmin(request)) {
+                autorizacionService.solicitar(ResponsableGestionService.TIPO_ESTADO, ActividadService.MOD_RESPONSABLE,
+                        id, ResponsableGestionService.referencia(resp), habilitar ? "Habilitar al responsable" : "Deshabilitar al responsable",
+                        Map.of("idResponsable", id, "habilitar", habilitar), motivo, usuario);
+                return ResponseEntity.ok(Map.of("ok", true, "solicitud", true,
+                        "msg", "Solicitud enviada. Se aplicará cuando el revisor la apruebe."));
+            }
+            ResponsableGestionService.Resultado r = responsableGestionService.cambiarEstado(id, habilitar, usuario);
+            return ResponseEntity.ok(Map.of("ok", true, "vsiafOk", r.vsiafOk(), "msg", r.msg()));
+        } catch (IllegalArgumentException | IllegalStateException invalido) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", invalido.getMessage()));
+        } catch (Exception e) {
+            log.error("Error cambiando el estado del responsable", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
     }

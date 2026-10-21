@@ -40,6 +40,8 @@ import com.usic.SistemasActivosFijosUAP.model.service.personas.PlanPersona.Datos
 import com.usic.SistemasActivosFijosUAP.model.service.personas.PlanPersona.Decision;
 import com.usic.SistemasActivosFijosUAP.model.service.personas.PlanPersona.Fila;
 import com.usic.SistemasActivosFijosUAP.model.service.personas.PlanPersona.Resultado;
+import com.usic.SistemasActivosFijosUAP.model.dto.control.RegistrarFaltantesRequest;
+import com.usic.SistemasActivosFijosUAP.model.service.control.ActaFaltanteService;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.EjecutorAutorizacion;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService;
@@ -75,6 +77,7 @@ public class PersonasCargosService implements EjecutorAutorizacion {
     private final TransactionTemplate tx;
     private final VsiafDisponibilidad vsiaf;
     private final EnvioFilasVsiaf envioFilas;
+    private final ActaFaltanteService actaFaltantes;
     @PersistenceContext
     private EntityManager em;
 
@@ -83,8 +86,10 @@ public class PersonasCargosService implements EjecutorAutorizacion {
                                  ResponsableGestionService responsableGestionService,
                                  VsiafApoyoService vsiafApoyoService, ActividadService actividadService,
                                  PersonaHistorialService historial, PlatformTransactionManager txManager,
-                                 VsiafDisponibilidad vsiaf, EnvioFilasVsiaf envioFilas) {
+                                 VsiafDisponibilidad vsiaf, EnvioFilasVsiaf envioFilas,
+                                 ActaFaltanteService actaFaltantes) {
         this.vsiaf = vsiaf;
+        this.actaFaltantes = actaFaltantes;
         this.envioFilas = envioFilas;
         this.jdbc = new NamedParameterJdbcTemplate(jdbcTemplate);
         this.personaDao = personaDao;
@@ -148,6 +153,7 @@ public class PersonasCargosService implements EjecutorAutorizacion {
         m.put("principal", aMapa(datos.principal));
         m.put("secundarias", datos.secundarias.stream().map(PersonasCargosService::aMapa).toList());
         m.put("filas", datos.filas.stream().map(PersonasCargosService::aMapa).toList());
+        m.put("enCamino", enCamino(datos.filas));
         Set<Long> ids = new LinkedHashSet<>();
         ids.add(idPrincipal);
         ids.addAll(idsUnificadasEn(idPrincipal));
@@ -179,7 +185,29 @@ public class PersonasCargosService implements EjecutorAutorizacion {
                         + "sumadas: no se pueden unificar todavía (habría que juntar primero sus custodias).");
             }
         }
+        // Una oficina, un responsable (fase 9): registros repetidos de la persona en la misma oficina.
+        Set<Long> noSumar = d.idsFilasNoSumar() == null ? Set.of() : new HashSet<>(d.idsFilasNoSumar());
+        Set<Long> baja = d.idsFilasBaja() == null ? Set.of() : new LinkedHashSet<>(d.idsFilasBaja());
+        OficinasRepetidas.validar(datos.filas, noSumar, enCamino(datos.filas), baja, r.errores(), r.avisos());
+        if (!baja.isEmpty()) {
+            r.avisos().add("Se deshabilitarán " + baja.size() + " registro(s) repetido(s) sin bienes, aquí y en el VSIAF: "
+                    + datos.filas.stream().filter(f -> baja.contains(f.idResponsable())).map(Fila::referencia).toList() + ".");
+        }
         return r;
+    }
+
+    /** idResponsable → bienes que ya tienen un acta de faltantes pendiente (van o están yendo a la custodia). */
+    public Map<Long, Long> enCamino(List<Fila> filas) {
+        if (filas.isEmpty()) return Map.of();
+        Map<Long, Long> m = new HashMap<>();
+        jdbc.query("SELECT a.id_responsable, count(*) AS n FROM activo a"
+                + " JOIN hallazgo_inventario h ON h.id_activo = a.id_activo"
+                + " WHERE a.id_responsable IN (:ids) AND a._estado = 'ACTIVO'"
+                + " AND h._estado = 'ACTIVO' AND h.id_acta IS NOT NULL AND h.estado_hallazgo = 'ABIERTO'"
+                + " GROUP BY a.id_responsable",
+                Map.of("ids", filas.stream().map(Fila::idResponsable).toList()),
+                rs -> { m.put(rs.getLong("id_responsable"), rs.getLong("n")); });
+        return m;
     }
 
     // ── Escritura ─────────────────────────────────────────────────────────
@@ -263,7 +291,22 @@ public class PersonasCargosService implements EjecutorAutorizacion {
         }
 
         String msg = "Cambios guardados en el SCIAF (" + filas + " oficina(s))." + envio.texto();
-        return new Aplicado(envio.fallidos() == 0, msg, lote, filas, envio.enviados(), envio.fallidos(), envio.sinEnviar());
+        // Registros repetidos sin bienes que se pidió deshabilitar (API_ESTADO 3, aquí y en el VSIAF).
+        int bajas = 0;
+        List<String> sinBaja = new ArrayList<>();
+        for (Long id : d.idsFilasBaja() == null ? List.<Long>of() : d.idsFilasBaja()) {
+            try {
+                // Ya se comprobó el permiso para aplicar (directo o solicitud aprobada).
+                responsableGestionService.aplicarEstado(id, false, autor);
+                bajas++;
+            } catch (Exception ex) {
+                sinBaja.add("id " + id + ": " + ex.getMessage());
+            }
+        }
+        if (bajas > 0) msg += " Registros deshabilitados: " + bajas + ".";
+        if (!sinBaja.isEmpty()) msg += " No se pudieron deshabilitar: " + String.join("; ", sinBaja) + ".";
+        return new Aplicado(envio.fallidos() == 0 && sinBaja.isEmpty(), msg, lote, filas,
+                envio.enviados(), envio.fallidos(), envio.sinEnviar());
     }
 
     /** Todo lo de la base, en una transacción. Devuelve una entrada de historial por fila. */
@@ -614,7 +657,8 @@ public class PersonasCargosService implements EjecutorAutorizacion {
     public static Decision decisionDe(Map<String, Object> datos) {
         return new Decision(aLong(datos.get("idPrincipal")), aLongs(datos.get("idsSecundarias")),
                 str(datos.get("nombre")), str(datos.get("paterno")), str(datos.get("materno")), str(datos.get("ci")),
-                str(datos.get("cargo")), aLongs(datos.get("idsFilasCargo")), aLongs(datos.get("idsFilasNoSumar")));
+                str(datos.get("cargo")), aLongs(datos.get("idsFilasCargo")), aLongs(datos.get("idsFilasNoSumar")),
+                aLongs(datos.get("idsFilasBaja")));
     }
 
     public String resumen(Resultado plan) {
@@ -802,6 +846,234 @@ public class PersonasCargosService implements EjecutorAutorizacion {
         return m;
     }
 
+    // ── Oficina repetida: los faltantes del registro que sobra (fase 9) ──────
+
+    /** Bienes vigentes de un registro, con los que ya tienen acta de faltantes pendiente. */
+    public List<Map<String, Object>> bienesDe(Long idResponsable) {
+        return jdbc.query("SELECT a.id_activo, a.codigo, a.descripcion,"
+                + " EXISTS (SELECT 1 FROM hallazgo_inventario h WHERE h.id_activo = a.id_activo AND h._estado = 'ACTIVO'"
+                + "         AND h.id_acta IS NOT NULL AND h.estado_hallazgo = 'ABIERTO') AS en_camino"
+                + " FROM activo a WHERE a.id_responsable = :r AND a._estado = 'ACTIVO' ORDER BY a.codigo",
+                Map.of("r", idResponsable), (rs, i) -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id", rs.getLong("id_activo"));
+                    m.put("codigo", rs.getString("codigo"));
+                    m.put("descripcion", rs.getString("descripcion"));
+                    m.put("enCamino", rs.getBoolean("en_camino"));
+                    return m;
+                });
+    }
+
+    /**
+     * Los bienes de un registro repetido (la misma persona dos veces en una oficina: ahí el
+     * VSIAF le cargaba sus faltantes) van a la oficina de faltantes del predio con un acta de
+     * regularización (AR, sin plazo), a nombre de la persona principal. Solo administradores.
+     */
+    public ActaFaltanteService.Registro faltantesDeRepetido(Long idPrincipal, Long idResponsable, List<Long> idsActivos,
+                                                           String documento, String observacion, Usuario autor) {
+        if (!RolesSciaf.esAdministrativo(autor)) {
+            throw new IllegalStateException("Solo ADMINISTRADOR o SUPER USUARIO registran faltantes desde aquí.");
+        }
+        if (!vsiaf.dbf("Personas y cargos")) {
+            throw new IllegalStateException("No se aplica desde aquí: " + vsiaf.motivoDbf() + " Hágalo desde el servidor del SCIAF.");
+        }
+        if (idPrincipal == null || idResponsable == null) throw new IllegalArgumentException("Falta la persona o el registro.");
+        Responsable r = responsableDao.findById(idResponsable)
+                .orElseThrow(() -> new IllegalArgumentException("El registro ya no existe."));
+        if (!"ACTIVO".equals(r.getEstado()) || r.getPersona() == null || r.getOficina() == null) {
+            throw new IllegalArgumentException("El registro ya no está vigente.");
+        }
+        Long idPersonaFila = r.getPersona().getIdPersona();
+        // Tiene que ser de verdad un repetido: otro registro vigente en la misma oficina, de esta
+        // persona o de la principal.
+        Long otros = jdbc.queryForObject("SELECT count(*) FROM responsable WHERE id_oficina = :o AND _estado = 'ACTIVO'"
+                + " AND id_responsable <> :r AND id_persona IN (:p)", new MapSqlParameterSource()
+                .addValue("o", r.getOficina().getIdOficina()).addValue("r", idResponsable)
+                .addValue("p", List.of(idPrincipal, idPersonaFila)), Long.class);
+        if (otros == null || otros == 0) {
+            throw new IllegalArgumentException("Ese registro no está repetido en su oficina: sus bienes se manejan desde Faltantes.");
+        }
+        Set<Long> suyos = new HashSet<>(jdbc.queryForList(
+                "SELECT id_activo FROM activo WHERE id_responsable = :r AND _estado = 'ACTIVO'", Map.of("r", idResponsable), Long.class));
+        if (idsActivos == null || idsActivos.isEmpty()) throw new IllegalArgumentException("Marque al menos un bien.");
+        if (!suyos.containsAll(idsActivos)) {
+            throw new IllegalArgumentException("Algún bien marcado ya no está a cargo de ese registro: vuelva a abrir la lista.");
+        }
+        List<Long> vinculadas = idPersonaFila.equals(idPrincipal) ? List.of() : List.of(idPersonaFila);
+        RegistrarFaltantesRequest req = new RegistrarFaltantesRequest(idPrincipal, idsActivos, documento, null, observacion,
+                null, vinculadas, null, null, null, null);
+        return actaFaltantes.regularizarRepetido(req, autor);
+    }
+
+    // ── Por arreglar (fase 8): lista de trabajo ───────────────────────────
+
+    /** Sin oficinas vigentes, sin usuario y sin actas / duplicados que la nombren: se puede dar de baja. */
+    private static final String SIN_USO = """
+              NOT EXISTS (SELECT 1 FROM responsable r WHERE r.id_persona = pe.id_persona AND r._estado IN ('ACTIVO', 'INACTIVO'))
+              AND NOT EXISTS (SELECT 1 FROM usuario u WHERE u.id_persona = pe.id_persona)
+              AND NOT EXISTS (SELECT 1 FROM acta_faltante x WHERE x.id_persona = pe.id_persona)
+              AND NOT EXISTS (SELECT 1 FROM activo_duplicado x WHERE x.id_persona = pe.id_persona)
+              AND NOT EXISTS (SELECT 1 FROM notificacion_duplicado x WHERE x.id_persona = pe.id_persona)
+              AND NOT EXISTS (SELECT 1 FROM persona f WHERE f.fusionada_en = pe.id_persona)""";
+
+    /**
+     * Lo que Saul va arreglando: personas con varios cargos (una persona, un cargo), el mismo
+     * C.I. en varias personas (hay que unificarlas) y personas que se quedaron sin oficinas
+     * (p. ej. cuando a sus filas les pusieron en el VSIAF el C.I. de otra).
+     */
+    public Map<String, Object> porArreglar() {
+        Map<String, Object> out = new LinkedHashMap<>();
+
+        out.put("cargos", jdbc.query("""
+                SELECT pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci, count(*) AS oficinas,
+                       string_agg(DISTINCT coalesce(c.nombre, '(sin cargo)'), ' | ') AS cargos
+                  FROM persona pe
+                  JOIN responsable r ON r.id_persona = pe.id_persona AND r._estado = 'ACTIVO'
+                  LEFT JOIN cargo c ON c.id_cargo = r.id_cargo
+                 WHERE pe._estado = 'ACTIVO'
+                 GROUP BY pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci
+                HAVING count(DISTINCT coalesce(r.id_cargo, 0)) > 1
+                 ORDER BY pe.paterno NULLS LAST, pe.materno NULLS LAST, pe.nombre
+                 LIMIT 500""", new MapSqlParameterSource(), (rs, i) -> {
+            Map<String, Object> m = personaFila(rs);
+            m.put("oficinas", rs.getLong("oficinas"));
+            m.put("detalle", rs.getString("cargos"));
+            return m;
+        }));
+
+        // Mismo número de C.I. en dos o más personas vigentes (se compara como la sync).
+        Set<String> inv = responsableGestionService.ciInvalidos();
+        Map<String, List<Map<String, Object>>> porNumero = new LinkedHashMap<>();
+        jdbc.query("""
+                SELECT pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci,
+                       (SELECT count(*) FROM responsable r WHERE r.id_persona = pe.id_persona AND r._estado = 'ACTIVO') AS oficinas
+                  FROM persona pe
+                 WHERE pe._estado = 'ACTIVO' AND pe.ci IS NOT NULL AND trim(pe.ci) <> ''
+                 ORDER BY pe.id_persona""", new MapSqlParameterSource(), rs -> {
+            String n = IdentidadPersona.numeroCi(rs.getString("ci"), inv);
+            if (n == null) return;
+            Map<String, Object> m = personaFila(rs);
+            if (IdentidadPersona.esNombreEspecial(IdentidadPersona.normalizarNombre((String) m.get("nombre")))) return;
+            m.put("oficinas", rs.getLong("oficinas"));
+            porNumero.computeIfAbsent(n, k -> new ArrayList<>()).add(m);
+        });
+        List<Map<String, Object>> ciRepetido = new ArrayList<>();
+        porNumero.forEach((n, l) -> {
+            if (l.size() < 2) return;
+            Map<String, Object> g = new LinkedHashMap<>();
+            g.put("ci", n);
+            g.put("personas", l);
+            ciRepetido.add(g);
+        });
+        out.put("ciRepetido", ciRepetido);
+
+        // Oficinas cuyo C.I. en el VSIAF no es el de su persona (p. ej. Saul lo escribió allá antes de
+        // que la sync siguiera los C.I. nuevos): se unifican con la persona dueña de ese C.I.
+        Map<String, Long> duenaPorNumero = new HashMap<>();
+        porNumero.forEach((n, l) -> duenaPorNumero.put(n, (Long) l.get(0).get("id")));
+        List<Map<String, Object>> ciDistinto = new ArrayList<>();
+        jdbc.query("SELECT r.id_responsable, r.ci_dbf, pr.unidad, o.cod_ofi, r.codigo_funcionario,"
+                + " pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci"
+                + " FROM responsable r JOIN persona pe ON pe.id_persona = r.id_persona"
+                + " JOIN oficina o ON o.id_oficina = r.id_oficina JOIN predio pr ON pr.id_predio = o.id_predio"
+                + " WHERE r._estado = 'ACTIVO' AND pe._estado = 'ACTIVO' AND coalesce(trim(r.ci_dbf), '') <> ''"
+                + " ORDER BY pe.paterno NULLS LAST, pe.materno NULLS LAST, pe.nombre",
+                new MapSqlParameterSource(), rs -> {
+                    String enVsiaf = IdentidadPersona.numeroCi(rs.getString("ci_dbf"), inv);
+                    if (enVsiaf == null || enVsiaf.equals(IdentidadPersona.numeroCi(rs.getString("ci"), inv))) return;
+                    Map<String, Object> m = personaFila(rs);
+                    if (IdentidadPersona.esNombreEspecial(IdentidadPersona.normalizarNombre((String) m.get("nombre")))) return;
+                    m.put("detalle", rs.getString("unidad") + " " + rs.getShort("cod_ofi") + " · cód. " + rs.getString("codigo_funcionario"));
+                    m.put("ciVsiaf", enVsiaf);
+                    m.put("idDuena", duenaPorNumero.get(enVsiaf));
+                    if (ciDistinto.size() < 500) ciDistinto.add(m);
+                });
+        out.put("ciDistinto", ciDistinto);
+
+        // La misma persona dos o más veces en una oficina (fase 9): suele ser su registro de faltantes.
+        out.put("oficinaRepetida", jdbc.query("SELECT pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci,"
+                + " pr.unidad, o.cod_ofi, o.nombre AS oficina, count(*) AS registros,"
+                + " sum((SELECT count(*) FROM activo a WHERE a.id_responsable = r.id_responsable AND a._estado = 'ACTIVO')) AS bienes"
+                + " FROM responsable r JOIN persona pe ON pe.id_persona = r.id_persona"
+                + " JOIN oficina o ON o.id_oficina = r.id_oficina JOIN predio pr ON pr.id_predio = o.id_predio"
+                + " WHERE r._estado = 'ACTIVO' AND pe._estado = 'ACTIVO'"
+                + " GROUP BY pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci, pr.unidad, o.cod_ofi, o.nombre"
+                + " HAVING count(*) > 1 ORDER BY pe.paterno NULLS LAST, pe.materno NULLS LAST, pe.nombre LIMIT 500",
+                new MapSqlParameterSource(), (rs, i) -> {
+                    Map<String, Object> m = personaFila(rs);
+                    m.put("detalle", rs.getString("unidad") + " " + rs.getShort("cod_ofi") + " · " + rs.getString("oficina"));
+                    m.put("registros", rs.getLong("registros"));
+                    m.put("bienes", rs.getLong("bienes"));
+                    return m;
+                }));
+
+        out.put("sinOficinas", jdbc.query("""
+                SELECT pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci,
+                       (SELECT count(*) FROM responsable r WHERE r.id_persona = pe.id_persona) AS filas_viejas
+                  FROM persona pe
+                 WHERE pe._estado = 'ACTIVO' AND""" + " " + SIN_USO + """
+
+                 ORDER BY pe.paterno NULLS LAST, pe.materno NULLS LAST, pe.nombre
+                 LIMIT 1000""", new MapSqlParameterSource(), (rs, i) -> {
+            Map<String, Object> m = personaFila(rs);
+            m.put("filasViejas", rs.getLong("filas_viejas"));
+            return m;
+        }));
+        return out;
+    }
+
+    /**
+     * Da de baja (ELIMINADO) a personas sin oficinas ni otros usos. Solo en el SCIAF: el VSIAF
+     * no tiene tabla de personas. Cada una se vuelve a comprobar, bloqueada, en la transacción.
+     */
+    public int darDeBajaSinOficinas(List<Long> ids, Usuario autor) {
+        if (!RolesSciaf.esAdministrativo(autor)) {
+            throw new IllegalStateException("Solo ADMINISTRADOR o SUPER USUARIO dan de baja personas.");
+        }
+        if (ids == null || ids.isEmpty()) throw new IllegalArgumentException("Marque al menos una persona.");
+        String lote = PersonaHistorialService.nuevoLote();
+        Integer n = tx.execute(st -> {
+            int hechas = 0;
+            for (Long id : new LinkedHashSet<>(ids)) {
+                List<Map<String, Object>> p = jdbc.queryForList(
+                        "SELECT pe.id_persona, pe.nombre, pe.paterno, pe.materno, pe.ci FROM persona pe"
+                        + " WHERE pe.id_persona = :id AND pe._estado = 'ACTIVO' AND " + SIN_USO + " FOR UPDATE OF pe",
+                        new MapSqlParameterSource("id", id));
+                if (p.isEmpty()) continue;   // ya no está libre: no se toca
+                jdbc.update("UPDATE persona SET _estado = 'ELIMINADO', _modificacion_id_usuario = :u, _fecha_modificacion = now()"
+                        + " WHERE id_persona = :id", new MapSqlParameterSource("id", id)
+                        .addValue("u", autor == null ? null : autor.getIdUsuario()));
+                Map<String, Object> fila = p.get(0);
+                PersonaCambio c = historial.nuevo(lote, id, PersonaCambio.TIPO_BAJA_PERSONA, autor,
+                        PersonaHistorialService.ORIGEN_PERSONAS_CARGOS);
+                c.setReferencia(recortar(unir((String) fila.get("nombre"), (String) fila.get("paterno"),
+                        (String) fila.get("materno")), 150));
+                Map<String, Object> antes = new LinkedHashMap<>();
+                antes.put("estado", "ACTIVO");
+                antes.put("ci", fila.get("ci"));
+                c.setAntes(historial.json(antes));
+                c.setDespues(historial.json(Map.of("estado", "ELIMINADO")));
+                historial.guardar(c);
+                hechas++;
+            }
+            return hechas;
+        });
+        int hechas = n == null ? 0 : n;
+        if (hechas > 0) {
+            actividadService.registrar(autor, ActividadService.MOD_PERSONA, ActividadService.ACC_ELIMINACION,
+                    hechas + " persona(s)", "Dio de baja " + hechas + " persona(s) sin oficinas (Personas y cargos)", null);
+        }
+        return hechas;
+    }
+
+    private static Map<String, Object> personaFila(java.sql.ResultSet rs) throws java.sql.SQLException {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", rs.getLong("id_persona"));
+        m.put("nombre", unir(rs.getString("nombre"), rs.getString("paterno"), rs.getString("materno")));
+        m.put("ci", rs.getString("ci"));
+        return m;
+    }
+
     private static String unir(String... partes) {
         StringBuilder sb = new StringBuilder();
         for (String p : partes) if (p != null && !p.isBlank()) sb.append(sb.length() > 0 ? " " : "").append(p.trim());
@@ -814,7 +1086,7 @@ public class PersonasCargosService implements EjecutorAutorizacion {
         return t.length() > max ? t.substring(0, max) : t;
     }
 
-    static Long aLong(Object o) {
+    public static Long aLong(Object o) {
         if (o == null) return null;
         if (o instanceof Number n) return n.longValue();
         String t = o.toString().trim();

@@ -32,6 +32,12 @@ public final class ReglasCustodia {
             return "La oficina de duplicados no se puede elegir como destino: los bienes llegan ahí solo "
                     + "registrándolos como duplicados (Control por responsable → Activos duplicados), que emite la notificación.";
         }
+        // Deshabilitado (fase 9): en el VSIAF está con API_ESTADO 3; los bienes aparecerían en otro lado.
+        if (responsable != null && "INACTIVO".equals(responsable.getEstado())
+                && responsable.getApiEstado() != null && responsable.getApiEstado() == 3) {
+            return "El responsable de destino está deshabilitado (inactivo en el VSIAF): habilítelo en Responsables "
+                    + "antes de asignarle bienes.";
+        }
         return null;
     }
 

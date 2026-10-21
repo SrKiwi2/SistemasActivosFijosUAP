@@ -76,11 +76,23 @@ class PlanPersonaTest {
     }
 
     @Test
-    void especialNoSeUnificaNiSeCambia() {
+    void especialSeSumaConAvisoPeroNoEsPrincipal() {
         DatosPersona dev = persona(586, "NANCY", "ACUNA ALVARES", "DEVOLUCION", null, false);
         Resultado r = calcular(ALEIDA, List.of(dev), List.of(fila(1, 586, 9, "X")),
                 new Decision(696L, List.of(586L), null, null, null, null, null, List.of()), List.of());
-        assertTrue(r.errores().stream().anyMatch(e -> e.contains("registro especial")));
+        assertTrue(r.errores().stream().noneMatch(e -> e.contains("marca del VSIAF")), r.errores().toString());
+        assertTrue(r.avisos().stream().anyMatch(a -> a.contains("marca del VSIAF")));
+        Resultado comoPrincipal = calcular(dev, List.of(), List.of(fila(1, 586, 9, "X")),
+                new Decision(586L, List.of(), null, null, null, null, null, List.of()), List.of());
+        assertTrue(comoPrincipal.errores().stream().anyMatch(e -> e.contains("no puede ser la principal")));
+    }
+
+    @Test
+    void elComodinSinDatosNoSeSuma() {
+        DatosPersona sd = persona(250, "SIN DATOS", null, null, null, false);
+        Resultado r = calcular(ALEIDA, List.of(sd), List.of(fila(1, 250, 9, "X")),
+                new Decision(696L, List.of(250L), null, null, null, null, null, List.of()), List.of());
+        assertTrue(r.errores().stream().anyMatch(e -> e.contains("filas sin nombre")), r.errores().toString());
     }
 
     @Test

@@ -64,6 +64,11 @@
                 <option value="">Todas las oficinas</option>
             </select>
         </div>
+        <div class="sm-segmento js-f-estado" role="group" aria-label="Estado">
+            <button type="button" class="activo" data-estado="ACTIVO" title="Responsables habilitados">Activos</button>
+            <button type="button" data-estado="INACTIVO" title="Deshabilitados: en el VSIAF con API_ESTADO 3">Deshabilitados</button>
+            <button type="button" data-estado="TODOS">Todos</button>
+        </div>
         <div class="sm-toolbar-grupo">
             <span class="sm-sub d-none d-xl-inline" th:unless="${esAdmin}">
                 <i class="ti ti-info-circle"></i> Lo que registre o modifique se envía solo al VSIAF.
@@ -166,7 +171,8 @@
                 '<span class="sm-avatar">' + esc((nombre || '?').charAt(0)) + '</span>' +
                 '<div class="sm-persona-texto">' +
                     '<span class="sm-nombre">' + esc(nombre || '—') + '</span>' +
-                    '<span class="sm-sub sm-mayus">' + (r.ci ? 'C.I. ' + esc(r.ci) : 'Sin C.I.') + '</span>' +
+                    '<span class="sm-sub sm-mayus">' + (r.ci ? 'C.I. ' + esc(r.ci) : 'Sin C.I.') +
+                        (r.habilitado ? '' : ' <span class="sm-pastilla sm-pastilla-linea py-0"><i class="ti ti-user-off"></i> Deshabilitado</span>') + '</span>' +
                 '</div></div>';
         }
 
@@ -198,12 +204,17 @@
                 '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave" data-accion="editar" title="Modificar datos, oficina o cargo">' +
                     '<i class="ti ti-edit"></i> Editar</button>' +
                 reenviar +
-                '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro sm-btn-icono" data-accion="eliminar" ' +
-                    'title="' + (ES_ADMIN ? 'Eliminar del SCIAF' : 'Solicitar eliminación (requiere autorización)') + '">' +
-                    '<i class="ti ti-trash"></i></button>' +
+                (r.habilitado
+                    ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-peligro sm-btn-icono" data-accion="deshabilitar" ' +
+                      'title="' + (ES_ADMIN ? 'Deshabilitar (aquí y en el VSIAF)' : 'Solicitar deshabilitarlo (requiere autorización)') + '">' +
+                      '<i class="ti ti-user-off"></i></button>'
+                    : '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave sm-btn-icono" data-accion="habilitar" ' +
+                      'title="' + (ES_ADMIN ? 'Habilitar (aquí y en el VSIAF)' : 'Solicitar habilitarlo (requiere autorización)') + '">' +
+                      '<i class="ti ti-user-check"></i></button>') +
                 '</div>';
         }
 
+        let estadoFiltro = 'ACTIVO';
         const columnas = [
             { data: null, className: 'sm-num', render: (d, t, r, m) => m.row + m.settings._iDisplayStart + 1 },
             { data: 'codFun', render: v => '<span class="sm-codigo">' + esc(v || '—') + '</span>' },
@@ -228,7 +239,7 @@
                 ajax: {
                     url: URL + '/api/datatables',
                     type: 'POST',
-                    data: d => { d.oficinaId = $fOficina.val() || ''; }
+                    data: d => { d.oficinaId = $fOficina.val() || ''; d.estado = estadoFiltro; }
                 },
                 columns: columnas,
                 language: { sEmptyTable: 'No hay responsables. Pulse «Nuevo responsable».' }
@@ -241,6 +252,12 @@
         }
 
         $fOficina.on('change', function () { if (tabla) tabla.ajax.reload(); });
+        $raiz.on('click', '.js-f-estado button', function () {
+            $raiz.find('.js-f-estado button').removeClass('activo');
+            $(this).addClass('activo');
+            estadoFiltro = this.dataset.estado;
+            if (tabla) tabla.ajax.reload();
+        });
 
         /* ── Estado de la sincronización en la cabecera (solo administradores) ── */
         const $syncInfo = $raiz.find('.js-sync-info');
@@ -299,6 +316,31 @@
             });
         }
 
+        /* Deshabilitar = API_ESTADO 3 en el VSIAF (la fila no se borra); habilitar = 1. */
+        function cambiarEstado(id, nombre, habilitar) {
+            const titulo = habilitar ? '¿Habilitar responsable?' : '¿Deshabilitar responsable?';
+            const texto = '<b>' + esc(nombre) + '</b><br>' + (habilitar
+                ? 'Vuelve a figurar activo, aquí y en el VSIAF.'
+                : 'Deja de figurar en los buscadores y en el VSIAF queda <b>inactivo</b>. Solo si no tiene bienes a cargo. Se puede volver a habilitar.');
+            if (ES_ADMIN) {
+                SciafModulo.accion({
+                    url: URL + '/estado/' + encodeURIComponent(id), datos: { habilitar },
+                    confirmacion: { titulo, texto, aceptar: habilitar ? 'Sí, habilitar' : 'Sí, deshabilitar' },
+                    alTerminar: recargar
+                });
+                return;
+            }
+            Swal.fire({
+                title: habilitar ? 'Solicitar habilitarlo' : 'Solicitar deshabilitarlo', html: texto + '<br>Requiere autorización: indique el motivo.',
+                input: 'textarea', inputPlaceholder: 'Motivo (obligatorio)',
+                inputValidator: v => !(v || '').trim() ? 'Indique el motivo' : undefined,
+                showCancelButton: true, confirmButtonText: 'Enviar solicitud', cancelButtonText: 'Cancelar'
+            }).then(r => {
+                if (!r.isConfirmed) return;
+                SciafModulo.accion({ url: URL + '/estado/' + encodeURIComponent(id), datos: { habilitar, motivo: r.value }, alTerminar: recargar });
+            });
+        }
+
         let sincronizando = false;
         $raiz.on('click', '[data-accion]', function () {
             const caja = this.closest('[data-id]');
@@ -308,6 +350,8 @@
                 case 'nuevo':  abrirFormulario(null); break;
                 case 'editar': abrirFormulario(id); break;
                 case 'eliminar': eliminar(id, nombre); break;
+                case 'deshabilitar': cambiarEstado(id, nombre, false); break;
+                case 'habilitar': cambiarEstado(id, nombre, true); break;
                 case 'reenviar':
                     SciafModulo.accion({
                         url: URL + '/subir-dbf/' + encodeURIComponent(id),

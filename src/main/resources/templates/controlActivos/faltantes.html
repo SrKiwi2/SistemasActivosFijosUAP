@@ -1229,7 +1229,8 @@
                   esc(h.tipoResolucion) + ' — ' + esc(h.accionCorrectiva) +
                   ' <span class="text-muted">(' + esc(h.usuarioRevisor || '—') + ', ' + fmtFecha(h.fechaResolucion) + ')</span></div>'
                 : '';
-            var puerta = h.origen === 'HISTORICO' ? 'Regularización' : (h.numeroInventario || 'Registro directo');
+            var puerta = h.origen === 'HISTORICO' ? 'Regularización'
+                : h.origen === 'REPETIDO' ? 'Registro repetido (regularización)' : (h.numeroInventario || 'Registro directo');
             var origen = h.numeroActa
                 ? '<a href="' + pdfActa(h.idActa) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> ' +
                   esc(numDoc(h.numeroActa)) + '</a><br><span class="text-muted">' + esc(puerta) + '</span>'

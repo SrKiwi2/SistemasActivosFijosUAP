@@ -258,6 +258,57 @@ public class PersonasCargosController {
         }
     }
 
+    // ── Oficina repetida: faltantes del registro que sobra (fase 9) ──
+
+    @GetMapping("/repetidos/bienes/{idResponsable}")
+    @ResponseBody
+    public ResponseEntity<?> bienesDeRepetido(HttpServletRequest request, @PathVariable Long idResponsable) {
+        if (!puedeUsar(request)) return prohibido();
+        return ResponseEntity.ok(service.bienesDe(idResponsable));
+    }
+
+    @PostMapping("/repetidos/faltantes")
+    @ResponseBody
+    public ResponseEntity<?> faltantesDeRepetido(HttpServletRequest request, @RequestBody Map<String, Object> cuerpo) {
+        if (!puedeUsar(request)) return prohibido();
+        try {
+            var r = service.faltantesDeRepetido(PersonasCargosService.aLong(cuerpo.get("idPrincipal")),
+                    PersonasCargosService.aLong(cuerpo.get("idResponsable")), PersonasCargosService.idsDe(cuerpo.get("ids")),
+                    cuerpo.get("documento") == null ? null : cuerpo.get("documento").toString(),
+                    cuerpo.get("observacion") == null ? null : cuerpo.get("observacion").toString(),
+                    RolesSciaf.usuarioDe(request));
+            return ResponseEntity.ok(Map.of("ok", true, "msg", r.mensaje(), "numero", r.numero(),
+                    "pdf", "/administracion/control-activos/custodia/actas/" + r.idActa() + "/pdf"));
+        } catch (IllegalArgumentException | IllegalStateException
+                 | com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    // ── Por arreglar (fase 8): lista de trabajo ──
+
+    @GetMapping("/arreglar")
+    @ResponseBody
+    public ResponseEntity<?> porArreglar(HttpServletRequest request) {
+        if (!puedeUsar(request)) return prohibido();
+        return ResponseEntity.ok(service.porArreglar());
+    }
+
+    /** Baja de personas sin oficinas: solo en el SCIAF (el VSIAF no tiene personas), solo administradores. */
+    @PostMapping("/arreglar/baja")
+    @ResponseBody
+    public ResponseEntity<?> darDeBaja(HttpServletRequest request, @RequestBody Map<String, Object> cuerpo) {
+        if (!puedeUsar(request)) return prohibido();
+        try {
+            int n = service.darDeBajaSinOficinas(PersonasCargosService.idsDe(cuerpo.get("ids")), RolesSciaf.usuarioDe(request));
+            return ResponseEntity.ok(Map.of("ok", true, "msg", n > 0
+                    ? n + " persona(s) dada(s) de baja."
+                    : "Ninguna: ya no estaban libres (alguien les asignó algo)."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
     // ── Pasar oficinas a otra persona (fase 6) ──
 
     @PostMapping("/separar/plan")

@@ -51,7 +51,9 @@ public record ActaFaltanteDTO(
         /** Las notificaciones que esta unió, como van en el papel (vacía si no unió ninguna). */
         List<String>  unificaA,
         /** Solo si el estado es UNIFICADA: la notificación que la unió y es la vigente. */
-        String        unificadaEn
+        String        unificadaEn,
+        /** Acta de regularización que trasladó los bienes a la custodia (registro repetido de la persona). */
+        boolean       conTraslado
 ) {
 
     /** Producto de unir varias notificaciones de la misma persona. */

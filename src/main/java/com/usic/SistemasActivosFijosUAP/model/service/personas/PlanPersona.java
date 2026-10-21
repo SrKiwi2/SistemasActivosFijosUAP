@@ -60,7 +60,12 @@ public final class PlanPersona {
      */
     public record Decision(Long idPrincipal, List<Long> idsSecundarias, String nombre, String paterno,
                            String materno, String ci, String cargo, List<Long> idsFilasCargo,
-                           List<Long> idsFilasNoSumar) {
+                           List<Long> idsFilasNoSumar, List<Long> idsFilasBaja) {
+        /** Sin registros a deshabilitar (oficinas repetidas, fase 9). */
+        public Decision(Long idPrincipal, List<Long> idsSecundarias, String nombre, String paterno,
+                        String materno, String ci, String cargo, List<Long> idsFilasCargo, List<Long> idsFilasNoSumar) {
+            this(idPrincipal, idsSecundarias, nombre, paterno, materno, ci, cargo, idsFilasCargo, idsFilasNoSumar, List.of());
+        }
         /** Sin filas excluidas de la unificación. */
         public Decision(Long idPrincipal, List<Long> idsSecundarias, String nombre, String paterno,
                         String materno, String ci, String cargo, List<Long> idsFilasCargo) {
@@ -118,10 +123,10 @@ public final class PlanPersona {
         sec.forEach(s -> grupo.add(s.id()));
 
         // ── Quiénes pueden entrar ──
-        validarPersona(principal, "La persona principal", errores);
+        validarPersona(principal, "La persona principal", errores, null);
         for (DatosPersona s : sec) {
             if (Objects.equals(s.id(), principal.id())) errores.add("La persona principal no puede sumarse a sí misma.");
-            validarPersona(s, s.nombreCompleto(), errores);
+            validarPersona(s, s.nombreCompleto(), errores, avisos);
         }
         // Filas de las sumadas que el usuario marcó como de OTRA persona: no se mueven.
         Set<Long> noSumar = d.idsFilasNoSumar() == null ? Set.of() : new HashSet<>(d.idsFilasNoSumar());
@@ -273,7 +278,12 @@ public final class PlanPersona {
         return s;
     }
 
-    private static void validarPersona(DatosPersona p, String quien, List<String> errores) {
+    /**
+     * @param avisos null para la principal: una marca del VSIAF (DEVOLUCION…) nunca es la
+     *               principal. Para una que se suma, la marca es solo un aviso: era la misma
+     *               persona registrada así por la práctica vieja (Kevin, 21-oct-2026).
+     */
+    private static void validarPersona(DatosPersona p, String quien, List<String> errores, List<String> avisos) {
         if (p == null) {
             errores.add("Una de las personas ya no existe.");
             return;
@@ -281,9 +291,23 @@ public final class PlanPersona {
         if (!"ACTIVO".equals(p.estado())) {
             errores.add(quien + " no está vigente (" + p.estado() + ").");
         }
-        if (IdentidadPersona.esNombreEspecial(IdentidadPersona.normalizarNombre(p.nombreCompleto()))) {
-            errores.add(quien + " es un registro especial del VSIAF (DEVOLUCION, FALTANTES, ACEFALO…): "
-                    + "no se unifica ni se cambia desde aquí.");
+        String nombre = IdentidadPersona.normalizarNombre(p.nombreCompleto());
+        if (nombre.isEmpty() || "SIN DATOS".equals(nombre)) {
+            // El comodín de las filas sin nombre del VSIAF junta a funcionarios distintos: no se suma.
+            if (avisos != null) {
+                errores.add(quien + " es el registro de las filas sin nombre del VSIAF (junta a varias personas): "
+                        + "no se suma. Para pasar alguna de sus oficinas a esta persona use «Pasar oficinas».");
+            } else {
+                errores.add("La persona principal no tiene nombre: elija a la persona real.");
+            }
+        } else if (IdentidadPersona.esNombreEspecial(nombre)) {
+            if (avisos == null) {
+                errores.add(quien + " tiene una marca del VSIAF en el nombre (DEVOLUCION, FALTANTES, ACEFALO…): "
+                        + "no puede ser la principal. Elija a la persona con su nombre real y súmele este registro.");
+            } else {
+                avisos.add(quien + " tiene una marca del VSIAF en el nombre: sus oficinas pasan a la principal "
+                        + "y en el VSIAF quedan con el nombre real.");
+            }
         }
     }
 

@@ -95,8 +95,8 @@ public class ResponsableServiceImpl implements IResponsableService{
     }
 
     @Override
-    public Page<ResponsableRow> datatable(String q, Long oficinaId, Pageable pageable) {
-        return dao.datatable((q!=null && !q.isBlank()) ? q.trim() : null, oficinaId, pageable);
+    public Page<ResponsableRow> datatable(String q, Long oficinaId, String estado, Pageable pageable) {
+        return dao.datatable((q!=null && !q.isBlank()) ? q.trim() : null, oficinaId, estado, pageable);
     }
 
     @Override

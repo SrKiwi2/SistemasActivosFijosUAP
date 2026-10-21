@@ -86,6 +86,13 @@ public class Responsable extends AuditoriaConfig {
     /** true = responsable genérico de custodia de faltantes del predio. Un activo a su
      *  cargo está bloqueado: no se asigna, transfiere ni traslada hasta resolver el
      *  hallazgo. La sync desde el DBF no la toca. */
+    /**
+     * C.I. de la fila tal como se leyó de RESP.DBF en la última sincronización ("" = vacío,
+     * null = todavía no leído). Sirve para notar que alguien lo cambió en el VSIAF.
+     */
+    @Column(name = "ci_dbf", length = 20)
+    private String ciDbf;
+
     @Column(name = "es_custodia", columnDefinition = "boolean default false", nullable = false)
     private boolean esCustodia = false;
 

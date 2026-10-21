@@ -88,6 +88,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         String getUnidadCodigo();
         Short  getApiEstado();
         Boolean getPendienteDbf();
+        String getEstado();
     }
 
     // total sin filtro (ACTIVO)
@@ -108,7 +109,8 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
             e.entidad_codigo          as entidadCodigo,
             pr.unidad                 as unidadCodigo,
             r.api_estado              as apiEstado,
-            r.pendiente_dbf           as pendienteDbf
+            r.pendiente_dbf           as pendienteDbf,
+            r._estado                 as estado
 
         FROM responsable r
         LEFT JOIN persona  p ON p.id_persona = r.id_persona
@@ -116,7 +118,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         LEFT JOIN predio   pr ON pr.id_predio = o.id_predio  -- Join extra
         LEFT JOIN entidad  e ON e.id_entidad = pr.entidad_id -- Join extra
         LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
-        WHERE r._estado = 'ACTIVO'
+        WHERE (r._estado = :estado OR (:estado = 'TODOS' AND r._estado IN ('ACTIVO', 'INACTIVO')))
             AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
             AND (
                 :q IS NULL OR :q = '' OR
@@ -139,7 +141,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
         LEFT JOIN persona  p ON p.id_persona = r.id_persona
         LEFT JOIN oficina  o ON o.id_oficina = r.id_oficina
         LEFT JOIN cargo    c ON c.id_cargo   = r.id_cargo
-        WHERE r._estado = 'ACTIVO'
+        WHERE (r._estado = :estado OR (:estado = 'TODOS' AND r._estado IN ('ACTIVO', 'INACTIVO')))
             AND ( :oficinaId IS NULL OR o.id_oficina = :oficinaId )
             AND (
                 :q IS NULL OR :q = '' OR
@@ -154,7 +156,8 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
             )
         """,
         nativeQuery = true)
-    Page<ResponsableRow> datatable(@Param("q") String q, @Param("oficinaId") Long oficinaId, Pageable pageable);
+    Page<ResponsableRow> datatable(@Param("q") String q, @Param("oficinaId") Long oficinaId,
+                                   @Param("estado") String estado, Pageable pageable);
 
     /** MODLO REGISTRO RESPONSBALE */
     Optional<Responsable> findByCodigoFuncionario(String codigoFuncionario);
@@ -191,7 +194,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' — ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
            ") " +
            "FROM Responsable r JOIN r.persona p " +
-           "WHERE r.oficina.idOficina = :oficinaId " +
+           "WHERE r.oficina.idOficina = :oficinaId AND (r.estado IS NULL OR r.estado <> 'INACTIVO') " +
            "AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "     LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "     LOWER(COALESCE(p.ci, '')) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
@@ -203,7 +206,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' — ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
            ") " +
            "FROM Responsable r JOIN r.persona p " +
-           "WHERE (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "WHERE (r.estado IS NULL OR r.estado <> 'INACTIVO') AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "       LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "       LOWER(COALESCE(p.ci, '')) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "       LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
@@ -219,7 +222,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' — ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
            ") " +
            "FROM Responsable r JOIN r.persona p " +
-           "WHERE r.oficina.idOficina = :oficinaId " +
+           "WHERE r.oficina.idOficina = :oficinaId AND (r.estado IS NULL OR r.estado <> 'INACTIVO') " +
            "AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "     LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "     LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
@@ -230,7 +233,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' — ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
            ") " +
            "FROM Responsable r JOIN r.persona p " +
-           "WHERE (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "WHERE (r.estado IS NULL OR r.estado <> 'INACTIVO') AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "       LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "       LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<RespOption> searchGlobalConCodigo(@Param("q") String q, Pageable pageable);

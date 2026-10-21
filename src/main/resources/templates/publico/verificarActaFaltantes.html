@@ -121,7 +121,7 @@
         </section>
 
         <section class="tarjeta">
-            <h2 th:text="${acta.esRegularizacion()} ? 'Faltantes regularizados (ya estaban en la oficina de faltantes)'
+            <h2 th:text="${acta.esRegularizacion() and !acta.conTraslado()} ? 'Faltantes regularizados (ya estaban en la oficina de faltantes)'
                                                     : 'Bienes registrados como faltantes'">Bienes registrados como faltantes</h2>
             <th:block th:each="p : ${acta.predios}">
                 <div class="predio" th:text="'Predio ' + ${p.unidad} + ' — ' + ${p.nombre}"></div>

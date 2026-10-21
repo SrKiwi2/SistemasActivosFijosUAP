@@ -36,6 +36,70 @@
     #modPersonasCargos .pc-grupo-cab { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
     #modPersonasCargos .pc-grupo-cab .pc-grupo-titulo { font-weight: 700; flex: 1; min-width: 200px; }
     #modPersonasCargos .pc-texto-final { max-width: 420px; }
+
+    /* ── Ficha en pasos: el alto lo fija ajustarAlto() a lo que queda de ventana ── */
+    #modPersonasCargos .pc-panel-personas { padding-bottom: 0; }
+    #modPersonasCargos .pc-ficha { display: flex; flex-direction: column; min-height: 0; }
+    #modPersonasCargos .pc-ficha.pc-oculto { display: none !important; }
+    #modPersonasCargos .pc-panel-personas > .sm-toolbar { padding-top: 8px; padding-bottom: 8px; }
+    #modPersonasCargos .pc-of-ref { font-weight: 700; white-space: nowrap; }
+    #modPersonasCargos .js-repetidas { max-height: 45%; overflow: auto; flex-shrink: 0; }
+    #modPersonasCargos .pc-rep { border: 1px solid rgba(217, 119, 6, .45); background: rgba(217, 119, 6, .06); border-radius: 10px; padding: 6px 10px; margin-bottom: 8px; font-size: .84rem; }
+    #modPersonasCargos .pc-rep-cab { color: var(--sm-aviso, #b45309); margin-bottom: 4px; }
+    #modPersonasCargos .pc-rep-nota { font-size: .76rem; opacity: .85; }
+    #modPersonasCargos .pc-rep-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 3px 0; border-top: 1px dashed rgba(217, 119, 6, .3); }
+    #modPersonasCargos .pc-rep-baja { cursor: pointer; }
+    .pc-fal-lista { max-height: 240px; overflow: auto; border: 1px solid #d0d5dd; border-radius: 8px; padding: 6px 8px; }
+    .pc-fal-bien { display: block; padding: 2px 0; }
+    #modPersonasCargos .pc-of-nombre { font-size: .76rem; opacity: .75; max-width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #modPersonasCargos .pc-tabla-caja .sm-pastilla { white-space: nowrap; }
+    /* Laptops (≈657 px útiles): sin el subtítulo de la cabecera, la ficha entra entera */
+    @media (max-height: 780px) { #modPersonasCargos .sm-subtitulo { display: none; } }
+    #modPersonasCargos .pc-pasos { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid var(--sm-borde, #d0d5dd); padding-bottom: 6px; flex-shrink: 0; }
+    #modPersonasCargos .pc-paso { display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 4px 8px; border-radius: 10px;
+        color: var(--sm-texto-2, #64748b); font-weight: 600; font-size: .86rem; text-align: left; line-height: 1.15; }
+    #modPersonasCargos .pc-paso small { display: block; font-weight: 500; font-size: .72rem; }
+    #modPersonasCargos .pc-paso:hover { background: var(--sm-superficie-2, #f5f7fb); }
+    #modPersonasCargos .pc-paso-num { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        border: 2px solid var(--sm-borde-fuerte, #cdd6e3); font-weight: 800; font-size: .8rem; }
+    #modPersonasCargos .pc-paso.actual { color: var(--sm-texto, #1e293b); background: var(--sm-superficie-2, #f5f7fb); }
+    #modPersonasCargos .pc-paso.actual .pc-paso-num { border-color: transparent; color: #fff; background: var(--sm-primario, #1a56a0); }
+    #modPersonasCargos .pc-paso.hecho .pc-paso-num { border-color: var(--sm-exito, #16a34a); color: var(--sm-exito, #16a34a); }
+    #modPersonasCargos .pc-paso.falta .pc-paso-num { border-color: var(--sm-aviso, #d97706); color: var(--sm-aviso, #d97706); }
+    #modPersonasCargos .pc-paso.falta small { color: var(--sm-aviso, #d97706); }
+    #modPersonasCargos .pc-paso-extra { font-weight: 500; }
+    #modPersonasCargos .pc-pasos-sep { flex: 1; }
+    #modPersonasCargos .pc-etapas { flex: 1 1 auto; min-height: 0; position: relative; }
+    #modPersonasCargos .pc-etapa { display: none; height: 100%; padding: 10px 4px 6px; overflow: auto; }
+    #modPersonasCargos .pc-etapa.visible { display: flex; flex-direction: column; }
+    #modPersonasCargos .pc-etapa-tit { font-weight: 700; font-size: .98rem; margin-bottom: 4px; }
+    #modPersonasCargos .pc-sub { font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; opacity: .75; margin-bottom: 6px; }
+    /* Paso 1 y «Pasar oficinas»: izquierda fija, derecha con la única lista que se desplaza */
+    #modPersonasCargos .pc-tabla-caja td.small { min-width: 140px; max-width: 220px; }
+    #modPersonasCargos .pc-uno { display: grid; grid-template-columns: minmax(240px, 300px) 1fr; gap: 16px; flex: 1 1 auto; min-height: 0; }
+    #modPersonasCargos .pc-uno-izq { min-width: 0; overflow: auto; }
+    #modPersonasCargos .pc-uno-der { min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+    #modPersonasCargos .pc-tabla-caja { border: 1px solid var(--sm-borde, #d0d5dd); border-radius: 10px; overflow: auto; flex: 1 1 auto; min-height: 120px; }
+    #modPersonasCargos .pc-tabla-caja thead th { position: sticky; top: 0; z-index: 1; background: var(--sm-superficie, #fff); }
+    #modPersonasCargos .pc-plan-caja { flex: 1 1 auto; min-height: 0; overflow: auto; }
+    #modPersonasCargos .pc-datos { max-width: 900px; }
+    /* Paso 3: cargos de hoy | catálogo o nuevo */
+    #modPersonasCargos .pc-tres { display: grid; grid-template-columns: 1fr minmax(260px, 380px); gap: 18px; }
+    #modPersonasCargos .pc-cargo-ops { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px; }
+    #modPersonasCargos .pc-cargo-op { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; padding: 7px 10px;
+        border: 1px solid var(--sm-borde, #d0d5dd); border-radius: 10px; background: var(--sm-superficie, #fff); color: inherit; }
+    #modPersonasCargos .pc-cargo-op:hover { border-color: var(--sm-primario, #1a56a0); }
+    #modPersonasCargos .pc-cargo-op.elegido { border-color: var(--sm-primario, #1a56a0); box-shadow: 0 0 0 2px rgba(26, 86, 160, .18); }
+    #modPersonasCargos .pc-cargo-op i.ti-circle, #modPersonasCargos .pc-cargo-op i.ti-circle-check { font-size: 1.1rem; }
+    #modPersonasCargos .pc-cargo-op .pc-cargo-n { margin-left: auto; font-size: .78rem; opacity: .75; white-space: nowrap; }
+    #modPersonasCargos .pc-cargo-elegido { padding: 8px 12px; border-radius: 10px; background: var(--sm-superficie-2, #f5f7fb); font-size: .9rem; }
+    #modPersonasCargos .pc-pie { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; flex-shrink: 0; padding: 8px 4px 10px;
+        border-top: 1px solid var(--sm-borde, #d0d5dd); }
+    @media (max-width: 900px) {
+        #modPersonasCargos .pc-uno, #modPersonasCargos .pc-tres { grid-template-columns: 1fr; }
+        #modPersonasCargos .pc-paso span:not(.pc-paso-num) { display: none; }
+        #modPersonasCargos .pc-paso.actual span { display: inline; }
+    }
 </style>
 
 <header class="sm-cabecera">
@@ -64,21 +128,26 @@
 <div class="sm-segmento js-pestanas mb-2" role="tablist" aria-label="Secciones">
     <button type="button" class="activo" data-panel="personas"><i class="ti ti-id"></i> Personas</button>
     <button type="button" data-panel="cargos"><i class="ti ti-briefcase"></i> Cargos</button>
+    <button type="button" data-panel="arreglar"><i class="ti ti-list-check"></i> Por arreglar</button>
     <button type="button" data-panel="historial"><i class="ti ti-history"></i> Historial</button>
 </div>
 
-<section class="sm-card js-panel" data-panel="personas">
+<section class="sm-card js-panel pc-panel-personas" data-panel="personas">
     <div class="sm-toolbar">
         <div style="flex: 1 1 420px; min-width: 260px;">
             <select class="js-principal" aria-label="Persona principal" data-placeholder="Busque a la persona por C.I. o nombre…">
                 <option value=""></option>
             </select>
         </div>
+        <div class="pc-persona-sub js-p-sub"></div>
         <div class="sm-toolbar-espacio"></div>
         <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-recargar pc-oculto" title="Volver a leer la ficha">
             <i class="ti ti-refresh"></i> Recargar
         </button>
     </div>
+
+    <!-- SciafPrecarga.montar vacía el contenedor: va en uno propio, nunca sobre la ficha. -->
+    <div class="js-carga-ficha"></div>
 
     <div class="js-vacio sm-vacio">
         <i class="ti ti-user-search"></i>
@@ -86,105 +155,120 @@
         <p class="mb-0">Por C.I. o por nombre. Verá todas sus oficinas tal como están en el VSIAF.</p>
     </div>
 
-    <div class="js-ficha pc-oculto">
-        <div class="pc-cuerpo">
-            <!-- ── Izquierda: persona, registros que se suman, datos y cargo ── -->
-            <div class="pc-col pc-scroll">
-                <div class="sm-seccion">
-                    <div class="sm-seccion-cab"><i class="ti ti-id"></i> Persona principal</div>
-                    <div class="sm-seccion-cuerpo">
-                        <div class="pc-persona">
-                            <div class="sm-avatar"><i class="ti ti-user"></i></div>
-                            <div>
-                                <div class="pc-persona-nombre js-p-nombre"></div>
-                                <div class="pc-persona-sub js-p-sub"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <!-- Ficha en pasos: pasos arriba, la etapa al medio (alto fijo a la ventana) y el pie con
+         los botones abajo, siempre a la vista. Solo la lista de oficinas se desplaza si es larga. -->
+    <div class="js-ficha pc-oculto pc-ficha">
 
-                <div class="sm-seccion">
-                    <div class="sm-seccion-cab"><i class="ti ti-users-plus"></i> Otros registros de la misma persona</div>
-                    <div class="sm-seccion-cuerpo">
-                        <p class="sm-ayuda mb-2">Si la persona está registrada más de una vez (sin C.I., nombre escrito distinto,
-                            C.I. mal tipeado), súmela aquí: sus oficinas pasan a la principal y todas quedan con el mismo nombre,
-                            C.I. y cargo. El registro sumado no se borra (queda unificado).</p>
+        <div class="pc-pasos" role="tablist" aria-label="Pasos">
+            <button type="button" class="pc-paso" data-paso="1"><span class="pc-paso-num">1</span><span>Oficinas y registros<small class="js-badge-1"></small></span></button>
+            <button type="button" class="pc-paso" data-paso="2"><span class="pc-paso-num">2</span><span>Datos de la persona<small class="js-badge-2"></small></span></button>
+            <button type="button" class="pc-paso" data-paso="3"><span class="pc-paso-num">3</span><span>Cargo<small class="js-badge-3"></small></span></button>
+            <button type="button" class="pc-paso" data-paso="4"><span class="pc-paso-num">4</span><span>Revisar y aplicar<small class="js-badge-4"></small></span></button>
+            <span class="pc-pasos-sep"></span>
+            <button type="button" class="pc-paso pc-paso-extra" data-paso="historial"><i class="ti ti-history"></i><span>Historial</span></button>
+            <button type="button" class="pc-paso pc-paso-extra" data-paso="separar"><i class="ti ti-arrows-split"></i><span>Pasar oficinas</span></button>
+        </div>
+
+        <div class="pc-etapas js-etapas">
+            <!-- 1: oficinas y registros que se suman -->
+            <div class="pc-etapa" data-etapa="1">
+                <div class="pc-uno">
+                    <div class="pc-uno-izq">
+                        <div class="pc-etapa-tit">¿Está registrada más de una vez?</div>
+                        <p class="sm-ayuda mb-2">Si la persona figura con otro nombre, sin C.I. o con el C.I. mal tipeado, súmela aquí:
+                            sus oficinas pasan a esta persona y todas quedan con los mismos datos. El registro sumado no se borra:
+                            queda deshabilitado (unificado).</p>
                         <select class="js-sumar" aria-label="Sumar otro registro" data-placeholder="Buscar otro registro de esta persona…">
                             <option value=""></option>
                         </select>
                         <div class="js-sumadas"></div>
                     </div>
-                </div>
-
-                <div class="sm-seccion js-sec-datos pc-oculto">
-                    <div class="sm-seccion-cab"><i class="ti ti-writing"></i> Datos que quedan</div>
-                    <div class="sm-seccion-cuerpo">
-                        <p class="sm-ayuda mb-2">Así quedará la persona en el SCIAF y en <b>todas</b> sus filas del VSIAF
-                            (NOMRESP guarda 35 caracteres).</p>
-                        <div class="row g-2">
-                            <div class="col-12"><label class="sm-label">Nombre(s)</label>
-                                <input type="text" class="sm-input js-d-nombre" maxlength="60"></div>
-                            <div class="col-6"><label class="sm-label">Ap. paterno</label>
-                                <input type="text" class="sm-input js-d-paterno" maxlength="60"></div>
-                            <div class="col-6"><label class="sm-label">Ap. materno</label>
-                                <input type="text" class="sm-input js-d-materno" maxlength="60"></div>
-                            <div class="col-12"><label class="sm-label">C.I.</label>
-                                <input type="text" class="sm-input js-d-ci" maxlength="15"></div>
-                        </div>
-                        <div class="sm-ayuda mt-1 js-d-largo"></div>
-                        <div class="sm-ayuda mt-2">Usar los datos de: <span class="js-d-usar"></span></div>
-                    </div>
-                </div>
-
-                <div class="sm-seccion">
-                    <div class="sm-seccion-cab"><i class="ti ti-briefcase"></i> Cargo</div>
-                    <div class="sm-seccion-cuerpo">
-                        <select class="js-cargo" aria-label="Cargo" data-placeholder="Sin cambiar el cargo (o elija / escriba uno)">
-                            <option value=""></option>
-                        </select>
-                        <p class="sm-ayuda mt-1 mb-0">Se aplica a las oficinas marcadas a la derecha (todas, al empezar).
-                            Máximo 40 caracteres. Déjelo vacío para no cambiar cargos.</p>
-                    </div>
-                </div>
-
-                <div class="pc-acciones">
-                    <button type="button" class="sm-btn sm-btn-neutro js-previa"><i class="ti ti-eye-check"></i> Vista previa</button>
-                    <button type="button" class="sm-btn sm-btn-exito js-aplicar" disabled>
-                        <i class="ti ti-check"></i> <span class="js-aplicar-texto">Aplicar</span>
-                    </button>
-                </div>
-                <div class="sm-ayuda mt-1 js-estado-plan">Revise la vista previa antes de aplicar.</div>
-            </div>
-
-            <!-- ── Derecha: oficinas, vista previa, historial ── -->
-            <div class="pc-col pc-scroll">
-                <div class="sm-seccion">
-                    <div class="sm-seccion-cab"><i class="ti ti-building"></i> Oficinas (filas de RESP en el VSIAF)</div>
-                    <div class="sm-seccion-cuerpo">
-                        <div class="table-responsive">
+                    <div class="pc-uno-der">
+                        <div class="js-repetidas"></div>
+                        <div class="pc-etapa-tit">Sus oficinas <span class="opacity-75 fw-normal js-n-filas"></span></div>
+                        <div class="pc-tabla-caja">
                             <table class="table sm-tabla pc-tabla mb-0">
-                                <thead><tr>
-                                    <th style="width: 28px;"><input type="checkbox" class="form-check-input js-todas" checked title="Marcar / desmarcar todas"></th>
-                                    <th>Oficina</th><th>Cód.</th><th>Registro</th><th class="text-end">Bienes</th><th>VSIAF</th>
-                                </tr></thead>
+                                <thead><tr><th>Oficina</th><th>Cargo hoy</th><th class="js-col-registro">Registro</th><th class="text-end">Bienes</th></tr></thead>
                                 <tbody class="js-filas"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="sm-seccion js-sec-separar">
-                    <div class="sm-seccion-cab"><i class="ti ti-arrows-split"></i> Pasar oficinas a otra persona
-                        <button type="button" class="sm-btn sm-btn-sm sm-btn-suave ms-auto js-sep-abrir">Abrir</button></div>
-                    <div class="sm-seccion-cuerpo js-sep-cuerpo pc-oculto">
-                        <p class="sm-ayuda mb-2">Para oficinas que NO son de esta persona (por ejemplo las de «SIN DATOS», o dos
-                            funcionarios registrados como uno). Marque cuáles pasan y a quién. Solo cambia de quién es cada oficina
-                            (y su nombre / C.I. en el VSIAF); el cargo, los bienes y el código quedan igual.</p>
+            <!-- 2: datos de la persona -->
+            <div class="pc-etapa js-sec-datos" data-etapa="2">
+                <div class="pc-etapa-tit">Datos de la persona</div>
+                <p class="sm-ayuda mb-3">Así quedará en el SCIAF y en <b>todas</b> sus oficinas del VSIAF. Corríjalos si están mal escritos
+                    (espacios de más, letras cambiadas). El VSIAF guarda el nombre completo en 35 caracteres.</p>
+                <div class="row g-3 pc-datos">
+                    <div class="col-12 col-md-3"><label class="sm-label">Nombre(s)</label>
+                        <input type="text" class="sm-input js-d-nombre" maxlength="60"></div>
+                    <div class="col-6 col-md-3"><label class="sm-label">Ap. paterno</label>
+                        <input type="text" class="sm-input js-d-paterno" maxlength="60"></div>
+                    <div class="col-6 col-md-3"><label class="sm-label">Ap. materno</label>
+                        <input type="text" class="sm-input js-d-materno" maxlength="60"></div>
+                    <div class="col-12 col-md-3"><label class="sm-label">C.I.</label>
+                        <input type="text" class="sm-input js-d-ci" maxlength="15"></div>
+                    <div class="col-12"><div class="sm-ayuda js-d-largo"></div></div>
+                </div>
+                <div class="sm-ayuda mt-3 js-d-usar-caja pc-oculto">Usar los datos de: <span class="js-d-usar"></span></div>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-suave mt-2 js-d-deshacer pc-oculto"><i class="ti ti-arrow-back-up"></i> Volver a los datos actuales</button>
+            </div>
+
+            <!-- 3: un solo cargo -->
+            <div class="pc-etapa" data-etapa="3">
+                <div class="pc-etapa-tit">Cargo de la persona</div>
+                <p class="sm-ayuda mb-2">Una persona, un cargo: el que elija se pone en <b>todas</b> sus oficinas (máximo 40 caracteres).
+                    <span class="js-cargos-distintos"></span></p>
+                <div class="pc-cargo-elegido js-cargo-elegido mb-3"></div>
+                <div class="pc-tres">
+                    <div>
+                        <div class="pc-sub">Sus cargos de hoy</div>
+                        <div class="js-cargo-actuales pc-cargo-ops"></div>
+                    </div>
+                    <div>
+                        <div class="pc-sub">Otro cargo del catálogo</div>
+                        <select class="js-cargo" aria-label="Cargo del catálogo" data-placeholder="Buscar en el catálogo…">
+                            <option value=""></option>
+                        </select>
+                        <div class="pc-sub mt-3">¿No existe? Créelo</div>
+                        <div class="sm-input-grupo">
+                            <input type="text" class="sm-input js-cargo-nuevo" maxlength="40" placeholder="Escriba el cargo nuevo" autocomplete="off">
+                            <button type="button" class="sm-btn sm-btn-neutro js-cargo-crear"><i class="ti ti-plus"></i> Usar</button>
+                        </div>
+                        <div class="sm-ayuda mt-1 js-cargo-nuevo-ayuda"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4: vista previa y aplicar -->
+            <div class="pc-etapa" data-etapa="4">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <div class="pc-etapa-tit mb-0 flex-grow-1">Revise antes de aplicar <span class="fw-normal opacity-75">(todavía no se guardó nada)</span></div>
+                    <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-previa"><i class="ti ti-refresh"></i> Recalcular</button>
+                </div>
+                <div class="js-sec-plan pc-plan-caja"><div class="js-plan"></div></div>
+            </div>
+
+            <!-- Historial de la persona -->
+            <div class="pc-etapa" data-etapa="historial">
+                <div class="pc-etapa-tit">Historial de cambios de esta persona</div>
+                <div class="js-historial pc-plan-caja"></div>
+            </div>
+
+            <!-- Pasar oficinas a otra persona (fase 6) -->
+            <div class="pc-etapa js-sec-separar" data-etapa="separar">
+                <div class="pc-etapa-tit">Pasar oficinas a otra persona</div>
+                <p class="sm-ayuda mb-2">Para oficinas que NO son de esta persona (por ejemplo las de «SIN DATOS», o dos funcionarios
+                    registrados como uno). Solo cambia de quién es cada oficina (y su nombre / C.I. en el VSIAF); el cargo, los
+                    bienes y el código quedan igual.</p>
+                <div class="js-sep-cuerpo pc-uno">
+                    <div class="pc-uno-izq">
                         <div class="js-sep-aviso"></div>
-                        <div class="js-sep-filas mb-2"></div>
                         <div class="d-flex gap-3 mb-2">
                             <label><input type="radio" class="form-check-input js-sep-tipo" name="pc-sep-tipo" value="existe" checked> A una persona que ya existe</label>
-                            <label><input type="radio" class="form-check-input js-sep-tipo" name="pc-sep-tipo" value="nueva"> A una persona nueva</label>
+                            <label><input type="radio" class="form-check-input js-sep-tipo" name="pc-sep-tipo" value="nueva"> A una nueva</label>
                         </div>
                         <div class="js-sep-existe">
                             <select class="js-sep-destino" aria-label="Persona destino" data-placeholder="Buscar la persona destino por C.I. o nombre…">
@@ -203,20 +287,25 @@
                             <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-sep-previa"><i class="ti ti-eye-check"></i> Vista previa</button>
                             <button type="button" class="sm-btn sm-btn-exito sm-btn-sm js-sep-aplicar" disabled><i class="ti ti-check"></i> <span class="js-sep-aplicar-texto">Pasar oficinas</span></button>
                         </div>
-                        <div class="js-sep-plan mt-2"></div>
+                    </div>
+                    <div class="pc-uno-der">
+                        <div class="pc-sub">Marque las oficinas que pasan</div>
+                        <div class="pc-tabla-caja p-2">
+                            <div class="js-sep-filas"></div>
+                            <div class="js-sep-plan mt-2"></div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="sm-seccion js-sec-plan pc-oculto">
-                    <div class="sm-seccion-cab"><i class="ti ti-list-check"></i> Vista previa (todavía no se guardó nada)</div>
-                    <div class="sm-seccion-cuerpo js-plan"></div>
-                </div>
-
-                <div class="sm-seccion">
-                    <div class="sm-seccion-cab"><i class="ti ti-history"></i> Historial de cambios</div>
-                    <div class="sm-seccion-cuerpo js-historial"></div>
-                </div>
             </div>
+        </div>
+
+        <div class="pc-pie">
+            <div class="sm-ayuda js-estado-plan me-auto">Revise la vista previa antes de aplicar.</div>
+            <button type="button" class="sm-btn sm-btn-neutro js-anterior"><i class="ti ti-chevron-left"></i> Anterior</button>
+            <button type="button" class="sm-btn js-siguiente">Siguiente <i class="ti ti-chevron-right"></i></button>
+            <button type="button" class="sm-btn sm-btn-exito js-aplicar pc-oculto" disabled>
+                <i class="ti ti-check"></i> <span class="js-aplicar-texto">Aplicar</span>
+            </button>
         </div>
     </div>
 </section>
@@ -245,6 +334,27 @@
         cómo queda escrito), marque los que se juntan con él, vea la vista previa y aplique. Los que se juntan no se
         borran: quedan unidos al elegido. Los de género o número distinto (DIRECTOR / DIRECTORA) vienen sin marcar.</p>
     <div class="js-grupos pc-scroll"></div>
+</section>
+
+<!-- ── Por arreglar: lista de trabajo (fase 8) ── -->
+<section class="sm-card js-panel pc-oculto" data-panel="arreglar">
+    <div class="sm-toolbar">
+        <div class="sm-segmento js-arr-tipos" role="group" aria-label="Lista">
+            <button type="button" class="activo" data-tipo="cargos" title="Una persona, un cargo">Varios cargos <span class="sm-cuenta" data-cuenta-arr="cargos">0</span></button>
+            <button type="button" data-tipo="ciRepetido" title="El mismo C.I. en dos o más personas: hay que unificarlas">C.I. repetido <span class="sm-cuenta" data-cuenta-arr="ciRepetido">0</span></button>
+            <button type="button" data-tipo="ciDistinto" title="Oficinas cuyo C.I. en el VSIAF no es el de su persona">C.I. del VSIAF distinto <span class="sm-cuenta" data-cuenta-arr="ciDistinto">0</span></button>
+            <button type="button" data-tipo="oficinaRepetida" title="La misma persona dos veces en una oficina: suele ser su registro de faltantes">Oficina repetida <span class="sm-cuenta" data-cuenta-arr="oficinaRepetida">0</span></button>
+            <button type="button" data-tipo="sinOficinas" title="Personas que ya no tienen oficinas: se pueden dar de baja">Sin oficinas <span class="sm-cuenta" data-cuenta-arr="sinOficinas">0</span></button>
+        </div>
+        <div class="sm-buscador" style="flex: 1 1 220px;">
+            <i class="ti ti-search"></i>
+            <input type="text" class="sm-input js-arr-filtro" placeholder="Filtrar por nombre o C.I.…" autocomplete="off">
+        </div>
+        <button type="button" class="sm-btn sm-btn-neutro sm-btn-sm js-arr-recargar"><i class="ti ti-refresh"></i> Actualizar</button>
+        <button type="button" class="sm-btn sm-btn-peligro sm-btn-sm js-arr-baja pc-oculto" disabled><i class="ti ti-user-off"></i> Dar de baja marcadas</button>
+    </div>
+    <p class="sm-ayuda px-1 mb-2 js-arr-ayuda"></p>
+    <div class="js-arr-lista pc-scroll"></div>
 </section>
 
 <!-- ── Historial: cambios por lote y reversión (fase 5) ── -->
@@ -310,14 +420,10 @@
         buscador($principal, () => []);
         buscador($sumar, () => [estado.principal].concat(estado.sumadas).filter(Boolean));
 
+        // Solo el catálogo: un cargo nuevo se escribe en su propio campo (más claro que «tags»).
         $cargo.select2({
-            dropdownParent: $raiz, width: '100%', placeholder: $cargo.data('placeholder'), allowClear: true, tags: true,
-            language: idioma,
-            createTag: p => {
-                const t = (p.term || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('es');
-                return t ? { id: t, text: t, nuevo: true } : null;
-            },
-            templateResult: d => d.nuevo ? $('<span>').text('Nuevo cargo: ' + d.text) : d.text,
+            dropdownParent: $raiz, width: '100%', placeholder: $cargo.data('placeholder'), allowClear: true,
+            minimumInputLength: 2, language: idioma,
             ajax: {
                 url: '/api/cargos/search', dataType: 'json', delay: 250,
                 data: p => ({ q: p.term || '' }),
@@ -325,7 +431,18 @@
             }
         });
 
-        $principal.on('select2:select', e => { estado.principal = Number(e.params.data.id); estado.sumadas = []; cargarFicha(); });
+        // Otra persona: se empieza de cero, en el paso 1.
+        function nuevaPersona(id, sumadas) {
+            estado.principal = id;
+            estado.sumadas = sumadas || [];
+            estado.datosTocados = false;
+            estado.cargo = null;
+            $cargo.val(null).trigger('change.select2');
+            $raiz.find('.js-cargo-nuevo').val('');
+            $raiz.find('.js-cargo-nuevo-ayuda').empty();
+            irPaso(1);
+        }
+        $principal.on('select2:select', e => { nuevaPersona(Number(e.params.data.id)); cargarFicha(); });
         $principal.on('select2:clear', () => { estado.principal = null; estado.sumadas = []; estado.ficha = null; mostrarFicha(false); });
         $sumar.on('select2:select', e => {
             const id = Number(e.params.data.id);
@@ -333,7 +450,6 @@
             $sumar.val(null).trigger('change');
             cargarFicha();
         });
-        $cargo.on('change', invalidarPlan);
         $raiz.on('input', '.js-sec-datos input', () => { contarLargo(); invalidarPlan(); });
         $raiz.on('click', '.js-recargar', cargarFicha);
 
@@ -342,12 +458,12 @@
             $ficha.toggleClass('pc-oculto', !si);
             $vacio.toggleClass('pc-oculto', si);
             $raiz.find('.js-recargar').toggleClass('pc-oculto', !si);
-            if (!si) { $raiz.find('.js-n-oficinas, .js-n-bienes').text('—'); }
+            if (!si) { $raiz.find('.js-n-oficinas, .js-n-bienes').text('—'); $raiz.find('.js-p-sub').empty(); }
         }
 
         async function cargarFicha() {
             if (!estado.principal) return;
-            const carga = SciafPrecarga.montar($ficha.is(':visible') ? $ficha : $vacio, { compacta: true, texto: 'Leyendo la ficha…', demora: 0 });
+            const carga = SciafPrecarga.montar($raiz.find('.js-carga-ficha'), { compacta: true, texto: 'Leyendo la ficha…', demora: 0 });
             try {
                 const qs = estado.sumadas.length ? '?con=' + estado.sumadas.join(',') : '';
                 const r = await SciafModulo.pedir(URL + '/ficha/' + estado.principal + qs, { metodo: 'GET' });
@@ -380,58 +496,297 @@
                 + '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-quitar" data-id="' + s.id + '" title="No sumar">'
                 + '<i class="ti ti-x"></i></button></div>').join(''));
 
-            // Datos que quedan (solo al unificar)
+            // Datos de la persona: siempre se pueden corregir
             const hay = f.secundarias.length > 0;
-            $raiz.find('.js-sec-datos').toggleClass('pc-oculto', !hay);
-            if (hay) {
-                if (!estado.datosTocados) ponerDatos(p);
-                $raiz.find('.js-d-usar').html([p].concat(f.secundarias).map(x =>
-                    '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-usar" data-id="' + x.id + '">'
-                    + esc(x.nombreCompleto) + (x.ci ? ' · ' + esc(x.ci) : '') + '</button>').join(' '));
-                contarLargo();
-            } else {
-                estado.datosTocados = false;
-            }
+            if (!estado.datosTocados) ponerDatos(p);
+            $raiz.find('.js-d-usar-caja').toggleClass('pc-oculto', !hay);
+            $raiz.find('.js-d-usar').html(hay ? [p].concat(f.secundarias).map(x =>
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-usar" data-id="' + x.id + '">'
+                + esc(x.nombreCompleto) + (x.ci ? ' · ' + esc(x.ci) : '') + '</button>').join(' ') : '');
+            contarLargo();
 
-            // Oficinas agrupadas por su cargo actual
-            const grupos = new Map();
-            f.filas.forEach(x => {
-                const k = (x.cargo || '(sin cargo)').toUpperCase();
-                if (!grupos.has(k)) grupos.set(k, []);
-                grupos.get(k).push(x);
-            });
+            // Oficinas
             const nombreDe = id => {
-                if (id === p.id) return '<span class="sm-pastilla sm-pastilla-activo">principal</span>';
+                if (id === p.id) return '<span class="opacity-50 small">ya es suya</span>';
                 const s = f.secundarias.find(z => z.id === id);
-                return '<span class="sm-pastilla sm-pastilla-info" title="Pasa a la principal">se suma: ' + esc(s ? s.nombreCompleto : id) + '</span>';
+                return '<span class="sm-pastilla sm-pastilla-info" title="Viene de ' + esc(s ? s.nombreCompleto : id) + '">se suma</span>';
             };
             // Oficina de un registro sumado: se puede dejar fuera si es de otro funcionario.
             const casillaSuma = x => x.idPersona === p.id ? ''
                 : '<label class="d-block small mt-1"><input type="checkbox" class="form-check-input js-suma" value="'
                     + x.idResponsable + '" checked> es de esta persona</label>';
-            let html = '';
-            let gi = 0;
-            for (const [cargo, lista] of grupos) {
-                gi++;
-                html += '<tr class="pc-grupo"><td><input type="checkbox" class="form-check-input js-grupo" data-g="' + gi + '" checked></td>'
-                    + '<td colspan="5">' + esc(cargo) + ' <span class="opacity-75">(' + lista.length + ')</span></td></tr>';
-                lista.forEach(x => {
-                    html += '<tr><td><input type="checkbox" class="form-check-input js-fila" data-g="' + gi + '" value="' + x.idResponsable + '" checked></td>'
-                        + '<td><b>' + esc(x.unidad) + ' ' + esc(x.codOfic) + '</b> · ' + esc(x.oficina || '')
-                        + (x.esCustodia ? ' <span class="sm-pastilla sm-pastilla-aviso">custodia</span>' : '') + '</td>'
-                        + '<td>' + esc(x.codResp) + '</td><td>' + nombreDe(x.idPersona) + casillaSuma(x) + '</td>'
-                        + '<td class="text-end">' + esc(x.bienes) + '</td><td>' + pastillaVsiaf(x.estadoVsiaf) + '</td></tr>';
-                });
-            }
-            $filas.html(html || '<tr><td colspan="6" class="text-center opacity-75">Sin oficinas vigentes.</td></tr>');
-            $raiz.find('.js-todas').prop('checked', true);
+            // Una persona, un cargo: el cargo va a todas; la casilla queda oculta y solo se
+            // apaga si la oficina se marca como de otra persona.
+            $filas.html(f.filas.map(x => '<tr><td><input type="checkbox" class="d-none js-fila" value="' + x.idResponsable + '" checked>'
+                    + '<div class="pc-of-ref">' + esc(x.unidad) + ' ' + esc(x.codOfic) + ' · cód. ' + esc(x.codResp)
+                    + (x.esCustodia ? ' <span class="sm-pastilla sm-pastilla-aviso">custodia</span>' : '')
+                    // En el VSIAF es lo normal: solo se marca lo que no está al día.
+                    + (x.estadoVsiaf && x.estadoVsiaf !== 'VSIAF' ? ' ' + pastillaVsiaf(x.estadoVsiaf) : '') + '</div>'
+                    + '<div class="pc-of-nombre" title="' + esc(x.oficina || '') + '">' + esc(x.oficina || '') + '</div></td>'
+                    + '<td class="small">' + esc(x.cargo || '—') + '</td>'
+                    + (hay ? '<td>' + nombreDe(x.idPersona) + casillaSuma(x) + '</td>' : '')
+                    + '<td class="text-end">' + esc(x.bienes) + '</td></tr>').join('')
+                || '<tr><td colspan="4" class="text-center opacity-75">Sin oficinas vigentes.</td></tr>');
+            $raiz.find('.js-col-registro').toggleClass('pc-oculto', !hay);
+            $raiz.find('.js-n-filas').text('(' + f.filas.length + ')');
+            pintarRepetidas();
             $raiz.find('.js-n-oficinas').text(f.filas.length);
             $raiz.find('.js-n-bienes').text(f.filas.reduce((a, x) => a + (Number(x.bienes) || 0), 0));
+
+            // Cargos que tiene hoy, el más usado primero
+            const cuenta = new Map();
+            f.filas.forEach(x => {
+                const k = (x.cargo || '').trim().toUpperCase();
+                if (k) cuenta.set(k, (cuenta.get(k) || 0) + 1);
+            });
+            estado.cargosHoy = Array.from(cuenta.entries()).sort((a, b) => b[1] - a[1]);
+            if (!estado.cargo && estado.cargosHoy.length === 1) estado.cargo = { modo: 'actual', valor: estado.cargosHoy[0][0] };
+            pintarCargo();
 
             pintarHistorial(f.historial || []);
             pintarSeparar();
             invalidarPlan();
+            ajustarAlto();
         }
+
+        /* ── Oficina repetida: un responsable por oficina (fase 9) ──────── */
+        // Grupos de la ficha: misma oficina, dos o más registros (sin los marcados «no es de esta persona»).
+        function gruposRepetidos() {
+            const f = estado.ficha;
+            if (!f) return [];
+            const fuera = new Set($filas.find('.js-suma:not(:checked)').map((i, el) => Number(el.value)).get());
+            const por = new Map();
+            f.filas.forEach(x => {
+                if (fuera.has(x.idResponsable)) return;
+                const k = x.unidad + ' ' + x.codOfic;
+                if (!por.has(k)) por.set(k, []);
+                por.get(k).push(x);
+            });
+            return Array.from(por.entries()).filter(([, l]) => l.length > 1);
+        }
+        function pintarRepetidas() {
+            const f = estado.ficha;
+            const g = gruposRepetidos();
+            const camino = (f && f.enCamino) || {};
+            const previas = new Set($raiz.find('.js-baja:checked').map((i, el) => Number(el.value)).get());
+            const html = g.map(([ofi, lista]) => {
+                return '<div class="pc-rep"><div class="pc-rep-cab"><i class="ti ti-alert-triangle"></i> <b>' + esc(ofi) + '</b> · '
+                    + esc(lista[0].oficina || '') + ' <span class="pc-rep-nota">— ' + lista.length
+                    + ' registros de la persona; una oficina tiene un solo responsable</span></div>'
+                    + lista.map((x, i) => {
+                        const bienes = Number(x.bienes) || 0, enc = Number(camino[x.idResponsable]) || 0, libres = bienes - enc;
+                        const quien = x.idPersona === f.principal.id ? '' : ' <span class="sm-pastilla sm-pastilla-info">se suma</span>';
+                        let accion;
+                        if (libres > 0) {
+                            accion = aplicaDirecto
+                                ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-rep-faltantes" data-id="' + x.idResponsable + '"'
+                                    + (VSIAF_OK ? '' : ' disabled title="Solo desde el SCIAF del servidor"') + '>'
+                                    + '<i class="ti ti-package-export"></i> Son faltantes → oficina de faltantes</button>'
+                                : '<span class="sm-ayuda">Si son faltantes, un administrador los pasa a la oficina de faltantes.</span>';
+                        } else if (enc > 0) {
+                            accion = '<span class="sm-pastilla sm-pastilla-aviso"><i class="ti ti-truck"></i> ' + enc
+                                + ' en camino a faltantes</span> <span class="sm-ayuda">se deshabilita cuando lleguen</span>';
+                        } else {
+                            // Sin marcar al abrir: deshabilitar es una decisión del usuario (sale en la vista previa).
+                            const marcada = previas.has(x.idResponsable);
+                            accion = '<label class="pc-rep-baja"><input type="checkbox" class="form-check-input js-baja" value="' + x.idResponsable + '"'
+                                + (marcada ? ' checked' : '') + '> Deshabilitar este registro <span class="sm-ayuda">(sin bienes)</span></label>';
+                        }
+                        return '<div class="pc-rep-fila"><div class="pc-rep-ref"><b>cód. ' + esc(x.codResp) + '</b>' + quien
+                            + ' <span class="opacity-75">· ' + bienes + ' bien(es)</span></div><div>' + accion + '</div></div>';
+                    }).join('') + '</div>';
+            }).join('');
+            $raiz.find('.js-repetidas').html(html);
+            return g;
+        }
+        $raiz.on('change', '.js-baja', invalidarPlan);
+        $raiz.on('change', '.js-suma', pintarRepetidas);
+
+        // Los bienes del registro que sobra van a la oficina de faltantes del predio (acta AR).
+        $raiz.on('click', '.js-rep-faltantes', async function () {
+            const idResp = Number($(this).data('id'));
+            const x = estado.ficha.filas.find(z => z.idResponsable === idResp);
+            let bienes;
+            try {
+                const r = await SciafModulo.pedir(URL + '/repetidos/bienes/' + idResp, { metodo: 'GET' });
+                if (!r.ok) throw new Error(SciafPrecarga.motivo(r.status));
+                bienes = (await r.json()).filter(b => !b.enCamino);
+            } catch (e) { SciafModulo.avisarError(e, 'No se pudieron leer sus bienes'); return; }
+            if (!bienes.length) { Swal.fire('Sin bienes', 'Sus bienes ya van en camino a la oficina de faltantes.', 'info'); return; }
+            const lista = bienes.map(b => '<label class="pc-fal-bien"><input type="checkbox" class="form-check-input js-fal-bien" value="' + b.id + '" checked> '
+                + '<b>' + esc(b.codigo) + '</b> <span>' + esc(b.descripcion || '') + '</span></label>').join('');
+            const res = await Swal.fire({
+                title: 'Pasar a la oficina de faltantes',
+                width: 720,
+                html: '<div class="text-start small">'
+                    + '<p class="mb-2"><b>' + esc(x.unidad + ' ' + x.codOfic) + ' · cód. ' + esc(x.codResp) + '</b> — sus bienes pasan a la '
+                    + '<b>oficina de faltantes del predio</b>, a nombre de <b>' + esc(estado.ficha.principal.nombreCompleto) + '</b>. '
+                    + 'Sale un <b>acta de regularización (AR)</b>, sin plazo. El traslado viaja al VSIAF.</p>'
+                    + '<div class="pc-fal-lista">' + lista + '</div>'
+                    + '<input class="swal2-input js-fal-doc" maxlength="120" placeholder="Documento de respaldo (opcional)">'
+                    + '<textarea class="swal2-textarea js-fal-obs" placeholder="Observación (opcional)"></textarea></div>',
+                showCancelButton: true, confirmButtonText: 'Registrar y emitir acta', cancelButtonText: 'Cancelar', focusConfirm: false,
+                preConfirm: () => {
+                    const pop = Swal.getPopup();
+                    const ids = Array.from(pop.querySelectorAll('.js-fal-bien:checked')).map(el => Number(el.value));
+                    if (!ids.length) { Swal.showValidationMessage('Marque al menos un bien'); return false; }
+                    return { ids, documento: pop.querySelector('.js-fal-doc').value.trim(), observacion: pop.querySelector('.js-fal-obs').value.trim() };
+                }
+            });
+            if (!res.isConfirmed) return;
+            try {
+                const j = await SciafModulo.pedirJson(URL + '/repetidos/faltantes', {
+                    json: Object.assign({ idPrincipal: estado.principal, idResponsable: idResp }, res.value) });
+                if (!j.ok) throw new Error(j.msg);
+                Swal.fire({ icon: 'success', title: 'Acta ' + j.numero, html: esc(j.msg)
+                    + '<br><a href="' + esc(j.pdf) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> Ver el acta</a>' });
+                await cargarFicha();
+            } catch (e) { SciafModulo.avisarError(e, 'No se registraron los faltantes'); }
+        });
+
+        /* ── Cargo: uno de los suyos, uno del catálogo o uno nuevo ───────── */
+        function cargoElegido() {
+            return estado.cargo ? estado.cargo.valor : '';
+        }
+        function pintarCargo() {
+            const hoy = estado.cargosHoy || [];
+            const el = estado.cargo;
+            $raiz.find('.js-cargo-actuales').html(hoy.length ? hoy.map(([c, n], i) => {
+                const sel = el && el.valor === c;
+                return '<button type="button" class="pc-cargo-op js-cargo-op' + (sel ? ' elegido' : '') + '" data-i="' + i + '">'
+                    + '<i class="ti ' + (sel ? 'ti-circle-check text-primary' : 'ti-circle') + '"></i><span>' + esc(c) + '</span>'
+                    + '<span class="pc-cargo-n">' + n + ' oficina(s)</span></button>';
+            }).join('') : '<div class="sm-ayuda">Sus oficinas no tienen cargo: busque uno o créelo.</div>');
+            $raiz.find('.js-cargos-distintos').html(hoy.length > 1
+                ? '<span class="text-warning fw-semibold"><i class="ti ti-alert-triangle"></i> Hoy tiene ' + hoy.length
+                    + ' cargos distintos: elija el que queda.</span>' : '');
+            const filas = (estado.ficha && estado.ficha.filas) || [];
+            let html;
+            if (el) {
+                const cambian = filas.filter(x => (x.cargo || '').trim().toUpperCase() !== el.valor).length;
+                html = '<i class="ti ti-briefcase"></i> Quedará: <b>' + esc(el.valor) + '</b>'
+                    + (el.modo === 'nuevo' ? ' <span class="sm-pastilla sm-pastilla-info">cargo nuevo: se crea al aplicar</span>' : '')
+                    + ' · <span class="opacity-75">cambia en ' + cambian + ' de ' + filas.length + ' oficina(s)</span>'
+                    + ' <button type="button" class="sm-btn sm-btn-sm sm-btn-suave ms-2 js-cargo-quitar"><i class="ti ti-x"></i> No cambiar el cargo</button>';
+            } else {
+                html = '<i class="ti ti-info-circle"></i> Todavía no eligió: elija uno de sus cargos, búsquelo en el catálogo o cree uno nuevo. '
+                    + 'Si no elige ninguno, el cargo de las oficinas no cambia.';
+            }
+            $raiz.find('.js-cargo-elegido').html(html);
+            marcarPasos();
+        }
+        function elegirCargo(c) {
+            estado.cargo = c;
+            if (!c || c.modo !== 'catalogo') $cargo.val(null).trigger('change.select2');
+            pintarCargo();
+            invalidarPlan();
+        }
+        function normalCargo(t) {
+            return (t || '').trim().replace(/\s+/g, ' ').toLocaleUpperCase('es');
+        }
+        $raiz.on('click', '.js-cargo-op', function () {
+            const c = (estado.cargosHoy || [])[Number($(this).data('i'))];
+            if (c) elegirCargo({ modo: 'actual', valor: c[0] });
+        });
+        $raiz.on('click', '.js-cargo-quitar', () => elegirCargo(null));
+        $cargo.on('select2:select', e => elegirCargo({ modo: 'catalogo', valor: String(e.params.data.id) }));
+        $cargo.on('select2:clear', () => { if (estado.cargo && estado.cargo.modo === 'catalogo') elegirCargo(null); });
+
+        // Cargo nuevo: se avisa si ya existe (se usa ese) o si hay parecidos.
+        let parecidos = [], buscaNuevo = null;
+        $raiz.on('input', '.js-cargo-nuevo', function () {
+            const t = normalCargo(this.value);
+            const $ay = $raiz.find('.js-cargo-nuevo-ayuda');
+            clearTimeout(buscaNuevo);
+            if (!t) { $ay.empty(); parecidos = []; return; }
+            if (t.length > 40) { $ay.html('<span class="text-danger">' + t.length + ' / 40: el VSIAF no acepta más.</span>'); return; }
+            $ay.html('<span class="opacity-75">Buscando parecidos…</span>');
+            buscaNuevo = setTimeout(async () => {
+                try {
+                    const r = await SciafModulo.pedir('/api/cargos/search?q=' + encodeURIComponent(t), { metodo: 'GET' });
+                    parecidos = r.ok ? ((await r.json()) || []).map(c => c.nombre) : [];
+                } catch (e) { parecidos = []; }
+                if (normalCargo($raiz.find('.js-cargo-nuevo').val()) !== t) return;
+                const existe = parecidos.some(n => normalCargo(n) === t);
+                const otros = parecidos.filter(n => normalCargo(n) !== t).slice(0, 5);
+                $ay.html((existe ? '<span class="text-success"><i class="ti ti-circle-check"></i> Ya existe en el catálogo: se usará ese.</span>'
+                        : '<span class="text-primary"><i class="ti ti-sparkles"></i> «' + esc(t) + '» no existe: se creará al aplicar.</span>')
+                    + ' <span class="opacity-75">' + t.length + ' / 40</span>'
+                    + (otros.length ? '<div class="mt-1">¿Es alguno de estos? ' + otros.map((n, i) =>
+                        '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-cargo-parecido" data-i="' + i + '">' + esc(n) + '</button>').join(' ') + '</div>' : ''));
+                $ay.data('otros', otros);
+            }, 300);
+        });
+        $raiz.on('click', '.js-cargo-parecido', function () {
+            const n = ($raiz.find('.js-cargo-nuevo-ayuda').data('otros') || [])[Number($(this).data('i'))];
+            if (!n) return;
+            $raiz.find('.js-cargo-nuevo').val('');
+            $raiz.find('.js-cargo-nuevo-ayuda').empty();
+            elegirCargo({ modo: 'catalogo', valor: n });
+        });
+        function usarCargoNuevo() {
+            const t = normalCargo($raiz.find('.js-cargo-nuevo').val());
+            if (!t) { $raiz.find('.js-cargo-nuevo').trigger('focus'); return; }
+            if (t.length > 40) { Swal.fire('Cargo demasiado largo', 'El VSIAF guarda hasta 40 caracteres.', 'warning'); return; }
+            const existe = parecidos.some(n => normalCargo(n) === t);
+            elegirCargo({ modo: existe ? 'catalogo' : 'nuevo', valor: t });
+        }
+        $raiz.on('click', '.js-cargo-crear', usarCargoNuevo);
+        $raiz.on('keydown', '.js-cargo-nuevo', e => { if (e.key === 'Enter') { e.preventDefault(); usarCargoNuevo(); } });
+
+        /* ── Pasos ──────────────────────────────────────────────────────── */
+        let paso = 1;
+        function irPaso(n) {
+            paso = n;
+            $raiz.find('.pc-paso').each(function () { $(this).toggleClass('actual', String($(this).data('paso')) === String(n)); });
+            $raiz.find('.pc-etapa').each(function () { $(this).toggleClass('visible', String($(this).data('etapa')) === String(n)); });
+            const num = typeof n === 'number';
+            $raiz.find('.js-anterior').toggleClass('pc-oculto', !num || n <= 1);
+            $raiz.find('.js-siguiente').toggleClass('pc-oculto', !num || n >= 4);
+            $aplicar.toggleClass('pc-oculto', n !== 4);
+            $estadoPlan.toggleClass('pc-oculto', n !== 4);
+            if (n === 4 && !estado.plan) calcularPlan();
+            ajustarAlto();
+        }
+        $raiz.on('click', '.pc-paso', function () {
+            const v = $(this).data('paso');
+            irPaso(/^\d+$/.test(String(v)) ? Number(v) : String(v));
+        });
+        $raiz.on('click', '.js-anterior', () => irPaso(Math.max(1, (typeof paso === 'number' ? paso : 1) - 1)));
+        $raiz.on('click', '.js-siguiente', () => irPaso(Math.min(4, (typeof paso === 'number' ? paso : 0) + 1)));
+
+        function datosCambiados() {
+            const f = estado.ficha;
+            if (!f) return false;
+            const p = f.principal, v = s => ($raiz.find(s).val() || '').trim().toUpperCase();
+            return v('.js-d-nombre') !== (p.nombre || '').trim().toUpperCase() || v('.js-d-paterno') !== (p.paterno || '').trim().toUpperCase()
+                || v('.js-d-materno') !== (p.materno || '').trim().toUpperCase() || v('.js-d-ci') !== (p.ci || '').trim().toUpperCase();
+        }
+        function marcarPasos() {
+            const f = estado.ficha;
+            if (!f) return;
+            const hoy = estado.cargosHoy || [];
+            const b = (k, t, falta) => {
+                $raiz.find('.js-badge-' + k).text(t);
+                $raiz.find('.pc-paso[data-paso="' + k + '"]').toggleClass('falta', !!falta);
+            };
+            const rep = gruposRepetidos().length;
+            b(1, f.filas.length + ' oficina(s)' + (f.secundarias.length ? ' · suma ' + f.secundarias.length : '')
+                + (rep ? ' · ' + rep + ' repetida(s)' : ''), rep > 0);
+            const cambia = datosCambiados();
+            b(2, cambia ? 'con cambios' : 'sin cambios');
+            $raiz.find('.js-d-deshacer').toggleClass('pc-oculto', !cambia);
+            b(3, estado.cargo ? estado.cargo.valor : (hoy.length > 1 ? 'elija uno (tiene ' + hoy.length + ')' : 'sin cambio'), !estado.cargo && hoy.length > 1);
+            b(4, estado.plan ? (estado.plan.errores.length ? 'hay que corregir' : 'listo') : '', estado.plan && estado.plan.errores.length);
+        }
+
+        /* Alto de la ficha: lo que queda de ventana, para que nada quede abajo sin verse. */
+        function ajustarAlto() {
+            if (!$ficha[0].isConnected || $ficha.hasClass('pc-oculto') || !$ficha.is(':visible')) return;
+            const arriba = $ficha[0].getBoundingClientRect().top + (window.scrollY || 0);
+            $ficha.css('height', Math.max(330, window.innerHeight - arriba - 14) + 'px');
+        }
+        $(window).off('resize.pcFicha').on('resize.pcFicha', ajustarAlto);
 
         function pastillaVsiaf(c) {
             const m = {
@@ -465,10 +820,14 @@
             const x = [f.principal].concat(f.secundarias).find(z => z.id === id);
             if (x) { ponerDatos(x); estado.datosTocados = true; contarLargo(); invalidarPlan(); }
         });
-        $raiz.on('input', '.js-sec-datos input', () => { estado.datosTocados = true; });
-        $raiz.on('change', '.js-todas', function () { $filas.find('.js-fila, .js-grupo').prop('checked', this.checked); invalidarPlan(); });
-        $raiz.on('change', '.js-grupo', function () { $filas.find('.js-fila[data-g="' + $(this).data('g') + '"]').prop('checked', this.checked); invalidarPlan(); });
-        $raiz.on('change', '.js-fila', invalidarPlan);
+        $raiz.on('input', '.js-sec-datos input', () => { estado.datosTocados = true; marcarPasos(); });
+        $raiz.on('click', '.js-d-deshacer', function () {
+            if (!estado.ficha) return;
+            ponerDatos(estado.ficha.principal);
+            estado.datosTocados = false;
+            contarLargo();
+            invalidarPlan();
+        });
         // «No es de esta persona»: esa oficina no se suma ni recibe el cargo.
         $raiz.on('change', '.js-suma', function () {
             $filas.find('.js-fila[value="' + this.value + '"]').prop('checked', this.checked).prop('disabled', !this.checked);
@@ -504,10 +863,10 @@
 
         /* ── Plan y aplicación ──────────────────────────────────────────── */
         function decision() {
-            const f = estado.ficha;
-            const datos = f && f.secundarias.length > 0;
+            // Los datos de la persona van siempre (si no cambian, el plan no toca nada).
+            const datos = !!estado.ficha;
             const v = s => ($raiz.find(s).val() || '').trim();
-            const cargo = ($cargo.val() || '').trim();
+            const cargo = cargoElegido();
             return {
                 idPrincipal: estado.principal,
                 idsSecundarias: estado.sumadas.slice(),
@@ -517,32 +876,42 @@
                 ci: datos ? v('.js-d-ci') : null,
                 cargo: cargo || null,
                 idsFilasCargo: cargo ? $filas.find('.js-fila:checked:not(:disabled)').map((i, el) => Number(el.value)).get() : [],
-                idsFilasNoSumar: $filas.find('.js-suma:not(:checked)').map((i, el) => Number(el.value)).get()
+                idsFilasNoSumar: $filas.find('.js-suma:not(:checked)').map((i, el) => Number(el.value)).get(),
+                idsFilasBaja: $raiz.find('.js-baja:checked').map((i, el) => Number(el.value)).get()
             };
         }
 
         function invalidarPlan() {
             estado.plan = null;
             $aplicar.prop('disabled', true);
-            $secPlan.addClass('pc-oculto');
-            $estadoPlan.text('Revise la vista previa antes de aplicar.');
+            $plan.html('<div class="sm-ayuda">Pulse «Recalcular» para ver qué cambia.</div>');
+            $estadoPlan.text('Revise lo que cambia antes de aplicar.');
+            marcarPasos();
+            if (paso === 4 && estado.ficha) calcularPlan();
         }
 
-        $raiz.on('click', '.js-previa', async function () {
-            if (!estado.ficha) return;
-            const $b = $(this), html = $b.html();
+        let calculando = null;
+        async function calcularPlan() {
+            if (!estado.ficha || calculando) return;
+            const $b = $raiz.find('.js-previa'), html = $b.html();
             $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Calculando…');
+            $plan.html('<div class="sm-ayuda"><span class="spinner-border spinner-border-sm"></span> Calculando qué cambia…</div>');
+            calculando = SciafModulo.pedirJson(URL + '/plan', { json: decision() });
             try {
-                const j = await SciafModulo.pedirJson(URL + '/plan', { json: decision() });
+                const j = await calculando;
                 if (!j.ok) throw new Error(j.msg || 'No se pudo calcular.');
                 estado.plan = j;
                 pintarPlan(j);
+                marcarPasos();
             } catch (e) {
+                $plan.empty();
                 SciafModulo.avisarError(e, 'No se pudo armar la vista previa');
             } finally {
+                calculando = null;
                 $b.prop('disabled', false).html(html);
             }
-        });
+        }
+        $raiz.on('click', '.js-previa', () => { estado.plan = null; calcularPlan(); });
 
         function pintarPlan(j) {
             let html = '';
@@ -614,9 +983,7 @@
                 if (res.solicitud) Swal.fire({ icon: 'info', title: 'Solicitud enviada', text: res.msg });
                 else if (res.vsiafOk === false) Swal.fire('Guardado, pero no todo llegó al VSIAF', res.msg, 'warning');
                 else Swal.fire({ icon: 'success', title: 'Aplicado', text: res.msg });
-                estado.sumadas = [];
-                estado.datosTocados = false;
-                $cargo.val(null).trigger('change');
+                nuevaPersona(estado.principal);
                 await cargarFicha();
             } catch (e) {
                 SciafModulo.avisarError(e, 'No se aplicó');
@@ -744,6 +1111,8 @@
             $raiz.find('.js-panel').each(function () { $(this).toggleClass('pc-oculto', $(this).data('panel') !== panel); });
             if (panel === 'cargos' && !cargosCargados) { cargosCargados = true; cargarGrupos(); }
             if (panel === 'historial' && !lotesCargados) { lotesCargados = true; cargarLotes(); }
+            if (panel === 'arreglar' && !arreglarCargado) { arreglarCargado = true; cargarArreglar(); }
+            if (panel === 'personas') ajustarAlto();
         });
 
         /* ── Cargos ─────────────────────────────────────────────────────── */
@@ -1120,9 +1489,127 @@
             }
         });
 
+        /* ── Por arreglar (fase 8) ──────────────────────────────────────── */
+        const $arrLista = $raiz.find('.js-arr-lista');
+        const AYUDA_ARR = {
+            cargos: 'Personas con más de un cargo en sus oficinas. Una persona tiene un solo cargo: abra su ficha, elija el que queda y aplíquelo.',
+            ciRepetido: 'El mismo C.I. en dos o más personas. Abra la ficha con todas sumadas, revise y aplique: quedan como una sola persona.',
+            ciDistinto: 'En el VSIAF esta oficina tiene un C.I. que su persona no tiene. Si alguien ya tiene ese C.I., únalas; si no, abra la ficha y cárguelo en «Datos de la persona».',
+            oficinaRepetida: 'La misma persona dos o más veces en una oficina. Una oficina tiene un solo responsable: abra la ficha, pase a faltantes los bienes del que sobra y deshabilítelo.',
+            sinOficinas: 'Personas sin oficinas vigentes, sin usuario ni actas. Suelen quedar así cuando sus oficinas pasaron a la persona con C.I. Darlas de baja no toca el VSIAF.'
+        };
+        let arreglarCargado = false, arr = { cargos: [], ciRepetido: [], ciDistinto: [], oficinaRepetida: [], sinOficinas: [] }, tipoArr = 'cargos';
+
+        async function cargarArreglar() {
+            const carga = SciafPrecarga.montar($arrLista, { compacta: true, texto: 'Buscando lo que falta arreglar…', demora: 0 });
+            try {
+                const r = await SciafModulo.pedir(URL + '/arreglar', { metodo: 'GET' });
+                const j = await r.json().catch(() => ({}));
+                if (!r.ok) throw new Error(j.msg || SciafPrecarga.motivo(r.status));
+                arr = j;
+                carga.cerrar();
+                Object.keys(AYUDA_ARR).forEach(k => $raiz.find('[data-cuenta-arr="' + k + '"]').text((arr[k] || []).length));
+                pintarArreglar();
+            } catch (e) {
+                carga.cerrar();
+                SciafModulo.avisarError(e, 'No se pudo leer la lista');
+            }
+        }
+
+        function pintarArreglar() {
+            const f = ($raiz.find('.js-arr-filtro').val() || '').trim().toUpperCase();
+            const pasa = p => !f || ((p.nombre || '') + ' ' + (p.ci || '')).toUpperCase().includes(f);
+            const ci = p => p.ci ? 'C.I. ' + esc(p.ci) : '<span class="text-warning">sin C.I.</span>';
+            $raiz.find('.js-arr-ayuda').text(AYUDA_ARR[tipoArr]);
+            $raiz.find('.js-arr-baja').toggleClass('pc-oculto', tipoArr !== 'sinOficinas' || !aplicaDirecto).prop('disabled', true);
+            let html = '';
+            if (tipoArr === 'ciDistinto') {
+                html = (arr.ciDistinto || []).filter(p => pasa(p) || String(p.ciVsiaf).includes(f)).map(p => '<tr><td><b>' + esc(p.nombre) + '</b><br><small>'
+                    + ci(p) + ' · en el VSIAF: <b>' + esc(p.ciVsiaf) + '</b></small></td><td class="small">' + esc(p.detalle) + '</td>'
+                    + '<td class="text-end">' + (p.idDuena && p.idDuena !== p.id
+                        ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-arr-abrir" data-id="' + p.idDuena + '" data-con="' + p.id + '">'
+                            + '<i class="ti ti-arrow-merge"></i> Unir con quien tiene el C.I.</button>'
+                        : '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-arr-abrir" data-id="' + p.id + '">'
+                            + '<i class="ti ti-id"></i> Abrir ficha</button>') + '</td></tr>').join('');
+            } else if (tipoArr === 'oficinaRepetida') {
+                html = (arr.oficinaRepetida || []).filter(pasa).map(p => '<tr><td><b>' + esc(p.nombre) + '</b><br><small>' + ci(p) + '</small></td>'
+                    + '<td class="small">' + esc(p.detalle) + '<br><span class="opacity-75">' + p.registros + ' registros · ' + p.bienes + ' bien(es)</span></td>'
+                    + '<td class="text-end"><button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-arr-abrir" data-id="' + p.id + '">'
+                    + '<i class="ti ti-id"></i> Abrir ficha</button></td></tr>').join('');
+            } else if (tipoArr === 'cargos') {
+                html = (arr.cargos || []).filter(pasa).map(p => '<tr><td><b>' + esc(p.nombre) + '</b><br><small>' + ci(p) + ' · ' + p.oficinas + ' oficina(s)</small></td>'
+                    + '<td class="small">' + esc(p.detalle) + '</td>'
+                    + '<td class="text-end"><button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-arr-abrir" data-id="' + p.id + '">'
+                    + '<i class="ti ti-id"></i> Abrir ficha</button></td></tr>').join('');
+            } else if (tipoArr === 'ciRepetido') {
+                html = (arr.ciRepetido || []).filter(g => !f || g.ci.includes(f) || g.personas.some(pasa)).map(g =>
+                    '<tr><td><b>C.I. ' + esc(g.ci) + '</b></td><td class="small">' + g.personas.map(p => esc(p.nombre)
+                        + ' <span class="opacity-75">(' + esc(p.ci) + ' · ' + p.oficinas + ' of.)</span>').join('<br>') + '</td>'
+                    + '<td class="text-end"><button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-arr-abrir" data-id="' + g.personas[0].id
+                    + '" data-con="' + g.personas.slice(1).map(p => p.id).join(',') + '"><i class="ti ti-arrow-merge"></i> Unificar</button></td></tr>').join('');
+            } else {
+                html = (arr.sinOficinas || []).filter(pasa).map(p => '<tr><td style="width: 28px;">'
+                    + (aplicaDirecto ? '<input type="checkbox" class="form-check-input js-arr-marca" value="' + p.id + '">' : '') + '</td>'
+                    + '<td><b>' + esc(p.nombre) + '</b><br><small>' + ci(p) + '</small></td>'
+                    + '<td class="small">' + (p.filasViejas ? p.filasViejas + ' oficina(s) dadas de baja antes' : 'nunca tuvo oficinas') + '</td></tr>').join('');
+            }
+            $arrLista.html(html
+                ? '<table class="table sm-tabla pc-tabla mb-0"><tbody>' + html + '</tbody></table>'
+                : '<div class="sm-vacio"><i class="ti ti-circle-check"></i><p class="mb-0">Nada por arreglar en esta lista.</p></div>');
+        }
+
+        $raiz.on('click', '.js-arr-tipos button', function () {
+            $raiz.find('.js-arr-tipos button').removeClass('activo');
+            $(this).addClass('activo');
+            tipoArr = $(this).data('tipo');
+            pintarArreglar();
+        });
+        $raiz.on('input', '.js-arr-filtro', pintarArreglar);
+        $raiz.on('click', '.js-arr-recargar', cargarArreglar);
+        $raiz.on('change', '.js-arr-marca', function () {
+            $raiz.find('.js-arr-baja').prop('disabled', !$arrLista.find('.js-arr-marca:checked').length);
+        });
+
+        // Abre la ficha en la pestaña Personas (con los registros a sumar, si los hay).
+        $raiz.on('click', '.js-arr-abrir', function () {
+            const con = String($(this).data('con') || '').split(',').filter(Boolean).map(Number);
+            abrirPersona(Number($(this).data('id')), con);
+        });
+        function abrirPersona(id, con) {
+            $raiz.find('.js-pestanas button[data-panel="personas"]').trigger('click');
+            nuevaPersona(id, con);
+            return cargarFicha().then(() => {
+                const p = estado.ficha && estado.ficha.principal;
+                if (p) $principal.empty().append(new Option(p.nombreCompleto + (p.ci ? ' · C.I. ' + p.ci : ''), p.id, true, true)).trigger('change');
+            });
+        }
+
+        $raiz.on('click', '.js-arr-baja', async function () {
+            const ids = $arrLista.find('.js-arr-marca:checked').map((i, el) => Number(el.value)).get();
+            if (!ids.length) return;
+            const si = await window.sciafConfirmar({
+                titulo: '¿Dar de baja ' + ids.length + ' persona(s)?',
+                texto: 'Quedan dadas de baja en el SCIAF (no se borran). El VSIAF no se toca.'
+                    + '<br><small class="text-muted">Si alguna tiene algo asignado en este momento, no se toca. Queda en el historial.</small>',
+                aceptar: 'Sí, dar de baja'
+            });
+            if (!si) return;
+            try {
+                const j = await SciafModulo.pedirJson(URL + '/arreglar/baja', { json: { ids } });
+                if (!j.ok) throw new Error(j.msg);
+                Swal.fire('Listo', j.msg, 'success');
+                cargarArreglar();
+            } catch (e) {
+                SciafModulo.avisarError(e, 'No se dio de baja');
+            }
+        });
+
+        irPaso(1);
+
         /* ── Llegada desde Responsables: persona y cargo ya elegidos ───── */
         if (INICIAL && INICIAL.cargo) {
-            $cargo.append(new Option(INICIAL.cargo, INICIAL.cargo, true, true)).trigger('change');
+            $cargo.append(new Option(INICIAL.cargo, INICIAL.cargo, true, true)).trigger('change.select2');
+            estado.cargo = { modo: 'catalogo', valor: String(INICIAL.cargo).toUpperCase() };
         }
         if (INICIAL && INICIAL.persona) {
             estado.principal = Number(INICIAL.persona);
