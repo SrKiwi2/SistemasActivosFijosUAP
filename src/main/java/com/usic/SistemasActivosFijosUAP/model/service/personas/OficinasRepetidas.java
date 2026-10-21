@@ -68,7 +68,10 @@ public final class OficinasRepetidas {
             boolean seUnen = grupo.stream().map(Fila::idPersona).filter(Objects::nonNull).distinct().count() > 1;
             if (conBienes.size() > 1) {
                 String detalle = conBienes.stream().map(f -> "cód. " + f.codResp() + " (" + f.bienes() + " bienes)").toList().toString();
-                if (seUnen) {
+                if (seUnen && conBienes.stream().allMatch(Fila::esCustodia)) {
+                    errores.add(oficina + " (oficina de faltantes): quedaría con " + conBienes.size() + " registros de la persona "
+                            + detalle + ". Júntelos primero con el botón «Juntar» (sus bienes pasan a un solo registro).");
+                } else if (seUnen) {
                     errores.add(oficina + ": quedaría con " + conBienes.size() + " registros con bienes " + detalle
                             + ". Una oficina tiene un solo responsable: pase a faltantes los bienes del que sobra "
                             + "(o transfiéralos) antes de unificar.");

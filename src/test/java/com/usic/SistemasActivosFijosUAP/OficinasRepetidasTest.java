@@ -61,6 +61,14 @@ class OficinasRepetidasTest {
     }
 
     @Test
+    void dosRegistrosEnLaOficinaDeFaltantesPidenJuntar() {
+        Fila a = new Fila(1L, 10L, 372L, "CULP", (short) 372, "5", "FALTANTES CULP", "CARGO", 27, true, false, "VSIAF");
+        Fila b = new Fila(2L, 11L, 372L, "CULP", (short) 372, "6", "FALTANTES CULP", "CARGO", 1, true, false, "VSIAF");
+        Salida s = validar(List.of(a, b), Set.of(), Map.of(), Set.of());
+        assertTrue(s.errores().stream().anyMatch(x -> x.contains("Juntar")), s.errores().toString());
+    }
+
+    @Test
     void laFilaMarcadaComoDeOtraPersonaNoCuenta() {
         List<Fila> filas = List.of(fila(1, 10, 184, 20), fila(2, 11, 184, 4));
         Salida s = validar(filas, Set.of(2L), Map.of(), Set.of());

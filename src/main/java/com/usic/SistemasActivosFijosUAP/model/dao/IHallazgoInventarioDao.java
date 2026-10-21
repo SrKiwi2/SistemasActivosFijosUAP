@@ -18,6 +18,9 @@ public interface IHallazgoInventarioDao extends JpaRepository<HallazgoInventario
 
     List<HallazgoInventario> findByInventarioIdInventario(Long idInventario);
 
+    /** Faltantes que van o están en un registro de la oficina de faltantes. */
+    List<HallazgoInventario> findByResponsableCustodiaIdResponsable(Long idResponsable);
+
     /**
      * Evita duplicar el hallazgo si un levantamiento se cierra dos veces (reintento
      * de la app sobre una petición que sí llegó).

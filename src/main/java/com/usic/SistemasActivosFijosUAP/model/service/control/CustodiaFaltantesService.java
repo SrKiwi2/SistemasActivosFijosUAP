@@ -312,6 +312,8 @@ public class CustodiaFaltantesService {
             Long idP = p != null ? p.getIdPersona() : null;
             String coincidencia;
             if (idP != null && idP.equals(principal.getIdPersona())) coincidencia = MISMA_PERSONA;
+            // Mismo C.I. = la misma persona registrada dos veces: se usa su registro (no se crea otro).
+            else if (r.isEsCustodia() && numeroCi(principal) != null && numeroCi(principal).equals(numeroCi(p))) coincidencia = MISMA_PERSONA;
             else if (idP != null && idsPersonas.contains(idP))       coincidencia = OTRO_REGISTRO;
             else if (p != null && nombres.contains(nombreNormalizado(p))) coincidencia = MISMO_NOMBRE;
             else                                                       coincidencia = OTRO;
@@ -611,12 +613,29 @@ public class CustodiaFaltantesService {
         return r;
     }
 
-    /** La persona dentro de la oficina, en cualquier estado; null si nunca estuvo. */
+    /**
+     * La persona dentro de la oficina, en cualquier estado; null si nunca estuvo. Primero su
+     * propio registro; si no, el registro de custodia de alguien con su mismo C.I. (la misma
+     * persona registrada dos veces): nunca se crea un segundo registro para el mismo C.I.
+     */
     private Responsable responsableDe(Oficina oficina, Persona persona) {
-        return responsableDao.findByOficinaIdOficina(oficina.getIdOficina()).stream()
+        List<Responsable> filas = responsableDao.findByOficinaIdOficina(oficina.getIdOficina());
+        Responsable propio = filas.stream()
                 .filter(r -> r.getPersona() != null
                         && Objects.equals(r.getPersona().getIdPersona(), persona.getIdPersona()))
                 .findFirst().orElse(null);
+        if (propio != null) return propio;
+        String ci = numeroCi(persona);
+        if (ci == null) return null;
+        return filas.stream()
+                .filter(r -> r.isEsCustodia() && r.getPersona() != null && ci.equals(numeroCi(r.getPersona())))
+                .min(Comparator.comparing((Responsable r) -> "ACTIVO".equals(r.getEstado()) ? 0 : 1)
+                        .thenComparing(Responsable::getIdResponsable))
+                .orElse(null);
+    }
+
+    private static String numeroCi(Persona p) {
+        return p == null ? null : com.usic.SistemasActivosFijosUAP.model.service.personas.IdentidadPersona.numeroCi(p.getCi(), java.util.Set.of());
     }
 
     /** CODRESP siguiente dentro de la oficina (cuenta también los dados de baja: en el VSIAF siguen). */

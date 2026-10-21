@@ -285,6 +285,20 @@ public class PersonasCargosController {
         }
     }
 
+    @PostMapping("/repetidos/juntar")
+    @ResponseBody
+    public ResponseEntity<?> juntarCustodias(HttpServletRequest request, @RequestBody Map<String, Object> cuerpo) {
+        if (!puedeUsar(request)) return prohibido();
+        try {
+            var r = service.juntarCustodias(PersonasCargosService.aLong(cuerpo.get("idQueda")),
+                    PersonasCargosService.aLong(cuerpo.get("idSobra")), RolesSciaf.usuarioDe(request));
+            return ResponseEntity.ok(Map.of("ok", true, "msg", r.mensaje()));
+        } catch (IllegalArgumentException | IllegalStateException
+                 | com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
     // ── Por arreglar (fase 8): lista de trabajo ──
 
     @GetMapping("/arreglar")

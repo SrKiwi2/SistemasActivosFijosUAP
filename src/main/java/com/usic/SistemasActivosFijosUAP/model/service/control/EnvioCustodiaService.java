@@ -70,6 +70,8 @@ public class EnvioCustodiaService {
     private static final List<String> ROLES_AVISO = List.of("ADMINISTRADOR", "SUPER USUARIO");
 
     private final IHallazgoInventarioDao hallazgoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao activoDao;
+    private final com.usic.SistemasActivosFijosUAP.model.service.supervision.ResponsableGestionService responsableGestionService;
     private final IResponsableService responsableService;
     private final IDbfColaOrdenDao colaDao;
     private final IUsuarioDao usuarioDao;
@@ -527,6 +529,99 @@ public class EnvioCustodiaService {
 
     private static String recortar(String s, int max) {
         return (s == null || s.length() <= max) ? s : s.substring(0, max);
+    }
+
+    // ── Juntar dos registros de la misma persona en una oficina de faltantes ──
+
+    public record Junta(int bienes, int faltantes, String mensaje) {}
+
+    /**
+     * Una persona, un registro en la oficina de faltantes (Saul, 21-oct-2026). Cuando la misma
+     * persona quedó dos veces (dos registros de persona sin unificar: uno con C.I. y otro sin),
+     * los bienes del registro que sobra pasan al que queda —transferencia interna dentro de la
+     * misma oficina, por la cola del VSIAF—, sus faltantes también, y el que sobra deja de ser
+     * custodia y se deshabilita (aquí y en el VSIAF). Los faltantes siguen diciendo de qué
+     * oficina vino cada bien.
+     */
+    public Junta juntarCustodias(Long idQueda, Long idSobra, Usuario autor) {
+        if (idQueda == null || idSobra == null || idQueda.equals(idSobra)) {
+            throw new ReglaNegocioException("Elija dos registros distintos de la oficina de faltantes.");
+        }
+        int[] n = new int[2];
+        String referencia = enTransaccion(() -> {
+            Responsable queda = responsableService.findByIdWithRelations(idQueda);
+            Responsable sobra = responsableService.findByIdWithRelations(idSobra);
+            if (queda == null || sobra == null) throw new ReglaNegocioException("Uno de los registros ya no existe.");
+            Oficina of = queda.getOficina();
+            if (of == null || sobra.getOficina() == null || !of.getIdOficina().equals(sobra.getOficina().getIdOficina())
+                    || !of.isEsCustodia() || !queda.isEsCustodia() || !sobra.isEsCustodia()) {
+                throw new ReglaNegocioException("Los dos registros tienen que estar en la misma oficina de faltantes.");
+            }
+            if (!"ACTIVO".equals(queda.getEstado())) {
+                throw new ReglaNegocioException("El registro que queda está deshabilitado: habilítelo primero.");
+            }
+            if (vsiafApoyoNecesitaAlta(queda)) {
+                throw new ReglaNegocioException("El registro que queda todavía no está confirmado en el VSIAF: espere y reintente.");
+            }
+            List<Activo> activos = activoDao.findByResponsableIdResponsable(idSobra).stream()
+                    .filter(a -> Activo.ESTADO_ACTIVO.equals(a.getEstado())).toList();
+            String usuario = autor != null ? autor.getUsuario() : "SISTEMA";
+            LocalDate hoy = LocalDate.now();
+            LocalDateTime ahora = LocalDateTime.now();
+            boolean cola = actualDbfWriterService.esModoCola();
+            List<TransferenciaService.ActivoConOrigen> acos = new ArrayList<>();
+            for (Activo a : activos) {
+                acos.add(new TransferenciaService.ActivoConOrigen(a));
+                a.setResponsable(queda);
+                a.setFecMod(hoy);
+                a.setUsuMod(usuario);
+                a.setFechaUlt(hoy);
+                a.setUsuario(usuario);
+                a.setApiEstado(Short.valueOf("3"));
+                a.setModificacion(new Date());
+                if (autor != null) a.setModificacionIdUsuario(autor.getIdUsuario());
+                a.setSincVsiaf(cola ? Activo.SINC_EN_COLA : Activo.SINC_CONFIRMADO);
+                a.setSincVsiafMensaje(null);
+                a.setSincVsiafFecha(ahora);
+            }
+            // Los faltantes (abiertos, en camino o en custodia) pasan al registro que queda.
+            for (HallazgoInventario h : hallazgoDao.findByResponsableCustodiaIdResponsable(idSobra)) {
+                h.setResponsableCustodia(queda);
+                n[1]++;
+            }
+            if (!acos.isEmpty()) {
+                transferenciaService.registrarTransferencia(acos, "INTERNA", of, queda,
+                        autor != null ? autor.getIdUsuario() : null, usuario,
+                        "Juntar registros de faltantes de la misma persona",
+                        "Juntar registros de faltantes", null);
+                Predio predio = of.getPredio();
+                actualDbfWriterService.actualizarLoteTransferencias(activos,
+                        predio.getEntidad().getEntidadCodigo(), predio.getUnidad(), usuario);
+            }
+            // Deja de ser custodia: una persona tiene un solo registro de custodia por oficina
+            // (uk_resp_custodia_persona), y así se puede unificar después.
+            sobra.setEsCustodia(false);
+            responsableService.save(sobra);
+            n[0] = acos.size();
+            return OficinaGestionService.referencia(of) + " / " + sobra.getCodigoFuncionario() + " → " + queda.getCodigoFuncionario();
+        });
+        // Ya vacío: se deshabilita aquí y en el VSIAF (API_ESTADO 3). La orden de RESP va después
+        // de las de ACTUAL en la cola.
+        String baja;
+        try {
+            baja = responsableGestionService.aplicarEstado(idSobra, false, autor).msg();
+        } catch (Exception e) {
+            baja = "No se pudo deshabilitar el registro que sobra: " + e.getMessage() + " (hágalo desde Responsables).";
+        }
+        actividadService.registrar(autor, ActividadService.MOD_TRANSFERENCIA, ActividadService.ACC_MOVIMIENTO,
+                referencia, "Juntó registros de faltantes de la misma persona (" + referencia + "): " + n[0]
+                        + " bien(es), " + n[1] + " faltante(s)", n[0], null);
+        return new Junta(n[0], n[1], "Listo: " + n[0] + " bien(es) y " + n[1] + " faltante(s) pasaron al registro que queda. " + baja);
+    }
+
+    private boolean vsiafApoyoNecesitaAlta(Responsable r) {
+        VsiafApoyoService.EstadoVsiaf e = custodiaService.estadoEnVsiaf(r.getIdResponsable());
+        return !VsiafApoyoService.EST_VSIAF.equals(e.codigo());
     }
 
     private <T> T enTransaccion(Supplier<T> trabajo) {

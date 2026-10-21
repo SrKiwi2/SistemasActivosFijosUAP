@@ -78,6 +78,7 @@ public class PersonasCargosService implements EjecutorAutorizacion {
     private final VsiafDisponibilidad vsiaf;
     private final EnvioFilasVsiaf envioFilas;
     private final ActaFaltanteService actaFaltantes;
+    private final com.usic.SistemasActivosFijosUAP.model.service.control.EnvioCustodiaService envioCustodia;
     @PersistenceContext
     private EntityManager em;
 
@@ -87,9 +88,11 @@ public class PersonasCargosService implements EjecutorAutorizacion {
                                  VsiafApoyoService vsiafApoyoService, ActividadService actividadService,
                                  PersonaHistorialService historial, PlatformTransactionManager txManager,
                                  VsiafDisponibilidad vsiaf, EnvioFilasVsiaf envioFilas,
-                                 ActaFaltanteService actaFaltantes) {
+                                 ActaFaltanteService actaFaltantes,
+                                 com.usic.SistemasActivosFijosUAP.model.service.control.EnvioCustodiaService envioCustodia) {
         this.vsiaf = vsiaf;
         this.actaFaltantes = actaFaltantes;
+        this.envioCustodia = envioCustodia;
         this.envioFilas = envioFilas;
         this.jdbc = new NamedParameterJdbcTemplate(jdbcTemplate);
         this.personaDao = personaDao;
@@ -182,7 +185,7 @@ public class PersonasCargosService implements EjecutorAutorizacion {
                     new MapSqlParameterSource().addValue("p", d.idPrincipal()).addValue("o", oficinasQueLlegan), Long.class);
             if (conflictos != null && conflictos > 0 && r.errores().stream().noneMatch(e -> e.contains("custodias"))) {
                 r.errores().add("La principal ya es (o fue) custodia en la misma oficina de faltantes que una de las "
-                        + "sumadas: no se pueden unificar todavía (habría que juntar primero sus custodias).");
+                        + "sumadas: júntelas primero con el botón «Juntar» del recuadro de la oficina repetida (paso 1).");
             }
         }
         // Una oficina, un responsable (fase 9): registros repetidos de la persona en la misma oficina.
@@ -903,6 +906,22 @@ public class PersonasCargosService implements EjecutorAutorizacion {
         RegistrarFaltantesRequest req = new RegistrarFaltantesRequest(idPrincipal, idsActivos, documento, null, observacion,
                 null, vinculadas, null, null, null, null);
         return actaFaltantes.regularizarRepetido(req, autor);
+    }
+
+    /**
+     * La misma persona con dos registros en la oficina de faltantes (dos «personas» sin unificar):
+     * los bienes y faltantes del que sobra pasan al que queda y el que sobra se deshabilita.
+     * Solo administradores y con el VSIAF a la vista (traslada bienes).
+     */
+    public com.usic.SistemasActivosFijosUAP.model.service.control.EnvioCustodiaService.Junta juntarCustodias(
+            Long idQueda, Long idSobra, Usuario autor) {
+        if (!RolesSciaf.esAdministrativo(autor)) {
+            throw new IllegalStateException("Solo ADMINISTRADOR o SUPER USUARIO juntan registros de faltantes.");
+        }
+        if (!vsiaf.dbf("Personas y cargos")) {
+            throw new IllegalStateException("No se aplica desde aquí: " + vsiaf.motivoDbf() + " Hágalo desde el servidor del SCIAF.");
+        }
+        return envioCustodia.juntarCustodias(idQueda, idSobra, autor);
     }
 
     // ── Por arreglar (fase 8): lista de trabajo ───────────────────────────

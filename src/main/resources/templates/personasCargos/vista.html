@@ -577,7 +577,17 @@
                         const bienes = Number(x.bienes) || 0, enc = Number(camino[x.idResponsable]) || 0, libres = bienes - enc;
                         const quien = x.idPersona === f.principal.id ? '' : ' <span class="sm-pastilla sm-pastilla-info">se suma</span>';
                         let accion;
-                        if (libres > 0) {
+                        // Oficina de faltantes: un solo registro por persona. El que sobra se junta con el que queda.
+                        const queda = x.esCustodia ? (lista.find(z => z.esCustodia && z.idPersona === f.principal.id) || lista.find(z => z.esCustodia)) : null;
+                        if (queda && queda.idResponsable !== x.idResponsable) {
+                            accion = aplicaDirecto
+                                ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-rep-juntar" data-sobra="' + x.idResponsable
+                                    + '" data-queda="' + queda.idResponsable + '"' + (VSIAF_OK ? '' : ' disabled title="Solo desde el SCIAF del servidor"') + '>'
+                                    + '<i class="ti ti-arrows-join"></i> Juntar en el cód. ' + esc(queda.codResp) + '</button>'
+                                : '<span class="sm-ayuda">Un administrador lo junta con el cód. ' + esc(queda.codResp) + '.</span>';
+                        } else if (queda) {
+                            accion = '<span class="sm-pastilla sm-pastilla-activo">queda este</span>';
+                        } else if (libres > 0) {
                             accion = aplicaDirecto
                                 ? '<button type="button" class="sm-btn sm-btn-sm sm-btn-suave js-rep-faltantes" data-id="' + x.idResponsable + '"'
                                     + (VSIAF_OK ? '' : ' disabled title="Solo desde el SCIAF del servidor"') + '>'
@@ -601,6 +611,27 @@
         }
         $raiz.on('change', '.js-baja', invalidarPlan);
         $raiz.on('change', '.js-suma', pintarRepetidas);
+
+        // Oficina de faltantes: los bienes y faltantes del registro que sobra pasan al que queda.
+        $raiz.on('click', '.js-rep-juntar', async function () {
+            const sobra = estado.ficha.filas.find(z => z.idResponsable === Number($(this).data('sobra')));
+            const queda = estado.ficha.filas.find(z => z.idResponsable === Number($(this).data('queda')));
+            if (!sobra || !queda) return;
+            const si = await window.sciafConfirmar({
+                titulo: '¿Juntar en un solo registro?',
+                texto: '<b>' + esc(sobra.unidad + ' ' + sobra.codOfic) + '</b> (oficina de faltantes): los <b>' + esc(sobra.bienes)
+                    + ' bien(es)</b> del cód. ' + esc(sobra.codResp) + ' pasan al <b>cód. ' + esc(queda.codResp) + '</b>, con sus faltantes '
+                    + '(se sigue sabiendo de qué oficina vino cada bien). El cód. ' + esc(sobra.codResp) + ' queda deshabilitado, aquí y en el VSIAF.',
+                aceptar: 'Sí, juntar'
+            });
+            if (!si) return;
+            try {
+                const j = await SciafModulo.pedirJson(URL + '/repetidos/juntar', { json: { idQueda: queda.idResponsable, idSobra: sobra.idResponsable } });
+                if (!j.ok) throw new Error(j.msg);
+                Swal.fire({ icon: 'success', title: 'Registros juntados', text: j.msg });
+                await cargarFicha();
+            } catch (e) { SciafModulo.avisarError(e, 'No se pudieron juntar'); }
+        });
 
         // Los bienes del registro que sobra van a la oficina de faltantes del predio (acta AR).
         $raiz.on('click', '.js-rep-faltantes', async function () {
