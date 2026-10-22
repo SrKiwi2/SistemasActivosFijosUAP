@@ -18,6 +18,8 @@ import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.qrcode.QRCodeWriter;
@@ -25,6 +27,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 /** Piezas compartidas por las actas, notificaciones y etiquetas Word. */
 public final class WordDocumentos {
     public static final String MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private static final Logger log = LoggerFactory.getLogger(WordDocumentos.class);
 
     private WordDocumentos() {}
 
@@ -106,8 +109,16 @@ public final class WordDocumentos {
     }
 
     public static void imagenQr(XWPFRun run, String contenido, int puntos) throws Exception {
-        byte[] png = qr(contenido, Math.max(160, puntos * 3));
-        run.addPicture(new java.io.ByteArrayInputStream(png), XWPFDocument.PICTURE_TYPE_PNG,
-                "verificacion.png", Units.toEMU(puntos), Units.toEMU(puntos));
+        try {
+            byte[] png = qr(contenido, Math.max(160, puntos * 3));
+            run.addPicture(new java.io.ByteArrayInputStream(png), XWPFDocument.PICTURE_TYPE_PNG,
+                    "verificacion.png", Units.toEMU(puntos), Units.toEMU(puntos));
+        } catch (NoClassDefFoundError error) {
+            // El enlace de verificación se escribe también en texto. Si una ejecución
+            // antigua de VS Code omite ZXing del classpath, el Word sigue disponible.
+            if (error.getMessage() == null || !error.getMessage().contains("com/google/zxing/")) throw error;
+            log.error("ZXing no está en el classpath; el Word se generará sin imagen QR. "
+                    + "Recargue el proyecto Maven y reinicie la aplicación.", error);
+        }
     }
 }
