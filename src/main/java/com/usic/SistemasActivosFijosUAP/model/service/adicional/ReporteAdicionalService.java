@@ -13,6 +13,9 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
 
 import com.itextpdf.text.BaseColor;
 import com.itextpdf.text.Chunk;
@@ -39,6 +42,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.ResponsableEntrega;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.MembreteWord;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -137,6 +142,91 @@ public class ReporteAdicionalService {
         } catch (Exception e) {
             throw new IllegalStateException("No se pudo generar el reporte de adicionales.", e);
         }
+    }
+
+    /** Versión editable del acta; una página nueva por responsable. */
+    @Transactional(readOnly = true)
+    public byte[] generarWord(Long oficinaId, Long responsableId, LocalDateTime fecha, Usuario usuario, Object permisos) {
+        exigirPermiso(usuario, permisos);
+        if (oficinaId == null || oficinaId <= 0 || responsableId != null && responsableId <= 0)
+            throw new IllegalArgumentException("Seleccione una oficina válida.");
+        LocalDateTime cuando = fecha != null ? fecha : LocalDateTime.now();
+        if (cuando.isAfter(LocalDateTime.now().plusDays(1)))
+            throw new IllegalArgumentException("La fecha del acta no puede ser posterior a hoy.");
+        List<ActivoAdicional> bienes = dao.paraReporte(oficinaId, responsableId);
+        if (bienes.isEmpty()) throw new IllegalArgumentException("No hay bienes adicionales vigentes para esta selección.");
+        if (responsableId != null && bienes.stream().anyMatch(x -> x.getActivo().getResponsable() == null
+                || !responsableId.equals(x.getActivo().getResponsable().getIdResponsable())))
+            throw new IllegalArgumentException("El responsable no corresponde a la oficina.");
+        Map<Long, List<ActivoAdicional>> porResponsable = new LinkedHashMap<>();
+        for (ActivoAdicional x : bienes) {
+            Responsable r = x.getActivo().getResponsable();
+            porResponsable.computeIfAbsent(r == null ? 0L : r.getIdResponsable(), k -> new ArrayList<>()).add(x);
+        }
+        Firmantes f = firmantes(cuando);
+        String iniciales = iniciales(usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombreCompleto() : null);
+        try (XWPFDocument doc = new XWPFDocument()) {
+            WordDocumentos.pagina(doc, true, 2200, 1300);
+            MembreteWord.aplicar(doc);
+            boolean primero = true;
+            for (List<ActivoAdicional> grupo : porResponsable.values()) {
+                if (!primero) doc.createParagraph().setPageBreak(true);
+                primero = false;
+                escribirActaWord(doc, grupo, cuando, f, iniciales);
+            }
+            return WordDocumentos.bytes(doc);
+        } catch (Exception e) {
+            throw new IllegalStateException("No se pudo generar el acta Word de adicionales.", e);
+        }
+    }
+
+    private static void escribirActaWord(XWPFDocument doc, List<ActivoAdicional> bienes,
+                                         LocalDateTime fecha, Firmantes f, String iniciales) {
+        Activo primero = bienes.get(0).getActivo();
+        Oficina oficina = primero.getOficina();
+        Responsable responsable = primero.getResponsable();
+        String mes = fecha.getMonth().getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es")).toUpperCase(Locale.ROOT);
+        WordDocumentos.parrafo(doc, "ACTA DE ASIGNACION INDIVIDUAL\nDE BIENES - ADICIONAL " + fecha.getYear(),
+                14, true, ParagraphAlignment.CENTER);
+        WordDocumentos.parrafo(doc, "En la ciudad de " + f.ciudad + " a " + String.format("%02d", fecha.getDayOfMonth())
+                + " días del mes de " + mes + " del " + fecha.getYear() + ", a horas "
+                + fecha.format(DateTimeFormatter.ofPattern("HH:mm")) + " en los predios de la Universidad Amazónica de Pando en presencia de la "
+                + f.activos + ". Responsable de Activos Fijos"
+                + (f.vistoBueno == null ? "" : " dando el visto bueno " + f.articuloVistoBueno + " " + f.vistoBueno)
+                + " se procedió a la ASIGNACION INDIVIDUAL ADICIONAL de los Activos Fijos que se encuentran físicamente en la "
+                + ubicacion(oficina) + " que no fueron inventariados ni codificados por la empresa que realizó el Revalúo, mencionando así los activos con las siguientes características:",
+                10, false, ParagraphAlignment.BOTH);
+        XWPFTable tabla = WordDocumentos.tabla(doc, "Ítem", "Descripción", "Código", "Observación");
+        int numero = 1;
+        for (ActivoAdicional x : bienes) {
+            Activo a = x.getActivo();
+            String antiguo = vacio(a.getCodigoAntiguo()) ? null : a.getCodigoAntiguo().trim();
+            String codigo = vacio(a.getCodigo()) ? (antiguo == null ? "S/CD" : antiguo)
+                    : PREFIJO_CODIGO + Activo.codigoDocumento(a.getCodigo()) + (antiguo == null ? "" : "\nAnt.: " + antiguo);
+            String estado = a.getEstadoActivo() == null ? "—" : a.getEstadoActivo().getNombre().toUpperCase(Locale.ROOT);
+            WordDocumentos.fila(tabla, String.format("%02d", numero++), texto(a.getDescripcion(), "SIN DESCRIPCIÓN"),
+                    codigo, estado + (vacio(x.getObservacion()) ? "" : "\n" + x.getObservacion().trim()));
+        }
+        WordDocumentos.parrafo(doc, "Al:", 10, false, ParagraphAlignment.LEFT);
+        XWPFTable receptor = doc.createTable(1, 1);
+        receptor.setWidth("78%");
+        String persona = responsable == null ? "SIN RESPONSABLE REGISTRADO" : nombreResponsable(responsable);
+        if (responsable != null && responsable.getPersona() != null) {
+            Persona p = responsable.getPersona();
+            if (!vacio(p.getCi())) persona += "  C.I. " + p.getCi().trim()
+                    + (vacio(p.getExtension()) ? "" : " " + p.getExtension().trim().toUpperCase(Locale.ROOT) + ".");
+            if (responsable.getCargo() != null && !vacio(responsable.getCargo().getNombre())) {
+                String cargo = responsable.getCargo().getNombre().trim().toUpperCase(Locale.ROOT);
+                persona += "\n" + (cargo.contains("U.A.P") || cargo.matches(".*\\bUAP\\b.*") ? cargo : cargo + " – U.A.P.");
+            }
+        }
+        WordDocumentos.celda(receptor.getRow(0).getCell(0), persona, false, 10);
+        WordDocumentos.parrafo(doc, "Entrega que es realizada de acuerdo al reglamentos y Normas Básicas del SABS y Decreto Supremo 0181, que a la letra dice, es de responsabilidad total de la persona y/o funcionario, que recibe el activo, por cualquier perdida, deterioro y/o por mal uso de los Bienes de la institución.",
+                10, false, ParagraphAlignment.BOTH);
+        WordDocumentos.parrafo(doc, "Para constancia de la recepción firmamos al pie del presente documento.", 10, false, ParagraphAlignment.LEFT);
+        WordDocumentos.parrafo(doc, "\n________________________                   ________________________\nRECIBI CONFORME                   ENTREGUE CONFORME",
+                10, true, ParagraphAlignment.CENTER);
+        WordDocumentos.parrafo(doc, "\nVo. Bo.\n\nC.c./Arch. " + (iniciales.isEmpty() ? "" : iniciales) + "/A-F", 8, false, ParagraphAlignment.CENTER);
     }
 
     private static void escribirActa(Document doc, List<ActivoAdicional> bienes, LocalDateTime fecha,

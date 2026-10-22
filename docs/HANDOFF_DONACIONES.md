@@ -270,3 +270,9 @@ select codigo, descripcion from opcion_menu where codigo = 'opcion_donacion';
 select column_name from information_schema.columns
  where table_name = 'donacion_acta' and column_name in ('token_registro','motivo_anulacion','fecha_anulacion','usuario_anulacion');
 ```
+
+## Documentos Word (22-oct-2026)
+
+El acta se descarga como `.docx` desde `GET /administracion/donacion/api/acta/{id}/word`,
+generada desde los datos guardados por `WordActaDonacionService`. Las etiquetas QR también se
+descargan como `.docx` desde su ruta existente; conservan el texto QR que lee la app móvil.

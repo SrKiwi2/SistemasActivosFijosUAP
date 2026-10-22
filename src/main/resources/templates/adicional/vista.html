@@ -327,7 +327,7 @@
         </div>
         <div class="sm-toolbar-espacio"></div>
         <button type="button" class="sm-btn sm-btn-suave js-reporte" title="Acta de bienes adicionales por oficina y responsable">
-            <i class="ti ti-file-type-pdf"></i><span class="adi-l-reporte"> Reporte por oficina / responsable</span></button>
+            <i class="ti ti-file-type-docx"></i><span class="adi-l-reporte"> Reporte por oficina / responsable</span></button>
         <button type="button" class="sm-btn sm-btn-suave js-etiquetas-sel" disabled
                 title="Marque en la tabla los activos con código (los recién registrados se marcan solos)">
             <i class="ti ti-qrcode"></i> Etiquetas <span class="js-n-sel">(0)</span></button>
@@ -562,7 +562,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content sm-modal">
             <div class="sm-modal-cab">
-                <div class="sm-cabecera-icono"><i class="ti ti-file-type-pdf"></i></div>
+                <div class="sm-cabecera-icono"><i class="ti ti-file-type-docx"></i></div>
                 <div>
                     <h5 class="sm-modal-titulo" id="adiReporteTitulo">Reporte de adicionales</h5>
                     <p class="sm-modal-sub">Acta de bienes por oficina y responsable</p>
@@ -590,7 +590,7 @@
                 <div class="sm-modal-pie">
                     <span class="sm-nota js-reporte-error" role="alert"></span>
                     <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-x"></i> Cancelar</button>
-                    <button type="submit" class="sm-btn sm-btn-exito"><i class="ti ti-file-type-pdf"></i> Abrir PDF</button>
+                    <button type="submit" class="sm-btn sm-btn-exito"><i class="ti ti-file-type-docx"></i> Descargar Word</button>
                 </div>
             </form>
         </div>
@@ -721,7 +721,7 @@
         $tabla.find('tr.adi-elegida').removeClass('adi-elegida');
     });
     function imprimirEtiquetas(ids) {
-        window.open(URL + '/api/etiquetas?ids=' + ids.map(encodeURIComponent).join(','), '_blank', 'noopener');
+        window.location.href = URL + '/api/etiquetas?ids=' + ids.map(encodeURIComponent).join(',');
     }
     $raiz.on('click', '.js-etiquetas-sel', function () { if (elegidos.size) imprimirEtiquetas(Array.from(elegidos.keys())); });
 
@@ -1496,10 +1496,10 @@
             $reporteOficina.select2('open');
             return;
         }
-        const url = URL + '/api/reportes/asignacion.pdf?oficinaId=' + encodeURIComponent(oficina)
+        const url = URL + '/api/reportes/asignacion.docx?oficinaId=' + encodeURIComponent(oficina)
             + (responsable ? '&responsableId=' + encodeURIComponent(responsable) : '')
             + ($reporteFecha.val() ? '&fecha=' + encodeURIComponent($reporteFecha.val()) : '');
-        window.open(url, '_blank', 'noopener');
+        window.location.href = url;
         bootstrap.Modal.getOrCreateInstance($reporteModal[0]).hide();
     });
 

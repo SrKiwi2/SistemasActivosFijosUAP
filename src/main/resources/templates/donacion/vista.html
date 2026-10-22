@@ -1963,7 +1963,7 @@
             + '<h5 class="sm-modal-titulo" style="color:var(--dn)">' + esc(d.numero) + '</h5>'
             + '<small>' + esc(fechaBonita(d.fecha)) + ' · ' + esc(d.cantidad) + ' bien(es) · ' + esc(bs(d.valor)) + ' · registrada por ' + esc(d.usuario || '—') + '</small></div>'
             + '<div class="d-flex gap-2 flex-wrap justify-content-end">'
-            + (anulada ? '' : '<button type="button" class="sm-btn sm-btn-suave js-imprimir"><i class="ti ti-printer"></i> Imprimir acta</button>'
+            + (anulada ? '' : '<button type="button" class="sm-btn sm-btn-suave js-imprimir"><i class="ti ti-file-type-docx"></i> Descargar acta Word</button>'
                 + '<button type="button" class="sm-btn sm-btn-suave js-etiquetas" data-id="' + d.id + '"><i class="ti ti-qrcode"></i> Etiquetas</button>')
             + (!anulada && d.edicion ? '<button type="button" class="sm-btn js-editar"><i class="ti ti-edit"></i> Editar</button>' : '')
             + (!anulada && INICIAL.esAdmin ? '<button type="button" class="sm-btn sm-btn-neutro js-anular" data-id="' + d.id + '" title="Deja el acta y sus bienes como registro (CANCELADO)"><i class="ti ti-ban"></i> Anular</button>' : '')
@@ -2244,9 +2244,9 @@
         }
     });
 
-    // Etiquetas con QR (PDF del servidor, en otra pestaña)
+    // Etiquetas con QR en Word.
     $raiz.on('click', '.js-etiquetas', function () {
-        window.open(URL + '/api/acta/' + encodeURIComponent($(this).data('id')) + '/etiquetas', '_blank', 'noopener');
+        window.location.href = URL + '/api/acta/' + encodeURIComponent($(this).data('id')) + '/etiquetas';
     });
 
     // Anular una donación registrada por error (solo administradores; el servidor lo valida).
@@ -2280,32 +2280,11 @@
         }
     });
 
-    /** Acta imprimible en una ventana aparte (sin servidor: se arma con lo que ya llegó). */
+    /** Descarga el acta Word con los datos guardados en el servidor. */
     $raiz.on('click', '.js-imprimir', function () {
         const d = $detalle.data('acta');
         if (!d) return;
-        const filas = (d.bienes || []).map(function (b) {
-            return '<tr><td>' + esc(b.item) + '</td><td style="white-space:nowrap"><b>' + esc(codigoDocumento(b.codigo)) + '</b></td><td>' + esc(b.descripcion)
-                + (b.caracteristicas ? '<br><small>' + esc(b.caracteristicas) + '</small>' : '') + '</td><td>' + esc(b.conservacion || '') + '</td><td style="text-align:right">' + esc(bs(b.valor)) + '</td></tr>';
-        }).join('');
-        const w = window.open('', '_blank');
-        if (!w) { Swal.fire('Ventana bloqueada', 'Permita las ventanas emergentes para imprimir.', 'info'); return; }
-        w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + esc(d.numero) + '</title><style>'
-            + 'body{font-family:Arial,sans-serif;font-size:12px;margin:28px;color:#111}h1{font-size:17px;text-align:center;margin:0}'
-            + '.sub{text-align:center;margin:4px 0 18px;color:#444}table{width:100%;border-collapse:collapse;margin-top:10px}'
-            + 'th,td{border:1px solid #999;padding:5px;vertical-align:top}th{background:#eee}.datos td{border:0;padding:2px 6px}'
-            + '.firmas{display:flex;justify-content:space-around;margin-top:70px}.firmas div{border-top:1px solid #000;width:220px;text-align:center;padding-top:4px}'
-            + '</style></head><body>'
-            + '<h1>ACTA DE RECEPCIÓN DE BIENES EN DONACIÓN</h1><div class="sub">' + esc(d.numero) + ' · Universidad Amazónica de Pando</div>'
-            + '<table class="datos"><tr><td><b>Donante:</b> ' + esc(d.donante) + '</td><td><b>' + (d.donanteTipo === 'PERSONA' ? 'C.I.' : 'NIT') + ':</b> ' + esc(d.donanteDocumento || '—') + '</td></tr>'
-            + '<tr><td><b>Fecha de donación:</b> ' + esc(fechaBonita(d.fecha)) + '</td><td><b>Documento de respaldo:</b> ' + esc(d.documentoRespaldo || '—') + '</td></tr>'
-            + '<tr><td><b>Oficina:</b> ' + esc(d.oficina || '—') + '</td><td><b>Responsable:</b> ' + esc(d.responsable || '—') + '</td></tr></table>'
-            + '<table><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Estado</th><th>Valor ref.</th></tr></thead><tbody>' + filas
-            + '<tr><td colspan="4" style="text-align:right"><b>TOTAL (' + esc(d.cantidad) + ' bienes)</b></td><td style="text-align:right"><b>' + esc(bs(d.valor)) + '</b></td></tr></tbody></table>'
-            + (d.observacion ? '<p><b>Observación:</b> ' + esc(d.observacion) + '</p>' : '')
-            + '<div class="firmas"><div>ENTREGUÉ CONFORME<br>' + esc(d.donante) + '</div><div>RECIBÍ CONFORME<br>' + esc((d.responsable || '').replace(/^.*— /, '')) + '</div></div>'
-            + '<script>window.onload=function(){window.print();}<\/script></body></html>');
-        w.document.close();
+        window.location.href = URL + '/api/acta/' + encodeURIComponent(d.id) + '/word';
     });
 
     // ════════════════════════════════════════════════════════════

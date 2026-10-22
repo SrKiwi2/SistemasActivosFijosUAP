@@ -51,6 +51,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ArchivoStorageService;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfEtiquetasQrService;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.WordEtiquetasQrService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -100,7 +101,7 @@ public class AdicionalService {
     private final IOrganismoFinancieroService financiadorService;
     private final IEstadoActivoService estadoActivoService;
     private final ArchivoStorageService archivos;
-    private final PdfEtiquetasQrService hojaEtiquetas;
+    private final WordEtiquetasQrService hojaEtiquetas;
     private final PlatformTransactionManager txManager;
 
     /** ¿Puede usar el módulo? ADMINISTRADOR / SUPER USUARIO o la opción de menú. */
@@ -771,7 +772,7 @@ public class AdicionalService {
         int saltados = pedidos.size() - etiquetas.size();
         String aviso = saltados > 0 ? "Atención: " + saltados + " de los " + pedidos.size()
                 + " marcados no salen (ya no están vigentes o no tienen código)." : null;
-        return hojaEtiquetas.generar("Etiquetas de activos adicionales", etiquetas, new com.itextpdf.text.BaseColor(15, 118, 110), aviso);
+        return hojaEtiquetas.generar(etiquetas, aviso);
     }
 
     /** Predios para la vista, con el prefijo (o null si falta configurarlo). */

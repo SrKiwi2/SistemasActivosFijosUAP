@@ -212,3 +212,7 @@ Reglas de trabajo de siempre:
 - antes de compilar, verificar que la app no esté corriendo (devtools reinicia y aplica
   `hbm2ddl` en `bd_a3`);
 - nada de escrituras en `bd_a3` sin preguntar.
+
+Actualización 22-oct-2026: la vista previa y la notificación registrada se descargan en Word
+(`.docx`) mediante `WordNotificacionDuplicadoService`. Conservan el número, contenido guardado,
+huella y QR de verificación; la ruta del caso es `/api/caso/{id}/word`.

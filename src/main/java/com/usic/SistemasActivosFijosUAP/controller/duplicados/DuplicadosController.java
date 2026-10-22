@@ -26,7 +26,8 @@ import com.usic.SistemasActivosFijosUAP.model.dto.duplicados.DuplicadosDTOs;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
 import com.usic.SistemasActivosFijosUAP.model.service.duplicados.DuplicadosService;
-import com.usic.SistemasActivosFijosUAP.model.service.duplicados.PdfNotificacionDuplicadoService;
+import com.usic.SistemasActivosFijosUAP.model.service.duplicados.WordNotificacionDuplicadoService;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -50,7 +51,7 @@ public class DuplicadosController {
     public static final String OPCION = "opcion_duplicados";
 
     private final DuplicadosService service;
-    private final PdfNotificacionDuplicadoService pdfService;
+    private final WordNotificacionDuplicadoService wordService;
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
@@ -109,8 +110,8 @@ public class DuplicadosController {
     @ResponseBody
     public ResponseEntity<?> vistaPrevia(@RequestBody DuplicadosDTOs.Registro req, HttpServletRequest request) throws Exception {
         exigir(request);
-        byte[] pdf = pdfService.generar(service.vistaPrevia(req, RolesSciaf.usuarioDe(request)), true);
-        return pdf(pdf, "vista_previa_duplicado.pdf");
+        byte[] docx = wordService.generar(service.vistaPrevia(req, RolesSciaf.usuarioDe(request)), true);
+        return word(docx, "vista_previa_duplicado.docx");
     }
 
     @ValidarUsuarioAutenticado
@@ -136,12 +137,12 @@ public class DuplicadosController {
     }
 
     @ValidarUsuarioAutenticado
-    @GetMapping("/api/caso/{id}/pdf")
+    @GetMapping("/api/caso/{id}/word")
     @ResponseBody
-    public ResponseEntity<?> pdfCaso(@PathVariable Long id, HttpServletRequest request) throws Exception {
+    public ResponseEntity<?> wordCaso(@PathVariable Long id, HttpServletRequest request) throws Exception {
         exigir(request);
         DuplicadosDTOs.Notificacion n = service.notificacionDelCaso(id);
-        return pdf(pdfService.generar(n, false), "notificacion_duplicado_" + n.numero().replaceAll("[^A-Za-z0-9-]", "-") + ".pdf");
+        return word(wordService.generar(n, false), "notificacion_duplicado_" + n.numero().replaceAll("[^A-Za-z0-9-]", "-") + ".docx");
     }
 
     @ValidarUsuarioAutenticado
@@ -180,11 +181,11 @@ public class DuplicadosController {
 
     // ── Internos ─────────────────────────────────────────────────────────────
 
-    private static ResponseEntity<byte[]> pdf(byte[] pdf, String nombre) {
+    private static ResponseEntity<byte[]> word(byte[] docx, String nombre) {
         HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_PDF);
-        h.setContentDisposition(ContentDisposition.inline().filename(nombre).build());
-        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+        h.setContentType(MediaType.parseMediaType(WordDocumentos.MIME));
+        h.setContentDisposition(ContentDisposition.attachment().filename(nombre).build());
+        return new ResponseEntity<>(docx, h, HttpStatus.OK);
     }
 
     /** Administradores, o quien tenga la opción del módulo. */

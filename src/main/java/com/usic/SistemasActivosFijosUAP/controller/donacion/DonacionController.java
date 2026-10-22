@@ -28,6 +28,8 @@ import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.donacion.DonacionService;
+import com.usic.SistemasActivosFijosUAP.model.service.donacion.WordActaDonacionService;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -52,8 +54,9 @@ import lombok.extern.slf4j.Slf4j;
 public class DonacionController {
 
     private final DonacionService donacionService;
+    private final WordActaDonacionService wordActa;
     private final com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService actividadService;
-    private final com.usic.SistemasActivosFijosUAP.model.service.donacion.PdfEtiquetasDonacionService etiquetasService;
+    private final com.usic.SistemasActivosFijosUAP.model.service.donacion.WordEtiquetasDonacionService etiquetasService;
     private final IGrupoContableService grupoService;
     private final IOrganismoFinancieroService financiadorService;
     private final IEstadoActivoService estadoActivoService;
@@ -214,6 +217,19 @@ public class DonacionController {
         }
     }
 
+    @ValidarUsuarioAutenticado
+    @GetMapping("/api/acta/{id}/word")
+    public ResponseEntity<?> actaWord(@PathVariable Long id, HttpServletRequest request) {
+        if (!puede(request)) return sinPermiso();
+        try {
+            return ResponseEntity.ok().contentType(org.springframework.http.MediaType.parseMediaType(WordDocumentos.MIME))
+                    .header("Content-Disposition", "attachment; filename=acta-donacion-" + id + ".docx")
+                    .body(wordActa.generar(id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     /** Qué códigos D tomaría cada bien. Orientativo: no reserva nada. */
     @ValidarUsuarioAutenticado
     @PostMapping("/api/previsualizar")
@@ -291,24 +307,24 @@ public class DonacionController {
         }
     }
 
-    /** Etiquetas con QR de los bienes vigentes del acta (PDF, se abre en otra pestaña). */
+    /** Etiquetas Word con QR de los bienes vigentes del acta. */
     @ValidarUsuarioAutenticado
     @GetMapping("/api/acta/{id}/etiquetas")
     public ResponseEntity<?> etiquetas(@PathVariable Long id, HttpServletRequest request) {
         if (!puede(request)) return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .contentType(org.springframework.http.MediaType.TEXT_PLAIN).body("Sin permiso para Donaciones.");
         try {
-            byte[] pdf = etiquetasService.generar(id);
+            byte[] docx = etiquetasService.generar(id);
             return ResponseEntity.ok()
-                    .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
-                    .header("Content-Disposition", "inline; filename=etiquetas-donacion-" + id + ".pdf")
-                    .body(pdf);
+                    .contentType(org.springframework.http.MediaType.parseMediaType(WordDocumentos.MIME))
+                    .header("Content-Disposition", "attachment; filename=etiquetas-donacion-" + id + ".docx")
+                    .body(docx);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().contentType(org.springframework.http.MediaType.TEXT_PLAIN).body(e.getMessage());
         } catch (IllegalStateException e) {
             log.error("No se generaron las etiquetas", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(org.springframework.http.MediaType.TEXT_PLAIN)
-                    .body("No se pudo generar el PDF de etiquetas. Intente de nuevo.");
+                    .body("No se pudo generar el Word de etiquetas. Intente de nuevo.");
         }
     }
 

@@ -765,14 +765,15 @@
 
     $raiz.on('click', '.js-previa', async function () {
         if (!listo()) return;
-        const ventana = window.open('', '_blank');
         try {
             const r = await SciafModulo.pedir(URL + '/api/vista-previa', { json: pedido() });
             if (!r.ok) { let m = 'No se pudo armar la vista previa.'; try { m = (await r.json()).msg || m; } catch (x) { /* no JSON */ } throw new Error(m); }
             const blob = await r.blob();
             const enlace = (window.URL || window.webkitURL).createObjectURL(blob);
-            if (ventana) ventana.location = enlace; else window.open(enlace, '_blank');
-        } catch (e) { if (ventana) ventana.close(); SciafModulo.avisarError(e, 'Vista previa'); }
+            const a = document.createElement('a'); a.href = enlace; a.download = 'vista_previa_duplicado.docx';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function () { (window.URL || window.webkitURL).revokeObjectURL(enlace); }, 60000);
+        } catch (e) { SciafModulo.avisarError(e, 'Vista previa'); }
     });
 
     $raiz.on('click', '.js-registrar', async function () {
@@ -801,7 +802,7 @@
             recargar();
             Swal.fire({ icon: 'success', title: esc(res.numero), html: esc(res.msg),
                 showCancelButton: true, confirmButtonText: 'Imprimir notificación', cancelButtonText: 'Cerrar' })
-                .then(function (x) { if (x.isConfirmed) window.open(URL + '/api/caso/' + res.idDuplicado + '/pdf', '_blank', 'noopener'); });
+                .then(function (x) { if (x.isConfirmed) window.location.href = URL + '/api/caso/' + res.idDuplicado + '/word'; });
         } catch (e) { SciafModulo.avisarError(e, 'No se registró'); }
         finally { st.enviando = false; refrescarBotones(); }
     });
@@ -845,7 +846,7 @@
             + ' <small class="text-muted">es el mismo bien que</small> <span class="dup-codigo">' + esc(d.principal ? d.principal.codigo : '—') + '</span></h5>'
             + '<small>A nombre de ' + esc(d.persona || '—') + (d.oficinaOrigen ? ' · venía de ' + esc(d.oficinaOrigen) : '') + '</small></div>'
             + '<div class="d-flex gap-2 flex-wrap justify-content-end">'
-            + (d.notificacion ? '<button type="button" class="sm-btn sm-btn-suave js-imprimir"><i class="ti ti-printer"></i> Notificación</button>' : '')
+            + (d.notificacion ? '<button type="button" class="sm-btn sm-btn-suave js-imprimir"><i class="ti ti-file-type-docx"></i> Notificación Word</button>' : '')
             + (d.puedeReintentar ? '<button type="button" class="sm-btn js-reintentar"><i class="ti ti-refresh"></i> Reintentar</button>' : '')
             + (d.puedeRetirar ? '<button type="button" class="sm-btn sm-btn-suave js-abrir-retiro"><i class="ti ti-arrow-back-up"></i> Retirar de duplicados</button>' : '')
             + (d.puedeAnular ? '<button type="button" class="sm-btn sm-btn-peligro js-abrir-anular"><i class="ti ti-ban"></i> Anular</button>' : '')
@@ -861,7 +862,7 @@
 
     $raiz.on('click', '.js-imprimir', function () {
         const d = $detalle.data('caso');
-        if (d) window.open(URL + '/api/caso/' + d.idDuplicado + '/pdf', '_blank', 'noopener');
+        if (d) window.location.href = URL + '/api/caso/' + d.idDuplicado + '/word';
     });
 
     $raiz.on('click', '.js-reintentar', async function () {

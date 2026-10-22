@@ -195,3 +195,10 @@ teclas reales (CDP `Input.dispatchKeyEvent`).
   `ReporteAdicionalServiceTest` y `WordInternoTransferenciaServiceTest`. No se probó en vivo ni
   contra PostgreSQL. El test `WordActaSmokeTest` falla por una dependencia nula en
   `WordAsignacionActivoService` (fuera de este módulo).
+
+## Documentos Word (22-oct-2026)
+
+El acta por oficina y responsable se descarga desde
+`GET /administracion/adicional/api/reportes/asignacion.docx`; mantiene los datos y firmas del
+reporte anterior y empieza una nueva página por responsable. Las etiquetas QR también se generan
+en `.docx`. `WordModulosTest` y la prueba Word del reporte verifican el contenido OOXML.

@@ -31,6 +31,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.adicional.AdicionalService;
 import com.usic.SistemasActivosFijosUAP.model.service.adicional.ReporteAdicionalService;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
 import com.usic.SistemasActivosFijosUAP.model.service.supervision.ActividadService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -234,24 +235,24 @@ public class AdicionalController {
         }
     }
 
-    /** Etiquetas con QR de los activos marcados (PDF, se abre en otra pestaña). */
+    /** Etiquetas Word con QR de los activos marcados. */
     @ValidarUsuarioAutenticado
     @GetMapping("/api/etiquetas")
     public ResponseEntity<?> etiquetas(@RequestParam(name = "ids") List<Long> ids, HttpServletRequest request) {
         if (!puede(request)) return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .contentType(org.springframework.http.MediaType.TEXT_PLAIN).body("Sin permiso para Activos adicionales.");
         try {
-            byte[] pdf = adicionalService.etiquetas(ids, RolesSciaf.usuarioDe(request), opciones(request));
+            byte[] docx = adicionalService.etiquetas(ids, RolesSciaf.usuarioDe(request), opciones(request));
             return ResponseEntity.ok()
-                    .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
-                    .header("Content-Disposition", "inline; filename=etiquetas-adicionales.pdf")
-                    .body(pdf);
+                    .contentType(org.springframework.http.MediaType.parseMediaType(WordDocumentos.MIME))
+                    .header("Content-Disposition", "attachment; filename=etiquetas-adicionales.docx")
+                    .body(docx);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().contentType(org.springframework.http.MediaType.TEXT_PLAIN).body(e.getMessage());
         } catch (IllegalStateException e) {
             log.error("No se generaron las etiquetas", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(org.springframework.http.MediaType.TEXT_PLAIN)
-                    .body("No se pudo generar el PDF de etiquetas. Intente de nuevo.");
+                    .body("No se pudo generar el Word de etiquetas. Intente de nuevo.");
         }
     }
 
@@ -264,7 +265,7 @@ public class AdicionalController {
     }
 
     @ValidarUsuarioAutenticado
-    @GetMapping("/api/reportes/asignacion.pdf")
+    @GetMapping("/api/reportes/asignacion.docx")
     public ResponseEntity<?> reporteAsignacion(@RequestParam Long oficinaId,
                                                 @RequestParam(required = false) Long responsableId,
                                                 @RequestParam(required = false) String fecha,
@@ -277,9 +278,9 @@ public class AdicionalController {
             } catch (java.time.format.DateTimeParseException e) {
                 throw new IllegalArgumentException("La fecha del acta no es válida.");
             }
-            byte[] pdf = reporteAdicionalService.generar(oficinaId, responsableId, cuando, RolesSciaf.usuarioDe(request), opciones(request));
-            return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_PDF)
-                    .header("Content-Disposition", "inline; filename=acta-adicionales.pdf").body(pdf);
+            byte[] docx = reporteAdicionalService.generarWord(oficinaId, responsableId, cuando, RolesSciaf.usuarioDe(request), opciones(request));
+            return ResponseEntity.ok().contentType(org.springframework.http.MediaType.parseMediaType(WordDocumentos.MIME))
+                    .header("Content-Disposition", "attachment; filename=acta-adicionales.docx").body(docx);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().contentType(org.springframework.http.MediaType.TEXT_PLAIN).body(e.getMessage());
         } catch (IllegalStateException e) {

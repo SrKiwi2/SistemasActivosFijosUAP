@@ -9,11 +9,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.parser.PdfTextExtractor;
@@ -35,6 +37,24 @@ import com.usic.SistemasActivosFijosUAP.model.service.adicional.ReporteAdicional
 
 class ReporteAdicionalServiceTest {
     private static final LocalDateTime FECHA = LocalDateTime.of(2026, 4, 6, 16, 30);
+
+    @Test
+    void wordConservaBienesYActaPorResponsable() throws Exception {
+        IActivoAdicionalDao dao = mock(IActivoAdicionalDao.class);
+        ReporteAdicionalService servicio = servicio(dao);
+        Oficina oficina = oficina();
+        when(dao.paraReporte(7L, null)).thenReturn(List.of(
+                bien(oficina, responsable(11L, "ANA"), "CÁMARA", "01-02-03-00001A", null),
+                bien(oficina, responsable(12L, "LUIS"), "ROUTER", null, null)));
+        byte[] bytes = servicio.generarWord(7L, null, FECHA, usuario(), Set.of(AdicionalService.PERMISO));
+        try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes))) {
+            assertEquals(4, doc.getTables().size()); // bienes y destinatario de cada acta
+            String texto = doc.getParagraphs().stream().map(p -> p.getText()).reduce("", (a, b) -> a + b);
+            assertTrue(texto.contains("DE BIENES - ADICIONAL 2026"));
+            assertTrue(doc.getTables().get(0).getText().contains("CÁMARA"));
+            assertTrue(doc.getTables().get(2).getText().contains("ROUTER"));
+        }
+    }
 
     @Test
     void separaResponsablesYNoPierdeBienesSinCodigo() throws Exception {
