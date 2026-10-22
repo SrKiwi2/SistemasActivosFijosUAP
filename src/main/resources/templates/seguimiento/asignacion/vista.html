@@ -7,6 +7,106 @@
      La barra (buscador / filas) vive aquí y no en el fragmento de la tabla:
      así sobrevive a cada recarga sin perder lo que el usuario escribió.
      ═══════════════════════════════════════════════════════════════ -->
+<style>
+    #modAsignacion { display:flex; flex-direction:column; min-height:0; overflow:hidden; gap:.55rem; }
+    #modAsignacion .sm-cabecera { flex:none; min-height:0; padding-top:.4rem; padding-bottom:.4rem; }
+    #modAsignacion .sm-cabecera-texto { flex:1 1 250px; min-width:0; }
+    #modAsignacion .sm-subtitulo { margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #modAsignacion .asig-tarjeta { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; container-type:inline-size; }
+    #modAsignacion .asig-toolbar { flex:none; gap:.4rem; padding:.55rem .7rem; flex-wrap:nowrap; }
+    #modAsignacion .asig-toolbar .sm-buscador { flex:1 1 290px; min-width:160px; max-width:none; }
+    #modAsignacion .asig-toolbar .asig-filtro-principal { width:auto; min-width:140px; max-width:190px; }
+    #modAsignacion .asig-toolbar .sm-btn { white-space:nowrap; margin:0; }
+    #modAsignacion .asig-toolbar .asig-acciones-barra { display:flex; gap:.3rem; flex:none; }
+    #modAsignacion .asig-filtros-extra { position:absolute; z-index:12; right:.7rem; top:55px; width:min(590px,calc(100% - 1.4rem));
+        padding:.8rem; border:1px solid var(--sm-borde-fuerte); border-radius:12px; background:var(--sm-superficie);
+        box-shadow:var(--sm-sombra-card); display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+    #modAsignacion .asig-filtros-extra.d-none { display:none; }
+    #modAsignacion .asig-filtros-extra label { display:flex; flex-direction:column; gap:.2rem; margin:0; color:var(--sm-texto-2); font-size:.74rem; font-weight:700; }
+    #modAsignacion .asig-filtros-extra .sm-input, #modAsignacion .asig-filtros-extra .sm-select { width:100%; min-width:0; }
+    #modAsignacion .asig-filtros-extra .asig-error { flex-direction:row; align-items:center; align-self:end; }
+    #modAsignacion .js-tabla { flex:1; display:flex; min-height:0; }
+    #modAsignacion .asig-listado { width:100%; min-height:0; display:flex; flex-direction:column; }
+    #modAsignacion .asig-tabla-area { flex:1; min-height:0; overflow:hidden; }
+    #modAsignacion .asig-tabla { table-layout:fixed; }
+    #modAsignacion .asig-tabla th, #modAsignacion .asig-tabla td { padding:.38rem .55rem; font-size:.78rem; }
+    #modAsignacion .asig-tabla th { padding-top:.52rem; padding-bottom:.52rem; }
+    #modAsignacion .asig-tabla td { height:50px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #modAsignacion .asig-tabla td strong, #modAsignacion .asig-tabla td small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #modAsignacion .asig-tabla td small { color:var(--sm-texto-2); font-size:.68rem; }
+    #modAsignacion .asig-tabla th:nth-child(1) { width:17%; } #modAsignacion .asig-tabla th:nth-child(2) { width:10%; }
+    #modAsignacion .asig-tabla th:nth-child(3) { width:19%; } #modAsignacion .asig-tabla th:nth-child(4) { width:16%; }
+    #modAsignacion .asig-tabla th:nth-child(5) { width:15%; } #modAsignacion .asig-tabla th:last-child { width:90px; }
+    #modAsignacion .asig-orden { border:0; padding:0; background:transparent; color:inherit; font:inherit; font-weight:700; text-transform:uppercase; cursor:pointer; white-space:nowrap; }
+    #modAsignacion .asig-orden:hover { color:var(--sm-primario); }
+    #modAsignacion .asig-row { cursor:pointer; }
+    #modAsignacion .asig-row:focus-visible { outline:2px solid var(--sm-primario); outline-offset:-2px; }
+    #modAsignacion .asig-acta strong { color:var(--sm-primario); }
+    #modAsignacion .asig-persona strong { font-weight:650; }
+    #modAsignacion .asig-oficina-movil { display:none !important; }
+    #modAsignacion .asig-bienes, #modAsignacion .asig-costo { font-variant-numeric:tabular-nums; white-space:nowrap; }
+    #modAsignacion .asig-estado { display:inline-block; padding:.2rem .42rem; border-radius:7px; white-space:nowrap;
+        font-size:.7rem; font-weight:700; background:var(--sm-superficie-3); color:var(--sm-texto-2); }
+    #modAsignacion .asig-estado-completa { background:#dcf5e6; color:#17603a; }
+    #modAsignacion .asig-estado-parcial { background:#fff0c6; color:#805600; }
+    #modAsignacion .asig-estado-error { background:#fce0e1; color:#a5252d; }
+    #modAsignacion .asig-acciones .sm-btn { margin:0; }
+    #modAsignacion .asig-paginador { display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex:none;
+        min-height:45px; padding:.3rem .7rem; border-top:1px solid var(--sm-borde); color:var(--sm-texto-2); font-size:.78rem; }
+    #modAsignacion .asig-paginas { display:flex; align-items:center; gap:.22rem; }
+    #modAsignacion .asig-paginas button { min-width:30px; height:29px; border:1px solid var(--sm-borde-fuerte); border-radius:7px;
+        background:var(--sm-superficie); color:var(--sm-texto); font-weight:650; }
+    #modAsignacion .asig-paginas button.actual { background:var(--sm-primario); border-color:var(--sm-primario); color:#fff; }
+    #modAsignacion .asig-paginas button:disabled { opacity:.4; cursor:not-allowed; }
+    #modAsignacion .asig-vacio { margin:auto; text-align:center; padding:1rem; color:var(--sm-texto-2); }
+    #modAsignacion .asig-vacio > i { font-size:2rem; } #modAsignacion .asig-vacio h3 { font-size:1rem; margin:.4rem 0; }
+    #modAsignacion .asig-vacio p { font-size:.82rem; }
+    @container (max-width:1080px) { #modAsignacion .asig-col-grupo { display:none; } }
+    @container (max-width:880px) { #modAsignacion .asig-col-costo { display:none; } }
+    @container (max-width:690px) { #modAsignacion .asig-col-oficina { display:none; } #modAsignacion .asig-oficina-movil { display:block !important; } }
+    @container (max-width:560px) { #modAsignacion .asig-col-fecha, #modAsignacion .asig-col-bienes { display:none; } }
+    @media (max-width:1100px) { #modAsignacion .asig-toolbar .asig-filtro-principal { display:none; } }
+    @media (max-width:720px) { #modAsignacion .asig-toolbar .asig-acciones-barra .asig-etiqueta { display:none; }
+        #modAsignacion .asig-filtros-extra { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        #modAsignacion .asig-pagina-num { display:none; } }
+    @media (max-height:730px) { #modAsignacion .sm-migas, #modAsignacion .sm-subtitulo { display:none; }
+        #modAsignacion .asig-tabla td { height:44px; } }
+    #modAsignacion .asig-filtros-extra { max-height:calc(100% - 65px); overflow:auto; }
+    #modalDetalleAsignacion.asig-modal-general .sm-detalle-content { height:auto; max-height:calc(100dvh - 32px); }
+    #modalDetalleAsignacion.asig-modal-general .sm-detalle-scroll { flex:none; max-height:calc(100dvh - 215px); }
+    #modalDetalleAsignacion .asig-general-cifras { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin-bottom:.75rem; }
+    #modalDetalleAsignacion .asig-general-cifras.asig-sin-costo { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    #modalDetalleAsignacion .asig-general-cifra { padding:.7rem .85rem; border:1px solid var(--sm-borde); border-radius:10px; background:var(--sm-superficie-2); min-width:0; }
+    #modalDetalleAsignacion .asig-general-cifra .lbl { display:block; color:var(--sm-texto-2); font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+    #modalDetalleAsignacion .asig-general-cifra .val { display:block; margin-top:.2rem; color:var(--sm-texto); font-size:1rem; font-weight:800; overflow-wrap:anywhere; }
+    #modalDetalleAsignacion .asig-general-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+    #modalDetalleAsignacion .asig-general-grid .sm-detalle-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem 1rem; }
+    #modalDetalleAsignacion .asig-general-grid .asig-panel-documento,
+    #modalDetalleAsignacion .asig-general-grid .asig-panel-personas,
+    #modalDetalleAsignacion .asig-general-grid .asig-panel-observacion { grid-column:1/-1; min-width:0; }
+    #modalDetalleAsignacion .asig-general-grid .sm-detalle-panel { height:auto; }
+    #modalDetalleAsignacion .asig-general-grid .sm-detalle-panel-cab { padding:.52rem .85rem; }
+    #modalDetalleAsignacion .asig-general-grid .info-card-body.sm-detalle-grid { padding:.7rem .85rem; }
+    #modalDetalleAsignacion .asig-general-grid .sm-detalle-campo .val { font-size:.86rem; }
+    #modalDetalleAsignacion .asig-activos-barra { display:flex; align-items:stretch; gap:.55rem; margin-bottom:.65rem; flex-wrap:wrap; }
+    #modalDetalleAsignacion .asig-activos-barra .stat-card { min-width:120px; padding:.5rem .7rem; text-align:left; }
+    #modalDetalleAsignacion .asig-activos-barra .stat-value { font-size:1.05rem; margin-top:.1rem; }
+    #modalDetalleAsignacion .asig-activos-barra .stat-label { font-size:.67rem; }
+    #modalDetalleAsignacion .asig-activos-barra .asig-buscar-activo { min-width:210px; flex:1 1 240px; align-self:center; }
+    #modalDetalleAsignacion.asig-modal-activos #modalTabContent { overflow:hidden; }
+    #modalDetalleAsignacion.asig-modal-activos #tab-activos.active { display:flex; flex-direction:column; height:100%; min-height:0; }
+    #modalDetalleAsignacion.asig-modal-activos #tab-activos .table-responsive { flex:1 1 auto; min-height:0; overflow:auto; }
+    #modalDetalleAsignacion #tabla-activos-modal { width:100%; }
+    #modalDetalleAsignacion #tabla-activos-modal > tbody > tr > td { padding:.5rem .65rem; }
+    #modalDetalleAsignacion #tabla-activos-modal .asig-descripcion { min-width:280px; width:32%; white-space:normal; line-height:1.35; overflow-wrap:anywhere; font-size:.85rem; }
+    #modalDetalleAsignacion #tabla-activos-modal td { vertical-align:top; }
+    #modalDetalleAsignacion #tabla-activos-modal .asig-ver-bien { white-space:nowrap; }
+    @media (max-width:900px) { #modalDetalleAsignacion .asig-general-grid .sm-detalle-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:600px) { #modalDetalleAsignacion .asig-general-cifras { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        #modalDetalleAsignacion .asig-general-grid .sm-detalle-grid { grid-template-columns:1fr; }
+        #modalDetalleAsignacion.asig-modal-general .sm-detalle-content { max-height:calc(100dvh - 16px); }
+        #modalDetalleAsignacion.asig-modal-general .sm-detalle-scroll { max-height:calc(100dvh - 225px); } }
+</style>
 <div class="sm-pagina" id="modAsignacion">
 
 <header class="sm-cabecera">
@@ -25,30 +125,45 @@
     </div>
 </header>
 
-<section class="sm-card">
-    <div class="sm-toolbar">
+<section class="sm-card asig-tarjeta">
+    <div class="sm-toolbar asig-toolbar">
         <div class="sm-buscador">
             <i class="ti ti-search"></i>
             <input type="text" class="sm-input js-buscar" placeholder="Buscar N° acta, documento, responsable, código de bien…" autocomplete="off" aria-label="Buscar acta">
             <button type="button" class="sm-buscador-limpiar" title="Limpiar búsqueda (Esc)"><i class="ti ti-x"></i></button>
         </div>
 
-        <!-- Filtros exactos (reemplazan filtros por columna en thead) -->
-        <div class="sm-toolbar-filtro">
-            <select class="sm-select js-filtro-sinc" aria-label="Estado en VSIAF">
+        <select class="sm-select asig-filtro-principal js-filtro-sinc" aria-label="Estado en VSIAF">
                 <option value="SUBIDAS">Subidas (todas)</option>
                 <option value="COMPLETAS">Solo completas</option>
                 <option value="PARCIALES">Solo parciales</option>
                 <option value="TODAS">Incluir no subidas</option>
-            </select>
+        </select>
+        <select class="sm-select asig-filtro-principal js-filtro-gestion" aria-label="Gestión">
+                <option value="">Todas las gestiones</option>
+                <option th:each="g : ${gestiones}" th:value="${g}" th:text="${g}">2026</option>
+        </select>
+        <div class="asig-acciones-barra">
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-mas-filtros" aria-expanded="false" aria-controls="asigFiltrosExtra" title="Mostrar filtros adicionales"><i class="ti ti-adjustments-horizontal"></i> <span class="asig-etiqueta">Filtros</span></button>
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-limpiar" title="Limpiar filtros"><i class="ti ti-filter-x"></i> <span class="asig-etiqueta">Limpiar</span></button>
+            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-actualizar" title="Actualizar"><i class="ti ti-refresh"></i> <span class="asig-etiqueta">Actualizar</span></button>
+            <button th:if="${puedeVerFinanzasActivo}" type="button" class="sm-btn sm-btn-sm sm-btn-exito js-exportar" title="Exportar a Excel"><i class="ti ti-file-spreadsheet"></i> <span class="asig-etiqueta">Excel</span></button>
         </div>
-        <div class="sm-toolbar-filtro">
-            <select class="sm-select js-filtro-gestion" aria-label="Gestión">
+    </div>
+    <div class="asig-filtros-extra d-none" id="asigFiltrosExtra">
+        <label>Estado VSIAF
+            <select class="sm-select js-filtro-sinc-extra" aria-label="Estado en VSIAF (filtros)">
+                <option value="SUBIDAS">Subidas (todas)</option><option value="COMPLETAS">Solo completas</option>
+                <option value="PARCIALES">Solo parciales</option><option value="TODAS">Incluir no subidas</option>
+            </select>
+        </label>
+        <label>Gestión
+            <select class="sm-select js-filtro-gestion-extra" aria-label="Gestión (filtros)">
                 <option value="">Todas las gestiones</option>
                 <option th:each="g : ${gestiones}" th:value="${g}" th:text="${g}">2026</option>
             </select>
-        </div>
-        <div class="sm-toolbar-filtro">
+        </label>
+        <label>Mes
             <select class="sm-select js-filtro-mes" aria-label="Mes">
                 <option value="">Todos los meses</option>
                 <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
@@ -56,69 +171,39 @@
                 <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
                 <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
             </select>
-        </div>
-        <div class="sm-toolbar-filtro">
+        </label>
+        <label>Tipo de acta
             <select class="sm-select js-filtro-tipo" aria-label="Tipo de acta">
                 <option value="">Todos los tipos</option>
                 <option value="NUEVA">Nueva</option>
                 <option value="REASIGNACION">Reasignación</option>
                 <option value="DEVOLUCION">Devolución</option>
             </select>
-        </div>
-        <div class="sm-toolbar-filtro">
+        </label>
+        <label>Estado del acta
             <select class="sm-select js-filtro-estado" aria-label="Estado del acta">
                 <option value="">Todos los estados</option>
                 <option value="ACTIVA">Activa</option>
                 <option value="ANULADA">Anulada</option>
                 <option value="DEVUELTA">Devuelta</option>
             </select>
-        </div>
-        <div class="sm-toolbar-filtro">
+        </label>
+        <label>Grupo contable
             <select class="sm-select js-filtro-grupo" aria-label="Grupo contable">
                 <option value="">Todos los grupos</option>
                 <option th:each="g : ${gruposContables}" th:value="${g.idGrupoContable}" th:text="${g.nombre}">Muebles</option>
             </select>
-        </div>
-
-        <div class="sm-toolbar-filtro" style="max-width:160px">
+        </label>
+        <label>Desde
             <input type="date" class="sm-input js-filtro-desde" placeholder="Desde" aria-label="Fecha desde">
-        </div>
-        <div class="sm-toolbar-filtro" style="max-width:160px">
+        </label>
+        <label>Hasta
             <input type="date" class="sm-input js-filtro-hasta" placeholder="Hasta" aria-label="Fecha hasta">
-        </div>
-
-        <div class="sm-toolbar-filtro">
-            <label class="form-check form-switch m-0">
+        </label>
+        <label class="asig-error">
                 <input class="form-check-input js-filtro-error" type="checkbox" aria-label="Solo con error VSIAF">
                 <span class="form-check-label small ms-1">Solo error VSIAF</span>
-            </label>
-        </div>
-
-        <div class="sm-toolbar-espacio"></div>
-
-        <label class="sm-filas">
-            <i class="ti ti-list-numbers"></i> Filas
-            <select class="sm-select js-largo" aria-label="Filas por página">
-                <option value="auto" selected>Ajustar a pantalla</option>
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="-1">Todas</option>
-            </select>
         </label>
-
-        <div class="d-flex gap-1">
-            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-limpiar" title="Limpiar filtros">
-                <i class="ti ti-filter-x"></i> Limpiar
-            </button>
-            <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro js-actualizar" title="Actualizar">
-                <i class="ti ti-refresh"></i> Actualizar
-            </button>
-            <button type="button" class="sm-btn sm-btn-sm sm-btn-exito js-exportar" title="Exportar a Excel">
-                <i class="ti ti-file-spreadsheet"></i> Excel
-            </button>
-        </div>
     </div>
 
     <!-- Contenedor de la tabla: el fragmento tabla_registro se carga aquí -->
@@ -129,14 +214,14 @@
 <!-- Cada modal se carga por AJAX cuando se necesita; aquí solo el contenedor vacío -->
 
 <!-- Modal DETALLE DE ACTA (multi-tab) -->
-<div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true" aria-labelledby="modal-numero-asignacion">
+<div class="modal fade asig-modal-general" id="modalDetalleAsignacion" tabindex="-1" aria-hidden="true" aria-labelledby="modal-numero-asignacion" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered sm-detalle-dialog">
         <div class="modal-content sm-modal sm-detalle-content" id="contenidoModalDetalle"></div>
     </div>
 </div>
 
 <!-- Modal VER DETALLE ACTIVO (solo lectura) -->
-<div class="modal fade" id="modalVerDetalleActivo" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalVerDetalleActivo" tabindex="-1" aria-hidden="true" aria-labelledby="modal-bien-codigo" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered sm-detalle-dialog sm-detalle-bien-dialog">
         <div class="modal-content sm-modal sm-detalle-content" id="contenidoModalVerDetalle"></div>
     </div>
@@ -239,9 +324,12 @@
         const $modalOperacion = $raiz.find('#modalOperacionActa');
 
         // Estado de la tabla (orden, página, tamaño) — var para re-entrada por AJAX
-        var estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 25 };
+        var estadoTabla = { orden: 'fecha', desc: true, pagina: 0, tamano: 6 };
         var ORDEN_DESC_PRIMERO = ['fecha', 'activos', 'costo'];
         var temporizadorBusqueda = null;
+        var temporizadorVentana = null;
+        var cargandoTabla = false;
+        var recargaPendiente = false;
         var _asigActual = null;
         var _cabeceraActual = null;
         var _detalleData = null;
@@ -253,80 +341,85 @@
         $(document).ready(function () {
             restaurarDesdeUrl();
             inicializarFiltros();
+            ajustarPaginaAlEspacio();
             cargarTabla();
         });
 
-        // ═══════════════════════════════════════════════════════════════
-        // TABLA — SciafModulo.tabla() en modo CLIENT-SIDE sobre HTML del servidor
-        // ═══════════════════════════════════════════════════════════════
-        function iniciarTabla() {
-            const $table = $cont.find('table');
-            if (!$table.length) return;
-
-            SciafModulo.tabla({
-                tabla: $table,
-                buscador: $raiz.find('.js-buscar'),
-                largo: $raiz.find('.js-largo'),
-                filtros: [
-                    { selector: $raiz.find('.js-filtro-sinc'),   columna: 7 },
-                    { selector: $raiz.find('.js-filtro-gestion'), columna: -1 },
-                    { selector: $raiz.find('.js-filtro-mes'),    columna: -1 },
-                    { selector: $raiz.find('.js-filtro-tipo'),   columna: -1 },
-                    { selector: $raiz.find('.js-filtro-estado'), columna: -1 },
-                    { selector: $raiz.find('.js-filtro-grupo'),  columna: -1 },
-                    { selector: $raiz.find('.js-filtro-desde'),  columna: -1 },
-                    { selector: $raiz.find('.js-filtro-hasta'),  columna: -1 },
-                    { selector: $raiz.find('.js-filtro-error'),  columna: -1 }
-                ],
-                orden: [ [1, 'desc'] ],
-                noOrdenables: [8],
-            });
-
-            // Click en fila → abrir detalle
-            $cont.off('click.asigRow').on('click.asigRow', '.asig-row', function (e) {
-                if ($(e.target).closest('a, button, .btn').length) return;
-                const id = $(this).data('idAsignacionActivo');
-                if (id) abrirModalDetalle(id);
-            });
-            $cont.off('keydown.asigRow').on('keydown.asigRow', '.asig-row', function (e) {
-                if (e.target !== this || (e.key !== 'Enter' && e.key !== ' ')) return;
-                e.preventDefault();
-                const id = $(this).data('idAsignacionActivo');
-                if (id) abrirModalDetalle(id);
-            });
-
+        // Una página del servidor y tantas filas como caben en el espacio disponible.
+        function ajustarPaginaAlEspacio() {
+            if (!$raiz[0] || !$raiz[0].isConnected || !$raiz.is(':visible')) return false;
+            const alto = Math.max(0, window.innerHeight - $raiz[0].getBoundingClientRect().top - 12);
+            $raiz.css('height', alto + 'px');
+            const tarjeta = $raiz.find('.asig-tarjeta')[0];
+            const barra = $raiz.find('.asig-toolbar')[0];
+            const disponible = tarjeta && barra ? tarjeta.clientHeight - barra.offsetHeight - 92 : 300;
+            const altoFila = window.innerHeight <= 730 ? 44 : 50;
+            const nuevoTamano = Math.max(1, Math.min(12, Math.floor(disponible / altoFila)));
+            if (nuevoTamano === estadoTabla.tamano) return false;
+            const primeraFila = estadoTabla.pagina * estadoTabla.tamano;
+            estadoTabla.tamano = nuevoTamano;
+            estadoTabla.pagina = Math.floor(primeraFila / nuevoTamano);
+            return true;
         }
+
+        $(window).on('resize.asig', function () {
+            clearTimeout(temporizadorVentana);
+            temporizadorVentana = setTimeout(function () {
+                if (ajustarPaginaAlEspacio()) cargarTabla();
+            }, 150);
+        });
+
+        $cont.on('click', '.js-pagina', function () {
+            const pagina = Number($(this).attr('data-pagina'));
+            const total = Number($cont.find('.asig-listado').attr('data-total-paginas'));
+            if (!Number.isInteger(pagina) || pagina < 0 || pagina >= total || pagina === estadoTabla.pagina) return;
+            estadoTabla.pagina = pagina;
+            cargarTabla();
+        });
+        $cont.on('click', '.js-ordenar', function () {
+            const columna = $(this).attr('data-orden');
+            if (estadoTabla.orden === columna) estadoTabla.desc = !estadoTabla.desc;
+            else { estadoTabla.orden = columna; estadoTabla.desc = ORDEN_DESC_PRIMERO.includes(columna); }
+            cargarTabla(true);
+        });
+        $cont.on('click', '.js-ver-acta', function (e) {
+            if (e.currentTarget.tagName === 'TR' && $(e.target).closest('button, a').length) return;
+            const id = Number($(this).attr('data-id-asignacion'));
+            if (id > 0) abrirModalDetalle(id);
+        });
+        $cont.on('keydown', '.asig-row', function (e) {
+            if (e.target !== this || (e.key !== 'Enter' && e.key !== ' ')) return;
+            e.preventDefault();
+            const id = Number($(this).attr('data-id-asignacion'));
+            if (id > 0) abrirModalDetalle(id);
+        });
 
         // ═══════════════════════════════════════════════════════════════
         // CARGAR TABLA — usa SciafPrecarga + SciafModulo.cargar (HTML fragment)
         // ═══════════════════════════════════════════════════════════════
         function cargarTabla(reiniciarPagina) {
             if (reiniciarPagina) estadoTabla.pagina = 0;
-
+            if (cargandoTabla) { recargaPendiente = true; return; }
+            cargandoTabla = true;
             const params = Object.assign({}, obtenerParametrosFiltro(), estadoTabla);
             sincronizarUrl(obtenerParametrosFiltro());
-
-            const api = $cont.find('table').DataTable();
-            if (api) {
-                // Recarga: atenuar tabla actual, cargar HTML nuevo, reinicializar
-                $cont.css('opacity', 0.55);
-                SciafModulo.cargar($cont, URL + '/tabla-registros-fragment', params)
-                    .then(function () {
-                        $cont.css('opacity', 1);
-                        iniciarTabla();
-                    })
-                    .catch(function (e) {
-                        $cont.css('opacity', 1);
-                        SciafModulo.avisarError(e, 'No se pudo recargar');
-                    });
-            } else {
-                // Primera carga: preloader dentro de la tarjeta
-                SciafPrecarga.durante($cont, SciafModulo.cargar($cont, URL + '/tabla-registros-fragment', params), {
-                    texto: 'Cargando actas…',
-                    tituloError: 'No se pudo cargar la tabla',
-                    alReintentar: () => cargarTabla(true)
-                }).then(iniciarTabla).catch(() => {});
-            }
+            const primeraCarga = !$cont.find('.asig-listado').length;
+            $cont.css('opacity', primeraCarga ? 1 : .55).attr('aria-busy', 'true');
+            const peticion = SciafModulo.cargar($cont, URL + '/tabla-registros-fragment', params);
+            const operacion = primeraCarga ? SciafPrecarga.durante($cont, peticion, {
+                texto: 'Cargando actas…', tituloError: 'No se pudo cargar la tabla',
+                alReintentar: () => cargarTabla()
+            }) : peticion;
+            operacion.then(function () {
+                const paginaReal = Number($cont.find('.asig-listado').attr('data-pagina'));
+                if (!recargaPendiente && Number.isInteger(paginaReal)) estadoTabla.pagina = paginaReal;
+            }).catch(function (e) {
+                if (!primeraCarga) SciafModulo.avisarError(e, 'No se pudo recargar');
+            }).finally(function () {
+                $cont.css('opacity', 1).removeAttr('aria-busy');
+                cargandoTabla = false;
+                if (recargaPendiente) { recargaPendiente = false; cargarTabla(); }
+            });
         }
 
         function obtenerParametrosFiltro() {
@@ -356,30 +449,6 @@
         });
 
         // ═══════════════════════════════════════════════════════════════
-        // ORDEN / PAGINACIÓN / TAMAÑO (llamados desde la tabla/paginador)
-        // ═══════════════════════════════════════════════════════════════
-        window.ordenarPor = function (columna) {
-            if (estadoTabla.orden === columna) {
-                estadoTabla.desc = !estadoTabla.desc;
-            } else {
-                estadoTabla.orden = columna;
-                estadoTabla.desc = ORDEN_DESC_PRIMERO.includes(columna);
-            }
-            estadoTabla.pagina = 0;
-            cargarTabla();
-        };
-        window.irAPagina = function (n) {
-            if (n < 0) return;
-            estadoTabla.pagina = n;
-            cargarTabla();
-        };
-        window.cambiarTamano = function (n) {
-            estadoTabla.tamano = parseInt(n, 10) || 25;
-            estadoTabla.pagina = 0;
-            cargarTabla();
-        };
-
-        // ═══════════════════════════════════════════════════════════════
         // FILTROS (debounce en buscador, cambio inmediato en selects)
         // ═══════════════════════════════════════════════════════════════
         function inicializarFiltros() {
@@ -390,42 +459,57 @@
                 if (e.which === 13) { clearTimeout(temporizadorBusqueda); cargarTabla(true); }
             });
             $raiz.find('.js-filtro-sinc, .js-filtro-gestion, .js-filtro-mes, .js-filtro-tipo, .js-filtro-estado, .js-filtro-grupo, .js-filtro-desde, .js-filtro-hasta, .js-filtro-error')
-                .on('change', function () { cargarTabla(true); });
+                .on('change', function () {
+                    $raiz.find('.js-filtro-sinc-extra').val($raiz.find('.js-filtro-sinc').val());
+                    $raiz.find('.js-filtro-gestion-extra').val($raiz.find('.js-filtro-gestion').val());
+                    cargarTabla(true);
+                });
+            $raiz.find('.js-filtro-sinc-extra, .js-filtro-gestion-extra').on('change', function () {
+                $raiz.find('.js-filtro-sinc').val($raiz.find('.js-filtro-sinc-extra').val());
+                $raiz.find('.js-filtro-gestion').val($raiz.find('.js-filtro-gestion-extra').val());
+                cargarTabla(true);
+            });
+            $raiz.find('.sm-buscador-limpiar').on('click', function () {
+                $raiz.find('.js-buscar').val('').trigger('focus');
+                clearTimeout(temporizadorBusqueda);
+                cargarTabla(true);
+            });
+            $raiz.find('.js-buscar').on('keydown', function (e) {
+                if (e.key === 'Escape') { $(this).val(''); clearTimeout(temporizadorBusqueda); cargarTabla(true); }
+            });
         }
+
+        $raiz.on('click', '.js-mas-filtros', function () {
+            const abierto = $(this).attr('aria-expanded') === 'true';
+            $(this).attr('aria-expanded', String(!abierto));
+            $raiz.find('.asig-filtros-extra').toggleClass('d-none', abierto);
+        });
+        $(document).on('click.asigFiltros', function (e) {
+            if (!e.target.closest('#modAsignacion .asig-filtros-extra, #modAsignacion .js-mas-filtros')) {
+                $raiz.find('.asig-filtros-extra').addClass('d-none');
+                $raiz.find('.js-mas-filtros').attr('aria-expanded', 'false');
+            }
+        });
+        $raiz.on('keydown', function (e) {
+            if (e.key === 'Escape') {
+                $raiz.find('.asig-filtros-extra').addClass('d-none');
+                $raiz.find('.js-mas-filtros').attr('aria-expanded', 'false');
+            }
+        });
 
         $raiz.on('click', '.js-limpiar', function () {
             $raiz.find('.js-buscar, .js-filtro-desde, .js-filtro-hasta').val('');
             $raiz.find('.js-filtro-sinc').val('SUBIDAS');
             $raiz.find('.js-filtro-gestion, .js-filtro-mes, .js-filtro-tipo, .js-filtro-estado, .js-filtro-grupo').val('');
+            $raiz.find('.js-filtro-sinc-extra').val('SUBIDAS');
+            $raiz.find('.js-filtro-gestion-extra').val('');
             $raiz.find('.js-filtro-error').prop('checked', false);
             cargarTabla(true);
         });
         $raiz.on('click', '.js-actualizar', function () { cargarTabla(); });
-
-        // Chips de filtros activos (se inyectan desde el servidor en tabla_registro)
-        window.quitarFiltro = function (cual) {
-            switch (cual) {
-                case 'buscar':         $raiz.find('.js-buscar').val(''); break;
-                case 'sincronizacion': $raiz.find('.js-filtro-sinc').val('SUBIDAS'); break;
-                case 'soloConError':   $raiz.find('.js-filtro-error').prop('checked', false); break;
-                case 'gestion':        $raiz.find('.js-filtro-gestion').val(''); break;
-                case 'tipo':           $raiz.find('.js-filtro-tipo').val(''); break;
-                case 'estado':         $raiz.find('.js-filtro-estado').val(''); break;
-                case 'fechas':         $raiz.find('.js-filtro-desde, .js-filtro-hasta').val(''); break;
-                case 'mes':            $raiz.find('.js-filtro-mes').val(''); break;
-                case 'idGrupoContable':$raiz.find('.js-filtro-grupo').val(''); break;
-            }
-            cargarTabla(true);
-        };
-        window.filtrarPorSincronizacion = function (valor) {
-            $raiz.find('.js-filtro-sinc').val(valor);
-            $raiz.find('.js-filtro-error').prop('checked', false);
-            cargarTabla(true);
-        };
-        window.filtrarSoloConError = function () {
-            $raiz.find('.js-filtro-error').prop('checked', true);
-            cargarTabla(true);
-        };
+        $raiz.on('click', '.js-nueva-acta', function () {
+            if (window.cargarContenido) window.cargarContenido('/administracion/activo/vistap');
+        });
 
         // ═══════════════════════════════════════════════════════════════
         // URL STATE (persistir filtros en la URL)
@@ -447,6 +531,8 @@
                 mes: '.js-filtro-mes', idGrupoContable: '.js-filtro-grupo', sincronizacion: '.js-filtro-sinc'
             };
             Object.entries(map).forEach(([param, sel]) => { if (q.has(param)) $raiz.find(sel).val(q.get(param)); });
+            $raiz.find('.js-filtro-sinc-extra').val($raiz.find('.js-filtro-sinc').val());
+            $raiz.find('.js-filtro-gestion-extra').val($raiz.find('.js-filtro-gestion').val());
             if (q.get('soloConError') === 'true') $raiz.find('.js-filtro-error').prop('checked', true);
         }
 
@@ -589,6 +675,7 @@
         function abrirModalDetalle(id) {
             _asigActual = id;
             _detalleData = null;
+            $modalDetalle.addClass('asig-modal-general').removeClass('asig-modal-activos');
             SciafModulo.abrirModal($modalDetalle, $contenidoDetalle, 'Cargando detalle de asignación…');
             // Primero obtener datos JSON, LUEGO cargar fragmento (para que el script del fragmento encuentre los datos)
             SciafModulo.pedirJson(URL + '/asignaciones/' + id + '/detalles-json', { metodo: 'GET' })

@@ -49,10 +49,14 @@
 
             <!-- TAB GENERAL -->
             <div class="tab-pane fade show active" id="tab-general" role="tabpanel">
-                <div class="row g-3">
+                <div class="asig-general-cifras" aria-label="Resumen del acta">
+                    <div class="asig-general-cifra"><span class="lbl">Bienes en el acta</span><span class="val" id="g-total-activos">0</span></div>
+                    <div class="asig-general-cifra"><span class="lbl">Estado en VSIAF</span><span class="val" id="g-sync">—</span></div>
+                    <div class="asig-general-cifra" id="g-costo-contenedor"><span class="lbl">Costo registrado</span><span class="val" id="g-costo">—</span></div>
+                </div>
+                <div class="asig-general-grid">
 
-                    <!-- Columna izquierda: Datos del documento -->
-                    <div class="col-12 col-xl-7">
+                    <div class="asig-panel-documento">
                         <div class="info-card sm-detalle-panel">
                             <div class="info-card-header doc sm-detalle-panel-cab">
                                 <span><i class="ti ti-file-text me-1"></i>Datos del Documento</span>
@@ -73,8 +77,7 @@
                         </div>
                     </div>
 
-                    <!-- Columna derecha: Responsables -->
-                    <div class="col-12 col-xl-5">
+                    <div class="asig-panel-personas">
                         <div class="info-card sm-detalle-panel">
                             <div class="info-card-header resp sm-detalle-panel-cab">
                                 <span><i class="ti ti-user-check me-1"></i>Responsables</span>
@@ -88,7 +91,7 @@
                     </div>
 
                     <!-- Observación -->
-                    <div class="col-12" id="container-observacion" style="display:none">
+                    <div class="asig-panel-observacion" id="container-observacion" style="display:none">
                         <div class="obs-box">
                             <i class="ti ti-message-circle"></i>
                             <div><strong class="d-block mb-1">OBSERVACIÓN</strong><span id="d-observacion"></span></div>
@@ -101,27 +104,27 @@
             <!-- TAB ACTIVOS -->
             <div class="tab-pane fade" id="tab-activos" role="tabpanel">
                 <!-- Resumen superior -->
-                <div class="row g-3 mb-3">
-                    <div class="col-6 col-md-3">
+                <div class="asig-activos-barra">
+                    <div>
                         <div class="stat-card c-indigo">
                             <div class="stat-label">Total Activos</div>
                             <div class="stat-value" id="resumen-total-activos">0</div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div>
                         <div class="stat-card c-slate">
                             <div class="stat-label">Estado en el VSIAF</div>
                             <div class="stat-value" id="resumen-sync">—</div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div id="resumen-costo-contenedor">
                         <div class="stat-card c-green">
                             <div class="stat-label">Costo total (Bs.)</div>
                             <div class="stat-value" id="resumen-costo" style="font-variant-numeric: tabular-nums;">0,00</div>
                             <div class="text-warning d-none" id="resumen-costo-aviso" style="font-size:0.72rem; font-weight:700;"></div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3 d-flex align-items-center justify-content-end">
+                    <div class="asig-buscar-activo">
                         <input type="text" id="buscar-activo" class="sm-input" data-sm-mayus="no" placeholder="Buscar código, bien o responsable…" aria-label="Buscar bienes del acta">
                     </div>
                 </div>
@@ -143,13 +146,13 @@
                                 <th class="text-center col-seleccion-acta d-none" style="width:38px"><input type="checkbox" class="form-check-input" id="seleccionar-todos-acta" aria-label="Seleccionar todos los bienes vigentes"></th>
                                 <th class="text-center" style="width:40px">#</th>
                                 <th>Código</th>
-                                <th style="min-width:260px">Descripción</th>
+                                <th style="min-width:280px">Descripción</th>
                                 <th>Responsable</th>
                                 <th>Oficina</th>
-                                <th class="text-end">Costo (Bs.)</th>
+                                <th class="asig-col-costo text-end">Costo (Bs.)</th>
                                 <th class="text-center">Estado</th>
                                 <th class="text-center">VSIAF</th>
-                                <th class="text-center" style="width:110px">Acciones</th>
+                                <th class="text-center" style="width:100px">Detalle</th>
                             </tr>
                         </thead>
                         <tbody id="tbody-activos">
@@ -207,6 +210,11 @@
         const $modalPadre = $modulo.find('#modalDetalleAsignacion');
         const $modalBien = $modulo.find('#modalVerDetalleActivo');
         const escapar = SciafModulo.escapar;
+        $('#modalTabs [data-bs-toggle="tab"]').on('shown.bs.tab', function () {
+            const destino = $(this).attr('data-bs-target');
+            $modalPadre.toggleClass('asig-modal-general', destino === '#tab-general');
+            $modalPadre.toggleClass('asig-modal-activos', destino === '#tab-activos');
+        });
         function fechaAuditoria(valor) {
             if (!valor) return '—';
             const fecha = new Date(valor);
@@ -235,6 +243,16 @@
         $('#d-certificacion').text(cabecera.certificacion || '—');
         $('#d-sistematizado-por').text(cabecera.sistematizadoPor || '—');
         $('#d-comprobante').text(cabecera.comprobante == null ? '—' : cabecera.comprobante ? 'Sí' : 'No');
+        const camposOpcionales = {
+            '#d-doc-referencia': cabecera.documentoReferencia,
+            '#d-hoja-ruta': cabecera.hojaRuta,
+            '#d-certificacion': cabecera.certificacion,
+            '#d-sistematizado-por': cabecera.sistematizadoPor,
+            '#d-comprobante': cabecera.comprobante
+        };
+        Object.entries(camposOpcionales).forEach(([selector, valor]) => {
+            $(selector).closest('.sm-detalle-campo').toggle(valor !== null && valor !== undefined && valor !== '');
+        });
         $('#fila-resp-origen').toggleClass('d-none', !cabecera.responsableOrigen);
         $('#d-resp-origen').text(conCod(cabecera.responsableOrigenCodigo, cabecera.responsableOrigen));
         $('#d-resp-destino').text(conCod(cabecera.responsableCodigo, cabecera.responsable));
@@ -259,14 +277,18 @@
         const actualizarSeleccion = () => {
             const total = $('#tbody-activos .seleccion-bien-acta').length;
             const marcados = $('#tbody-activos .seleccion-bien-acta:checked').length;
+            const $visibles = $('#tbody-activos tr:visible .seleccion-bien-acta');
+            const marcadosVisibles = $visibles.filter(':checked').length;
             $('#cantidad-seleccion-acta').text(marcados);
             $('#barra-seleccion-acta').toggleClass('d-none', marcados === 0).toggleClass('d-flex', marcados > 0);
             $('#accion-separar-acta').prop('disabled', marcados === total).attr('title', marcados === total ? 'El acta original debe conservar al menos un bien' : '');
-            $('#seleccionar-todos-acta').prop('checked', total > 0 && marcados === total).prop('indeterminate', marcados > 0 && marcados < total);
+            $('#seleccionar-todos-acta').prop('disabled', !$visibles.length)
+                .prop('checked', $visibles.length > 0 && marcadosVisibles === $visibles.length)
+                .prop('indeterminate', marcadosVisibles > 0 && marcadosVisibles < $visibles.length);
         };
         $('#tabla-activos-modal').on('change', '.seleccion-bien-acta', actualizarSeleccion);
         $('#seleccionar-todos-acta').on('change', function () {
-            $('#tbody-activos .seleccion-bien-acta').prop('checked', this.checked);
+            $('#tbody-activos tr:visible .seleccion-bien-acta').prop('checked', this.checked);
             actualizarSeleccion();
         });
         $('#accion-limpiar-acta').on('click', function () {
@@ -304,8 +326,13 @@
 
         // Búsqueda en tiempo real
         $('#buscar-activo').off('input.modalBusq').on('input.modalBusq', function () {
-            const q = $(this).val().toLowerCase();
-            $('#tabla-activos-modal tbody tr').each(function () { $(this).toggle($(this).text().toLowerCase().indexOf(q) > -1); });
+            const q = $(this).val().trim().toLowerCase();
+            $('#sin-resultados-acta').remove();
+            $('#tabla-activos-modal tbody tr').each(function () { $(this).toggle($(this).text().toLowerCase().includes(q)); });
+            if (q && !$('#tbody-activos tr:visible').length) {
+                $('#tbody-activos').append('<tr id="sin-resultados-acta"><td colspan="10" class="text-center text-muted py-3">No hay bienes que coincidan con la búsqueda.</td></tr>');
+            }
+            actualizarSeleccion();
         });
 
         // Helpers
@@ -324,9 +351,9 @@
             const contenido = `<div class="sm-detalle-head">
                 <div class="sm-cabecera-icono"><i class="ti ti-box"></i></div>
                 <div class="flex-grow-1"><span class="sm-detalle-kicker">Bien del acta ${escHtml(cabecera.numeroAsignacion || '')}</span>
-                    <h5 class="sm-modal-titulo">${escHtml(bien.codigo || '—')}</h5>
+                    <h5 class="sm-modal-titulo" id="modal-bien-codigo">${escHtml(bien.codigo || '—')}</h5>
                     <small>${escHtml(bien.descripcion || 'Sin descripción')}</small></div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar ficha"></button>
+                <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-bs-dismiss="modal" aria-label="Volver al acta"><i class="ti ti-arrow-left"></i> Volver al acta</button>
             </div>
             <div class="sm-detalle-scroll"><div class="row g-3">
                 <div class="col-12 col-lg-6"><section class="sm-detalle-panel">
@@ -354,13 +381,22 @@
                 <button type="button" class="sm-btn sm-btn-sm sm-btn-neutro" data-bs-dismiss="modal"><i class="ti ti-arrow-left"></i> Volver al acta</button>
             </div>`;
             $modalBien.find('#contenidoModalVerDetalle').html(contenido);
+            const $origen = $('#tabla-activos-modal .btn-ver-detalle-activo').filter(function () {
+                return String($(this).attr('data-idactivo')) === String(idActivo);
+            }).first();
+            const desplazamiento = $('#tab-activos .table-responsive').scrollTop();
             if (!$modalBien.data('asigReturnRegistered')) {
                 $modalBien.data('asigReturnRegistered', true).on('hidden.bs.modal', function () {
                     if (!$modalPadre.data('smVolverBien')) return;
                     $modalPadre.removeData('smVolverBien');
+                    $modalPadre.one('shown.bs.modal', function () {
+                        $('#tab-activos .table-responsive').scrollTop($modalBien.data('asigScroll') || 0);
+                        $modalBien.data('asigOrigen')?.trigger('focus');
+                    });
                     bootstrap.Modal.getOrCreateInstance($modalPadre[0]).show();
                 });
             }
+            $modalBien.data('asigOrigen', $origen).data('asigScroll', desplazamiento);
             $modalPadre.data('smVolverBien', true).one('hidden.bs.modal', function () {
                 bootstrap.Modal.getOrCreateInstance($modalBien[0]).show();
             });
@@ -387,6 +423,12 @@
         function poblarTablaActivos(detalles, resumen, puedeEditar, puedeVerFinanzas) {
             $('#badge-num-activos, #resumen-total-activos').text(resumen.total ?? detalles.length ?? 0);
             const subidos = resumen.subidos ?? 0, pendientes = resumen.pendientes ?? 0, enCola = resumen.enCola ?? 0, conError = resumen.conError ?? 0;
+            $('#g-total-activos').text(resumen.total ?? detalles.length ?? 0);
+            $('#g-sync').text(conError > 0 ? `${conError} con error` : pendientes > 0 ? `${subidos} subidos · ${pendientes} pendientes` : enCola > 0 ? `${enCola} en cola` : subidos > 0 ? 'Completa' : 'Sin datos');
+            $('.asig-general-cifras').toggleClass('asig-sin-costo', !puedeVerFinanzas);
+            $('#g-costo-contenedor, #resumen-costo-contenedor').toggle(puedeVerFinanzas);
+            $('#tabla-activos-modal .asig-col-costo').toggle(puedeVerFinanzas);
+            $('#g-costo').text(puedeVerFinanzas ? 'Bs. ' + (fmtBs(resumen.costoTotal) ?? '0,00') + (resumen.sinCosto ? ' · parcial' : '') : '—');
             $('#resumen-sync').html((subidos === 0 && pendientes === 0) ? '<span class="text-muted">—</span>' :
                 `<span class="text-success">${subidos} subido${subidos !== 1 ? 's' : ''}</span>` +
                 (pendientes > 0 ? ` <span class="text-muted">/</span> <span class="text-warning">${pendientes} pend.</span>` : '') +
@@ -415,11 +457,11 @@
                 const costoActualFmt = fmtBs(d.costoActual);
                 const difiere = costoFmt !== null && costoActualFmt !== null && costoFmt !== costoActualFmt;
                 const costoCell = !puedeVerFinanzas ? '<span class="text-muted small">Reservado</span>' : costoFmt === null ? '<span class="text-warning small fst-italic" title="Sin costo cargado">falta</span>' : `<span style="font-variant-numeric:tabular-nums">${costoFmt}</span>` + (difiere ? ` <i class="bx bx-info-circle text-warning" title="En acta: ${costoFmt} · Actual: ${costoActualFmt}"></i>` : '');
-                const btnVer = d.idActivo ? `<button class="btn btn-sm btn-icon btn-outline-primary py-0 px-1 btn-ver-detalle-activo" data-idactivo="${d.idActivo}" title="Ver detalle"><i class="bx bx-show small"></i></button>` : '';
+                const btnVer = d.idActivo ? `<button type="button" class="sm-btn sm-btn-sm sm-btn-suave btn-ver-detalle-activo asig-ver-bien" data-idactivo="${d.idActivo}" aria-label="Ver detalle del bien ${escHtml(d.codigo)}"><i class="ti ti-eye"></i> Ver</button>` : '';
                 const vigente = !d.estadoDetalle || d.estadoDetalle === 'VIGENTE';
                 const seleccion = puedeEditar && d.idActivo && vigente
                     ? `<input type="checkbox" class="form-check-input seleccion-bien-acta" value="${d.idActivo}" aria-label="Seleccionar ${escHtml(d.codigo)}">` : '';
-                html += `<tr><td class="text-center col-seleccion-acta ${puedeEditar ? '' : 'd-none'}">${seleccion}</td><td class="text-center text-muted small">${i+1}</td><td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code>${vigente ? '' : `<span class="badge bg-secondary d-block mt-1">${escHtml(d.estadoDetalle)}</span>`}</td><td class="descripcion-clamp" style="font-size:0.82rem" title="${escHtml(d.descripcion)}">${escHtml(d.descripcion)}</td><td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.responsableCod, d.responsable))}</td><td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.oficinaCod, d.oficina))}<div class="text-muted" style="font-size:0.7rem">${escHtml(d.predio)}</div></td><td class="text-end small">${costoCell}</td><td class="text-center">${estadoVal !== '—' ? `<span class="badge ${estadoCls}">${escHtml(d.estadoActivo)}</span>` : '<span class="text-muted">—</span>'}</td><td class="text-center" style="font-size:0.72rem">${badgeSinc(sync, conf, motivo)}</td><td class="text-center">${btnVer}</td></tr>`;
+                html += `<tr><td class="text-center col-seleccion-acta ${puedeEditar ? '' : 'd-none'}">${seleccion}</td><td class="text-center text-muted small">${i+1}</td><td><code class="small fw-semibold text-primary">${escHtml(d.codigo)}</code>${vigente ? '' : `<span class="badge bg-secondary d-block mt-1">${escHtml(d.estadoDetalle)}</span>`}</td><td class="asig-descripcion">${escHtml(d.descripcion || 'Sin descripción')}</td><td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.responsableCod, d.responsable))}</td><td class="small text-truncate" style="max-width:160px">${escHtml(conCod(d.oficinaCod, d.oficina))}<div class="text-muted" style="font-size:0.7rem">${escHtml(d.predio)}</div></td><td class="asig-col-costo text-end small" ${puedeVerFinanzas ? '' : 'style="display:none"'}>${costoCell}</td><td class="text-center">${estadoVal !== '—' ? `<span class="badge ${estadoCls}">${escHtml(d.estadoActivo)}</span>` : '<span class="text-muted">—</span>'}</td><td class="text-center" style="font-size:0.72rem">${badgeSinc(sync, conf, motivo)}</td><td class="text-center">${btnVer}</td></tr>`;
             });
             $('#tbody-activos').html(html);
             $('.col-seleccion-acta').toggleClass('d-none', !puedeEditar);

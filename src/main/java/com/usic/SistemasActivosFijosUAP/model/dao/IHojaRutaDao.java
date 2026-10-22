@@ -50,6 +50,19 @@ public interface IHojaRutaDao extends JpaRepository<HojaRuta, Long>{
         @Param("unidadOrigenId") Long unidadOrigenId
     );
 
+    /** Coincidencias de número; tipo y gestión son filtros opcionales. LOCATE trata % y _ literalmente. */
+    @Query("""
+        SELECT hr FROM HojaRuta hr
+        JOIN FETCH hr.solicitante
+        WHERE (:codigo IS NULL OR LOCATE(LOWER(:codigo), LOWER(hr.codigo)) > 0)
+          AND (:tipo IS NULL OR hr.tipo = :tipo)
+          AND (:gestion IS NULL OR hr.gestion = :gestion)
+        ORDER BY hr.gestion DESC, hr.idHojaRuta DESC
+        """)
+    List<HojaRuta> buscarParaRecepcion(@Param("codigo") String codigo,
+                                      @Param("tipo") String tipo,
+                                      @Param("gestion") Integer gestion);
+
     /** Gestiones que tienen hojas registradas, de la más reciente a la más antigua. */
     @Query("SELECT DISTINCT hr.gestion FROM HojaRuta hr WHERE hr.gestion IS NOT NULL ORDER BY hr.gestion DESC")
     List<Integer> gestiones();

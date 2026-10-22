@@ -160,7 +160,7 @@ public final class CustodiaDTOs {
             /**
              * Nombre del responsable para el documento (permite agregar título profesional:
              * Ing., Lic., MsC., etc.). Si es null o vacío, se mantiene el nombre actual del acta.
-             * <b>No actualiza la base de datos</b>, solo se refleja en el PDF/acta generado.
+             * <b>No actualiza la base de datos</b>, solo se refleja en el Word/acta generado.
              */
             String         personaNombreOverride,
             /**
@@ -186,7 +186,7 @@ public final class CustodiaDTOs {
             /**
              * Nombre del responsable para el documento (permite agregar título profesional:
              * Ing., Lic., MsC., etc.). Si es null o vacío, se mantiene el nombre actual del acta.
-             * <b>No actualiza la base de datos</b>, solo se refleja en el PDF/acta generado.
+             * <b>No actualiza la base de datos</b>, solo se refleja en el Word/acta generado.
              */
             String         personaNombreOverride,
             /**
@@ -219,7 +219,7 @@ public final class CustodiaDTOs {
             /**
              * Nombre del responsable para el documento (permite agregar título profesional:
              * Ing., Lic., MsC., etc.). Si es null o vacío, se usa el nombre del acta anterior.
-             * <b>No actualiza la base de datos</b>, solo se refleja en el PDF/acta generado.
+             * <b>No actualiza la base de datos</b>, solo se refleja en el Word/acta generado.
              */
             String         personaNombreOverride,
             /**

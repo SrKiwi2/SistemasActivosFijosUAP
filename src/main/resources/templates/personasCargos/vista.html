@@ -674,7 +674,7 @@
                     json: Object.assign({ idPrincipal: estado.principal, idResponsable: idResp }, res.value) });
                 if (!j.ok) throw new Error(j.msg);
                 Swal.fire({ icon: 'success', title: 'Acta ' + j.numero, html: esc(j.msg)
-                    + '<br><a href="' + esc(j.pdf) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> Ver el acta</a>' });
+                    + '<br><a href="' + esc(j.word) + '"><i class="ti ti-file-word"></i> Descargar acta Word</a>' });
                 await cargarFicha();
             } catch (e) { SciafModulo.avisarError(e, 'No se registraron los faltantes'); }
         });

@@ -18,14 +18,14 @@ function horaLocal(d) {
 // Theme
 const savedTheme = localStorage.getItem('theme') || 'light';
 document.documentElement.setAttribute('data-theme', savedTheme);
-document.getElementById('themeIcon').className = savedTheme === 'dark' ? 'bx bx-sun' : 'bx bx-moon';
+document.getElementById('themeIcon').className = savedTheme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
 
 document.getElementById('themeToggle').addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
     const newTheme = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('theme', newTheme);
-    document.getElementById('themeIcon').className = newTheme === 'dark' ? 'bx bx-sun' : 'bx bx-moon';
+    document.getElementById('themeIcon').className = newTheme === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
 });
 
 // User menu
@@ -79,49 +79,21 @@ function inicializarSelect2EnModal(modalId) {
     });
 }
 
-function validarFiltros() {
-    const tipo = $("#filtroTipo").val();
-    const gestion = $("#filtroGestion").val();
-
-    if (tipo && gestion) {
-        $("#filtroCodigo").prop("disabled", false);
-        $("#btnBuscar").prop("disabled", false);
-    } else {
-        $("#filtroCodigo").prop("disabled", true).val("");
-        $("#btnBuscar").prop("disabled", true);
-    }
-}
-
-// Con idHojaRuta abre esa hoja exacta (fila de la tabla, volver a mostrar la que se acaba de
-// guardar); sin él busca por los filtros. Antes todo iba por tipo + N° + gestión: si había dos
-// hojas iguales se abría siempre la primera y el movimiento o la edición caían en la que no era,
-// y al cambiarle el N° a una hoja la pantalla ya no la encontraba.
+// Abre la hoja exacta de la fila elegida. La búsqueda libre carga coincidencias en el listado.
 function buscarHojaRuta(idHojaRuta) {
-    let datos;
-    if (idHojaRuta) {
-        datos = { idHojaRuta: idHojaRuta };
-    } else {
-        const tipo = $("#filtroTipo").val();
-        const gestion = $("#filtroGestion").val();
-        const codigo = $("#filtroCodigo").val().trim();
-        if (!tipo || !gestion || !codigo) {
-            Swal.fire("Atención", "Complete todos los filtros de búsqueda", "warning");
-            return;
-        }
-        datos = { tipo, gestion, codigo };
-    }
+    if (!idHojaRuta) return;
 
     $.ajax({
         type: "POST",
         url: "/administracion/hoja-ruta/buscar",
-        data: datos,
+        data: { idHojaRuta },
         success: function (response) {
             if (response.ok) {
                 hojaRutaActual = response.hojaRuta;
                 mostrarResultados(response);
             } else {
                 Swal.fire("No encontrado", response.msg, "info");
-                $("#contenedorResultados").hide();
+                cerrarDetalleHojaRuta();
             }
         },
         error: () => Swal.fire("Error", "Ocurrió un error al buscar", "error")
@@ -130,35 +102,21 @@ function buscarHojaRuta(idHojaRuta) {
 
 function mostrarResultados(data) {
     const hr = data.hojaRuta;
-    let htmlDatos = `
-          <div class="row g-2">
-            <div class="col-md-12">
-              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Código:</strong> ${esc(hr.codigo)}</p>
-              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Tipo:</strong> <span class="badge bg-label-info">${esc(hr.tipo)}</span></p>
-              <p style="margin-bottom: 0.5rem;"><strong class="text-primary-color">Gestión:</strong> ${esc(hr.gestion)}</p>
-            </div>
-            <div class="col-md-12"><hr style="border-color: var(--border-color); margin: 0.5rem 0;"></div>
-            <div class="col-md-12">
-              <p style="margin-bottom: 0.5rem;"><strong>Solicitante:</strong> ${esc(hr.solicitanteNombre)}</p>
-              <p style="margin-bottom: 0.5rem;"><strong>Cargo:</strong> ${esc(hr.solicitanteCargo)}</p>
-            </div>
-            <div class="col-md-12"><hr style="border-color: var(--border-color); margin: 0.5rem 0;"></div>
-            <div class="col-md-12">
-              <p style="margin-bottom: 0.5rem;"><strong>Descripción:</strong></p>
-              <p class="text-muted">${esc(hr.descripcion)}</p>
-            </div>
-        `;
-
-    if (hr.certificacion) htmlDatos += `<div class="col-md-12"><p style="margin-bottom: 0.5rem;"><strong>N° Certificación:</strong> ${esc(hr.certificacion)}</p></div>`;
-    if (hr.monto) htmlDatos += `<div class="col-md-12"><p style="margin-bottom: 0.5rem;"><strong>Monto:</strong> Bs. ${parseFloat(hr.monto).toFixed(2)}</p></div>`;
-
-    htmlDatos += `</div>`;
+    let htmlDatos = `<div class="hr-resumen-grid">
+        <div><span>Número</span><strong>${esc(hr.codigo)}</strong></div>
+        <div><span>Tipo · gestión</span><strong>${esc(hr.tipo)} · ${esc(hr.gestion)}</strong></div>
+        <div><span>Solicitante</span><strong>${esc(hr.solicitanteNombre || '—')}</strong></div>
+        <div><span>Cargo</span><strong>${esc(hr.solicitanteCargo || '—')}</strong></div>
+        <div class="hr-resumen-ancho"><span>Descripción</span><strong>${esc(hr.descripcion || '—')}</strong></div>`;
+    if (hr.certificacion) htmlDatos += `<div><span>Certificación</span><strong>${esc(hr.certificacion)}</strong></div>`;
+    if (hr.monto != null) htmlDatos += `<div><span>Monto</span><strong>Bs. ${Number(hr.monto).toFixed(2)}</strong></div>`;
+    htmlDatos += '</div>';
     $("#datosHojaRuta").html(htmlDatos);
     $("#movimientoActualTexto").text(data.movimientoActual);
 
     let htmlMovimientos = "";
     if (data.movimientos.length === 0) {
-        htmlMovimientos = '<tr><td colspan="6" class="text-center text-muted">No hay movimientos registrados</td></tr>';
+        htmlMovimientos = '<tr><td colspan="4" class="text-center text-muted">No hay movimientos registrados</td></tr>';
     } else {
         data.movimientos.forEach((mov) => {
             const estadoBadge = getEstadoBadge(mov.estado);
@@ -168,13 +126,11 @@ function mostrarResultados(data) {
             htmlMovimientos += `
               <tr>
                 <td>${estadoBadge}</td>
-                <td>${fecha}</td>
-                <td>${hora}</td>
-                <td><small>${esc(mov.origen)}</small></td>
-                <td><small>${esc(mov.destino)}</small></td>
+                <td>${fecha}<br><small>${hora}</small></td>
+                <td class="hr-trayecto"><span>${esc(mov.origen)}</span><i class="ti ti-arrow-right"></i><strong>${esc(mov.destino)}</strong></td>
                 <td>
                   <button class="btn btn-sm btn-icon btn-outline-primary" onclick="editarMovimiento(${Number(mov.idMovimiento)})" title="Editar">
-                    <i class='bx bx-edit'></i>
+                    <i class='ti ti-edit'></i>
                   </button>
                 </td>
               </tr>
@@ -182,14 +138,25 @@ function mostrarResultados(data) {
         });
     }
     $("#tablaMovimientos").html(htmlMovimientos);
-    $("#contenedorResultados").fadeIn();
+    $('.main-container').addClass('hr-tiene-detalle');
+    $("#contenedorResultados").show();
+    requestAnimationFrame(renderizarTablaHR);
+}
+
+function cerrarDetalleHojaRuta() {
+    $('#contenedorResultados').hide();
+    $('.main-container').removeClass('hr-tiene-detalle');
+    hojaRutaActual = null;
+    hrIdSeleccionada = null;
+    hrFilaSeleccionada = null;
+    renderizarTablaHR();
 }
 
 function getEstadoBadge(estado) {
     const badges = {
-        RECIBIDO: '<span class="badge bg-label-success"><i class="bx bx-check-circle"></i> RECIBIDO</span>',
-        ENVIADO: '<span class="badge bg-label-warning"><i class="bx bx-send"></i> ENVIADO</span>',
-        ARCHIVADO: '<span class="badge bg-label-secondary"><i class="bx bx-archive"></i> ARCHIVADO</span>',
+        RECIBIDO: '<span class="badge bg-label-success"><i class="ti ti-circle-check"></i> RECIBIDO</span>',
+        ENVIADO: '<span class="badge bg-label-warning"><i class="ti ti-send"></i> ENVIADO</span>',
+        ARCHIVADO: '<span class="badge bg-label-secondary"><i class="ti ti-archive"></i> ARCHIVADO</span>',
     };
     return badges[estado] || '<span class="badge bg-label-secondary">' + esc(estado) + "</span>";
 }
@@ -201,6 +168,7 @@ function formatearFecha(fecha) {
 
 function abrirModalNuevaHojaRuta() {
     $("#formHojaRuta")[0].reset();
+    $("#formHojaRuta").removeClass('was-validated');
     $("#idHojaRuta").val("");
     $("#tituloModalHojaRuta").text("Nueva Hoja de Ruta");
     // reset() deja los campos como en el HTML (vacíos): se vuelven a poner los de hoy.
@@ -210,7 +178,7 @@ function abrirModalNuevaHojaRuta() {
     $("#hrGestion").val(ahora.getFullYear());
 
     // Mostrar campos y restaurar required
-    $("#hrUnidadOrigen").closest(".col-md-6").show();
+    $("#hrUnidadOrigen").closest(".hr-unidad-campo").show();
     $("#hrUnidadOrigen").attr("required", "required");
 
     $("#hrFecha").closest(".col-md-6").show();
@@ -235,7 +203,7 @@ function editarHojaRuta() {
     $("#hrMonto").val(hojaRutaActual.monto || "");
 
     // Ocultar campos y remover required
-    $("#hrUnidadOrigen").closest(".col-md-6").hide();
+    $("#hrUnidadOrigen").closest(".hr-unidad-campo").hide();
     $("#hrUnidadOrigen").removeAttr("required");
 
     $("#hrFecha").closest(".col-md-6").hide();
@@ -286,7 +254,7 @@ $("#formHojaRuta").on("submit", function (e) {
                 } else {
                     $("#formHojaRuta")[0].reset();
                 }
-                cargarTablaHojaRutas();   // que la hoja nueva (o el cambio) se vea en el listado
+                cargarTablaHojaRutas({ inicial: !$("#filtroCodigo").val() && !$("#filtroTipo").val() && !$("#filtroGestion").val() });
             } else {
                 Swal.fire("Error", response.msg, "error");
             }
@@ -302,6 +270,7 @@ function abrirModalNuevoMovimiento() {
         return;
     }
     $("#formMovimiento")[0].reset();
+    $("#formMovimiento").removeClass('was-validated');
     $("#idMovimiento").val("");
     $("#movHojaRutaId").val(hojaRutaActual.idHojaRuta);
     const hoy = new Date();
@@ -357,7 +326,7 @@ $("#formMovimiento").on("submit", function (e) {
                 Swal.fire("Éxito", response.msg, "success");
                 cerrarModal("modalMovimiento");
                 buscarHojaRuta(hojaRutaActual && hojaRutaActual.idHojaRuta);
-                cargarTablaHojaRutas();
+                cargarTablaHojaRutas({ inicial: !$("#filtroCodigo").val() && !$("#filtroTipo").val() && !$("#filtroGestion").val() });
             } else {
                 Swal.fire("Error", response.msg, "error");
             }
@@ -370,8 +339,63 @@ $("#formMovimiento").on("submit", function (e) {
 // Abrir modal de nuevo solicitante
 function abrirModalNuevoSolicitante() {
     $("#formNuevoSolicitante")[0].reset();
+    $("#formNuevoSolicitante").removeClass('was-validated');
     $("#modalNuevoSolicitante").addClass("show");
 }
+
+// Alta rápida de unidades desde origen o destino, sin perder el formulario abierto.
+let unidadSelectPendiente = null;
+function mostrarErrorUnidad(mensaje) {
+    $('#unidadError').text(mensaje).prop('hidden', false);
+    $('#unidadNombre').trigger('focus');
+}
+
+$(document).on('click', '.hr-btn-unidad', function () {
+    unidadSelectPendiente = this.dataset.select;
+    $('#formNuevaUnidad')[0].reset();
+    $('#formNuevaUnidad').removeClass('was-validated');
+    $('#unidadError').text('').prop('hidden', true);
+    const destino = unidadSelectPendiente === 'movUnidadDestino';
+    $('#tituloModalNuevaUnidad').text('Nueva unidad de ' + (destino ? 'destino' : 'origen'));
+    $('#modalNuevaUnidad').addClass('show');
+    $('#unidadNombre').trigger('focus');
+});
+
+$('#formNuevaUnidad').on('submit', function (e) {
+    e.preventDefault();
+    if (!this.checkValidity()) { $(this).addClass('was-validated'); return; }
+    const nombre = $('#unidadNombre').val().trim();
+    if (!nombre) { mostrarErrorUnidad('Escriba el nombre de la unidad.'); return; }
+    $('#unidadError').text('').prop('hidden', true);
+    const liberar = bloquearEnvio(this);
+    if (!liberar) return;
+    $.ajax({
+        type: 'POST', url: '/administracion/hoja-ruta/unidad/registrar',
+        data: { nombre },
+        success: function (response) {
+            if (!response || !response.ok || !response.idUnidad) {
+                mostrarErrorUnidad(response && response.msg || 'No se pudo registrar la unidad. Inténtelo de nuevo.');
+                return;
+            }
+            ['hrUnidadOrigen', 'movUnidadOrigen', 'movUnidadDestino'].forEach(id => {
+                const $select = $('#' + id);
+                if (!$select.find('option[value="' + response.idUnidad + '"]').length) {
+                    $select.append(new Option(response.nombre, response.idUnidad));
+                }
+            });
+            const selectDestino = unidadSelectPendiente;
+            if (selectDestino) $('#' + selectDestino).val(response.idUnidad).trigger('change');
+            cerrarModal('modalNuevaUnidad');
+            if (selectDestino) $('#' + selectDestino).next('.select2').find('.select2-selection').trigger('focus');
+            Swal.fire({ title: 'Unidad lista', text: response.msg, icon: 'success', timer: 1600,
+                showConfirmButton: false, customClass: { container: 'swal-on-top' } });
+        },
+        error: xhr => mostrarErrorUnidad((xhr.responseJSON && (xhr.responseJSON.msg || xhr.responseJSON.mensaje)) ||
+            (xhr.status === 403 ? 'No tiene permiso para registrar unidades.' :
+                'No se pudo registrar la unidad. Inténtelo de nuevo.')),
+        complete: liberar
+    });
+});
 
 // Guardar nuevo solicitante
 $("#formNuevoSolicitante").on("submit", function (e) {
@@ -484,106 +508,63 @@ function cerrarModal(modalId) {
 let hrDatosOriginales = [];   // todos los datos del servidor
 let hrDatosFiltrados = [];   // después de búsqueda libre
 let hrPaginaActual = 1;
-const HR_POR_PAGINA = 12;
+let hrPorPagina = 8;
 let hrOrdenCol = 'gestion';
 let hrOrdenAsc = false;   // desc por defecto
 let hrFilaSeleccionada = null;
+let hrIdSeleccionada = null;
 
-// ----- INIT SELECT2 GESTIÓN EN TOOLBAR -----
-(function initToolbarSelect2() {
-    const sel = document.getElementById('hrFiltroGestion');
-    const anioActual = new Date().getFullYear();
-    for (let a = anioActual; a >= 2020; a--) {
-        const opt = document.createElement('option');
-        opt.value = a;
-        opt.textContent = a;
-        if (a === anioActual) opt.selected = true;
-        sel.appendChild(opt);
-    }
-})();
-
+// La pantalla arranca con la gestión actual; al escribir un número se busca en todas.
+let hrPedidoListado = null;
+let hrDebounceBusqueda = null;
 $(document).ready(function () {
-    // Select2 para el filtro de gestión en toolbar
-    $('#hrFiltroGestion').select2({
-        width: '130px',
-        minimumResultsForSearch: 0,   // siempre muestra búsqueda
-        language: {
-            noResults: () => "Sin resultados",
-            searching: () => "Buscando…"
-        },
-        placeholder: 'Todas las gestiones',
-        allowClear: true
+    $('#filtroCodigo').on('input', function () {
+        clearTimeout(hrDebounceBusqueda);
+        hrDebounceBusqueda = setTimeout(() => cargarTablaHojaRutas({ inicial: !this.value.trim() && !$('#filtroTipo').val() && !$('#filtroGestion').val() }), 380);
+    }).on('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); clearTimeout(hrDebounceBusqueda); cargarTablaHojaRutas(); }
     });
-
-    // Búsqueda libre con debounce
-    let debounceTimer;
-    $('#hrBusquedaLibre').on('input', function () {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            hrPaginaActual = 1;
-            aplicarBusquedaLibre();
-        }, 220);
-    });
-
-    // Carga inicial automática
-    cargarTablaHojaRutas();
+    $('#filtroTipo, #filtroGestion').on('change', function () { cargarTablaHojaRutas(); });
+    cargarTablaHojaRutas({ inicial: true });
 });
 
-// ----- CARGA DESDE SERVIDOR -----
-function cargarTablaHojaRutas() {
-    const gestion = $('#hrFiltroGestion').val() || '';
-
-    // Estado cargando
-    $('#cuerpoTablaHR').html(`
-        <tr><td colspan="8">
-            <div class="hr-empty-state">
-                <span class="hr-spinner"></span>
-                <p style="display:inline;">Cargando registros…</p>
-            </div>
-        </td></tr>
-    `);
+// Coincidencias del servidor: número parcial, tipo y gestión independientes.
+function cargarTablaHojaRutas(opciones = {}) {
+    const codigo = $('#filtroCodigo').val().trim();
+    const tipo = $('#filtroTipo').val();
+    const gestionTexto = $('#filtroGestion').val().trim();
+    if (gestionTexto && (!$('#filtroGestion')[0].checkValidity() || !/^\d{4}$/.test(gestionTexto))) {
+        $('#filtroGestion').trigger('focus');
+        return;
+    }
+    const soloActual = !!opciones.inicial && !codigo && !tipo && !gestionTexto;
+    const gestion = gestionTexto || (soloActual ? new Date().getFullYear() : '');
+    if (hrPedidoListado) hrPedidoListado.abort();
+    $('#cuerpoTablaHR').html('<tr><td colspan="7"><div class="hr-empty-state"><span class="hr-spinner"></span> Buscando hojas…</div></td></tr>');
     $('#hrTableFooter').hide();
     $('#hr-badge-total').text('—');
-
-    $.ajax({
-        type: 'POST',
-        url: '/administracion/hoja-ruta/listar',
-        data: { gestion },
+    $('#hrContexto').text('Buscando…');
+    const pedido = $.ajax({
+        type: 'POST', url: '/administracion/hoja-ruta/listar',
+        data: { codigo, tipo, gestion },
         success: function (response) {
-            if (response.ok) {
-                hrDatosOriginales = response.hojaRutas || [];
-                hrPaginaActual = 1;
-                $('#hrBusquedaLibre').val('');
-                aplicarBusquedaLibre();
-            } else {
-                mostrarEstadoVacioHR('bx-error-circle', response.msg || 'Error al obtener datos');
-            }
+            if (!response.ok) { mostrarEstadoVacioHR('ti-alert-circle', esc(response.msg || 'Error al buscar')); return; }
+            hrDatosOriginales = response.hojaRutas || [];
+            hrDatosFiltrados = [...hrDatosOriginales];
+            hrPaginaActual = 1;
+            aplicarOrden();
+            const contexto = soloActual ? 'Gestión actual. Escriba un número para buscar en todas las gestiones.'
+                : codigo ? 'Coincidencias para “' + codigo + '”' + (tipo ? ' · ' + tipo : '') + (gestionTexto ? ' · ' + gestionTexto : '')
+                : (tipo || gestionTexto ? 'Filtro: ' + [tipo, gestionTexto].filter(Boolean).join(' · ') : 'Todas las gestiones y tipos');
+            $('#hrContexto').text(contexto);
+            renderizarTablaHR();
         },
-        error: () => mostrarEstadoVacioHR('bx-wifi-off', 'No se pudo conectar al servidor')
+        error: function (xhr, estado) {
+            if (estado !== 'abort') mostrarEstadoVacioHR('ti-wifi-off', 'No se pudo conectar al servidor');
+        },
+        complete: function () { if (hrPedidoListado === pedido) hrPedidoListado = null; }
     });
-}
-
-// ----- FILTRO LOCAL (búsqueda libre) -----
-function aplicarBusquedaLibre() {
-    const q = ($('#hrBusquedaLibre').val() || '').toLowerCase().trim();
-
-    if (!q) {
-        hrDatosFiltrados = [...hrDatosOriginales];
-    } else {
-        hrDatosFiltrados = hrDatosOriginales.filter(hr => {
-            return (
-                (hr.codigo || '').toLowerCase().includes(q) ||
-                (hr.solicitanteNombre || '').toLowerCase().includes(q) ||
-                (hr.solicitanteCargo || '').toLowerCase().includes(q) ||
-                (hr.descripcion || '').toLowerCase().includes(q) ||
-                (hr.tipo || '').toLowerCase().includes(q) ||
-                String(hr.gestion || '').includes(q)
-            );
-        });
-    }
-
-    aplicarOrden();
-    renderizarTablaHR();
+    hrPedidoListado = pedido;
 }
 
 // ----- ORDENAMIENTO -----
@@ -599,13 +580,13 @@ function ordenarTablaHR(col) {
     document.querySelectorAll('#tablaListadoHR thead th').forEach(th => {
         th.classList.remove('sorted');
         const icon = th.querySelector('.sort-icon');
-        if (icon) { icon.className = 'bx bx-sort sort-icon'; }
+        if (icon) { icon.className = 'ti ti-arrows-sort sort-icon'; }
     });
     const thActivo = document.querySelector(`#tablaListadoHR thead th[data-col="${col}"]`);
     if (thActivo) {
         thActivo.classList.add('sorted');
         const icon = thActivo.querySelector('.sort-icon');
-        if (icon) icon.className = `bx ${hrOrdenAsc ? 'bx-sort-up' : 'bx-sort-down'} sort-icon`;
+        if (icon) icon.className = `ti ${hrOrdenAsc ? 'ti-sort-ascending' : 'ti-sort-descending'} sort-icon`;
     }
 
     hrPaginaActual = 1;
@@ -627,16 +608,19 @@ function aplicarOrden() {
 
 // ----- RENDER -----
 function renderizarTablaHR() {
+    const altoTabla = document.querySelector('.hr-table-scroll')?.clientHeight || 440;
+    hrPorPagina = Math.max(3, Math.min(20, Math.floor((altoTabla - 42) / 52)));
     const total = hrDatosFiltrados.length;
-    const inicio = (hrPaginaActual - 1) * HR_POR_PAGINA;
-    const fin = Math.min(inicio + HR_POR_PAGINA, total);
+    hrPaginaActual = Math.max(1, Math.min(hrPaginaActual, Math.max(1, Math.ceil(total / hrPorPagina))));
+    const inicio = (hrPaginaActual - 1) * hrPorPagina;
+    const fin = Math.min(inicio + hrPorPagina, total);
 
     $('#hr-badge-total').text(total);
 
     if (total === 0) {
-        const busqueda = $('#hrBusquedaLibre').val().trim();
+        const busqueda = $('#filtroCodigo').val().trim();
         mostrarEstadoVacioHR(
-            'bx-search-alt',
+            'ti-search',
             busqueda ? `Sin resultados para "<strong>${esc(busqueda)}</strong>"` : 'No hay registros con los filtros aplicados'
         );
         return;
@@ -648,13 +632,13 @@ function renderizarTablaHR() {
     paginados.forEach((hr, idx) => {
         const numFila = inicio + idx + 1;
         html += `
-                <tr class="animated hr-fila" style="animation-delay:${idx * 0.025}s"
+                <tr class="animated hr-fila ${String(hr.idHojaRuta) === String(hrIdSeleccionada) ? 'selected-row' : ''}" style="animation-delay:${idx * 0.025}s"
                     data-id="${Number(hr.idHojaRuta)}" data-tipo="${esc(hr.tipo)}" data-codigo="${esc(hr.codigo)}" data-gestion="${esc(hr.gestion)}"
-                    title="Ver detalle de ${esc(hr.codigo)}">
-                    <td style="text-align:center; color:var(--text-muted,#9ca3af); font-size:0.72rem;">${numFila}</td>
+                    title="Ver detalle de ${esc(hr.codigo)}" tabindex="0" role="button" aria-label="Ver hoja ${esc(hr.codigo)}">
+                    <td class="hr-numero">${numFila}</td>
                     <td><span class="hr-codigo">${esc(hr.codigo || '-')}</span></td>
                     <td>${renderTipoChip(hr.tipo)}</td>
-                    <td style="font-weight:700; font-size:0.8rem;">${esc(hr.gestion || '-')}</td>
+                    <td class="hr-gestion">${esc(hr.gestion || '-')}</td>
                     <td>
                         <span class="hr-solicitante-nombre">${esc(hr.solicitanteNombre || '-')}</span>
                         <span class="hr-solicitante-cargo">${esc(hr.solicitanteCargo || '')}</span>
@@ -664,7 +648,7 @@ function renderizarTablaHR() {
                     </td>
                     <td style="text-align:center;">
                         <button type="button" class="btn-ver-hr">
-                            <i class='bx bx-show'></i> Ver
+                            <i class='ti ti-eye'></i> Ver
                         </button>
                     </td>
                 </tr>`;
@@ -680,11 +664,11 @@ function renderizarTablaHR() {
 
 // ----- PAGINACIÓN -----
 function renderPaginacionHR(total) {
-    const totalPags = Math.ceil(total / HR_POR_PAGINA);
+    const totalPags = Math.ceil(total / hrPorPagina);
     let html = '';
 
     const btnPrev = `<button ${hrPaginaActual === 1 ? 'disabled' : ''} onclick="cambiarPaginaHR(${hrPaginaActual - 1})">
-        <i class='bx bx-chevron-left'></i>
+        <i class='ti ti-chevron-left'></i>
     </button>`;
 
     let inicio = Math.max(1, hrPaginaActual - 2);
@@ -704,7 +688,7 @@ function renderPaginacionHR(total) {
     }
 
     const btnNext = `<button ${hrPaginaActual === totalPags ? 'disabled' : ''} onclick="cambiarPaginaHR(${hrPaginaActual + 1})">
-        <i class='bx bx-chevron-right'></i>
+        <i class='ti ti-chevron-right'></i>
     </button>`;
 
     $('#hrControlesPaginacion').html(btnPrev + numeroPags + btnNext);
@@ -713,8 +697,7 @@ function renderPaginacionHR(total) {
 function cambiarPaginaHR(p) {
     hrPaginaActual = p;
     renderizarTablaHR();
-    // Scroll suave al inicio de la tabla
-    document.querySelector('.hr-table-wrapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector('.hr-table-scroll').scrollTop = 0;
 }
 
 // ----- SELECCIONAR DESDE TABLA -----
@@ -722,40 +705,36 @@ function cambiarPaginaHR(p) {
 $(document).on('click', '#cuerpoTablaHR tr.hr-fila', function () {
     seleccionarDesdeTabla(this, this.dataset.tipo, this.dataset.codigo, this.dataset.gestion, this.dataset.id);
 });
+$(document).on('keydown', '#cuerpoTablaHR tr.hr-fila', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); }
+});
 function seleccionarDesdeTabla(fila, tipo, codigo, gestion, idHojaRuta) {
     // Resaltar fila
     if (hrFilaSeleccionada) hrFilaSeleccionada.classList.remove('selected-row');
     fila.classList.add('selected-row');
     hrFilaSeleccionada = fila;
+    hrIdSeleccionada = idHojaRuta;
 
-    // Rellenar filtros del buscador principal
-    $('#filtroTipo').val(tipo).trigger('change');
-    $('#filtroGestion').val(gestion).trigger('change');
-
-    setTimeout(() => {
-        $('#filtroCodigo').val(codigo);
-        buscarHojaRuta(idHojaRuta);   // por id: la fila exacta, aunque haya otra hoja con el mismo N°
-        const target = document.getElementById('contenedorResultados');
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, 120);
+    buscarHojaRuta(idHojaRuta);   // por id: la fila exacta, aunque haya otra hoja con el mismo N°
 }
 
 // ----- LIMPIAR -----
 function limpiarFiltrosTabla() {
-    $('#hrFiltroGestion').val(new Date().getFullYear()).trigger('change');
-    $('#hrBusquedaLibre').val('');
-    hrPaginaActual = 1;
-    cargarTablaHojaRutas();
+    $('#filtroCodigo').val('');
+    $('#filtroTipo').val('');
+    $('#filtroGestion').val('');
+    clearTimeout(hrDebounceBusqueda);
+    cerrarDetalleHojaRuta();
+    cargarTablaHojaRutas({ inicial: true });
+    $('#filtroCodigo').trigger('focus');
 }
 
 // ----- ESTADO VACÍO -----
 function mostrarEstadoVacioHR(icon, msg) {
     $('#cuerpoTablaHR').html(`
-        <tr><td colspan="8">
+        <tr><td colspan="7">
             <div class="hr-empty-state">
-                <i class='bx ${icon}'></i>
+                <i class='ti ${icon}'></i>
                 <p>${msg}</p>
             </div>
         </td></tr>
@@ -776,12 +755,14 @@ function renderTipoChip(tipo) {
 }
 
 $(document).ready(function () {
-    $("#filtroTipo, #filtroGestion").on("change", validarFiltros);
     const hoy = new Date();
     $("#hrFecha, #movFecha").val(fechaLocal(hoy));
     $("#hrHora, #movHora").val(horaLocal(hoy));
     $("#hrGestion").val(hoy.getFullYear());
-    cargarTablaHojaRutas()
+});
+
+window.addEventListener('resize', () => {
+    if (hrDatosFiltrados.length) renderizarTablaHR();
 });
 
 document.addEventListener('keydown', (e) => {

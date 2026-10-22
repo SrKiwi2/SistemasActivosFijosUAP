@@ -77,11 +77,25 @@ public class HojaRutaServiceImpl implements IHojaRutaService{
     @Transactional(readOnly = true)
     public List<HojaRutaTablaDTO> listarFiltrados(Integer gestion, Long unidadOrigenId) {
         List<HojaRuta> hojas = dao.listarParaTabla(gestion, unidadOrigenId);
+        return convertirTabla(hojas, movimientoDao.resumenParaTabla(gestion));
+    }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<HojaRutaTablaDTO> buscarParaRecepcion(String codigo, String tipo, Integer gestion) {
+        String numero = codigo == null || codigo.isBlank() ? null : codigo.trim();
+        String clase = tipo == null || tipo.isBlank() ? null : tipo.trim().toUpperCase(java.util.Locale.ROOT);
+        List<HojaRuta> hojas = dao.buscarParaRecepcion(numero, clase, gestion);
+        if (hojas.isEmpty()) return List.of();
+        return convertirTabla(hojas, movimientoDao.resumenParaHojas(
+                hojas.stream().map(HojaRuta::getIdHojaRuta).toList()));
+    }
+
+    private List<HojaRutaTablaDTO> convertirTabla(List<HojaRuta> hojas, List<Object[]> resumen) {
         // Resumen de movimientos: vienen ordenados, el primero de cada hoja es el actual.
         Map<Long, Object[]> actual = new HashMap<>();
         Map<Long, Integer> cuantos = new HashMap<>();
-        for (Object[] f : movimientoDao.resumenParaTabla(gestion)) {
+        for (Object[] f : resumen) {
             Long id = (Long) f[0];
             actual.putIfAbsent(id, f);
             cuantos.merge(id, 1, Integer::sum);

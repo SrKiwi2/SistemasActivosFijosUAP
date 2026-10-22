@@ -17,6 +17,9 @@ public interface IHojaRutaService extends IServiceGenerico<HojaRuta, Long> {
      */
     List<HojaRutaTablaDTO> listarFiltrados(Integer gestion, Long unidadOrigenId);
 
+    /** Número parcial en cualquier gestión; tipo y gestión opcionales. */
+    List<HojaRutaTablaDTO> buscarParaRecepcion(String codigo, String tipo, Integer gestion);
+
     /**
      * ¿Ya existe una hoja con esa combinación (sin contar {@code excluirId})? Considera todas
      * las coincidencias, también los duplicados viejos y las variantes de mayúsculas.

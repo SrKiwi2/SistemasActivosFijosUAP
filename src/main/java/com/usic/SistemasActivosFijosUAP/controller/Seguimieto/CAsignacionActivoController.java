@@ -4,8 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,19 +74,19 @@ public class CAsignacionActivoController {
     private final ExcelAsignacionReportService excelAsignacionReportService;
 
     /** Tamaños de página permitidos. Un valor libre por parámetro sería un pedido de "traeme todo". */
-    private static final List<Integer> TAMANOS_PAGINA = List.of(10, 25, 50, 100);
-    private static final int TAMANO_POR_DEFECTO = 25;
+    private static final List<Integer> TAMANOS_PAGINA = List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+    private static final int TAMANO_POR_DEFECTO = 6;
 
     private static final String XLSX_MIME =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     @ValidarUsuarioAutenticado
     @GetMapping("/vista")
-    public String vista_activos_nuevos(Model model) {
+    public String vista_activos_nuevos(Model model, HttpServletRequest request) {
         // El combo de gestión se llena con los años que realmente tienen actas.
         model.addAttribute("gestiones", asignacionActivoService.gestionesConActas());
         model.addAttribute("gruposContables", grupoContableService.listarGruposContables());
-        model.addAttribute("tamanosPagina", TAMANOS_PAGINA);
+        model.addAttribute("puedeVerFinanzasActivo", PermisosDatosActivos.puedeVerFinanzas(request));
         return "/seguimiento/asignacion/vista";
     }
 
@@ -109,6 +107,8 @@ public class CAsignacionActivoController {
             @RequestParam(required = false) Integer gestion,
             @RequestParam(required = false) Long idResponsable,
             @RequestParam(required = false) Boolean soloConError,
+            @RequestParam(required = false) Integer mes,
+            @RequestParam(required = false) Long idGrupoContable,
             @RequestParam(required = false) String orden,
             @RequestParam(defaultValue = "true") boolean desc,
             HttpServletRequest request) {
@@ -119,7 +119,8 @@ public class CAsignacionActivoController {
 
         try {
             FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
-                    tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError);
+                    tipo, estado, buscar, desde, hasta, sincronizacion, gestion, idResponsable, soloConError,
+                    null, null, null, mes, idGrupoContable);
 
             List<AsignacionActivo> completas = asignacionActivoService
                     .buscarConFiltrosConDetalles(filtros, orden, desc);
@@ -159,7 +160,7 @@ public class CAsignacionActivoController {
         @RequestParam(required = false) String orden,
         @RequestParam(defaultValue = "true") boolean desc,
         @RequestParam(defaultValue = "0") int pagina,
-        @RequestParam(defaultValue = "25") int tamano,
+        @RequestParam(defaultValue = "6") int tamano,
         Model model, HttpServletRequest request) {
 
         if ("costo".equalsIgnoreCase(orden) && !PermisosDatosActivos.puedeVerFinanzas(request)) orden = "fecha";
@@ -186,83 +187,25 @@ public class CAsignacionActivoController {
 
         List<AsignacionActivo> asignaciones = paginaActual.getContent();
 
-        // 1. Recolectar IDs únicos (usamos Set para que no haya repetidos)
-        Set<Long> idsUsuarios = new HashSet<>();
-        for (AsignacionActivo asig : asignaciones) {
-            if (asig.getRegistroIdUsuario() != null) idsUsuarios.add(asig.getRegistroIdUsuario());
-            if (asig.getModificacionIdUsuario() != null) idsUsuarios.add(asig.getModificacionIdUsuario());
-        }
-
-        // 2. Buscar todos esos usuarios en una sola consulta
-        // (Asegúrate de tener este método en tu usuarioService/Repository)
-        List<Usuario> usuariosAuditores = usuarioService.findAllByIdUsuarioIn(idsUsuarios);
-
-        // 3. Crear el Mapa <IdUsuario, Nombre Completo>
-        Map<Long, String> mapaUsuarios = usuariosAuditores.stream()
-            .collect(Collectors.toMap(
-                Usuario::getIdUsuario, 
-                u -> {
-                    String nombreAMostrar;
-                    if (u.getPersona() != null) {
-                        nombreAMostrar = u.getUsuario();
-                    } else {
-                        nombreAMostrar = String.valueOf(u.getUsuario()); 
-                    }
-                    return nombreAMostrar;
-                }
-            ));
-
-        // 4. Carpeta de Drive por gestión (año de la asignación), para el botón "Ver en Drive".
-        //    Solo se incluye la gestión que tenga carpeta configurada.
-        Set<Integer> gestiones = new HashSet<>();
-        for (AsignacionActivo asig : asignaciones) {
-            if (asig.getFechaAsignacion() != null) gestiones.add(asig.getFechaAsignacion().getYear());
-        }
-        Map<Integer, String> carpetasPorGestion = new HashMap<>();
-        for (Integer g : gestiones) {
-            configuracionGestionService.findByGestion(g)
-                .map(ConfiguracionGestion::getCarpetaDrive)
-                .filter(id -> id != null && !id.isBlank())
-                .ifPresent(id -> carpetasPorGestion.put(g, id));
-        }
-
-        // 5. Totales por asignación (costo y avance hacia el VSIAF) de LA PÁGINA, en una
+        // Totales por asignación (costo y avance hacia el VSIAF) de LA PÁGINA, en una
         //    sola consulta agregada. Antes se pedían los de todas las actas del filtro.
         List<Long> idsPagina = asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList();
         Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(idsPagina);
 
-        // 5b. Grupo contable y auxiliar de cada acta, también en una sola consulta
+        // Grupo contable y auxiliar de cada acta, también en una sola consulta
         //     agregada sobre los ids de la página, por el mismo motivo.
         Map<Long, List<RubroAsignacionDTO>> rubros = asignacionActivoService.rubrosPorAsignacion(idsPagina);
 
-        // 6. Enviar los datos a la vista
         model.addAttribute("asignaciones", asignaciones);
-        model.addAttribute("mapaUsuarios", mapaUsuarios);
-        model.addAttribute("carpetasPorGestion", carpetasPorGestion);
         model.addAttribute("resumenes", resumenes);
         model.addAttribute("rubros", rubros);
 
-        // Cuántas actas de cada mes hay EN ESTA PÁGINA, para el separador del listado.
-        // Es el conteo de lo que se ve, no el del mes entero: con paginación, decir
-        // "34 actas" arriba de 8 filas visibles sería mentir.
-        Map<String, Long> actasPorMes = asignaciones.stream()
-                .filter(a -> a.getFechaAsignacion() != null)
-                .collect(Collectors.groupingBy(
-                        // Mismo formato que arma la plantilla con #temporals.format(...,'yyyy-MM'):
-                        // si las dos claves no coinciden exactamente, el separador queda sin conteo.
-                        a -> a.getFechaAsignacion().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM")),
-                        LinkedHashMap::new, Collectors.counting()));
-        model.addAttribute("actasPorMes", actasPorMes);
-
-        // 7. Paginación, orden y tarjetas. Las tarjetas se calculan sobre el conjunto
-        //    filtrado completo: contarlas en el navegador daría los totales de la página.
         model.addAttribute("paginaActual", paginaActual);
         model.addAttribute("paginasVisibles", ventanaDePaginas(paginaActual.getNumber(), paginaActual.getTotalPages()));
-        model.addAttribute("tamanosPagina", TAMANOS_PAGINA);
         model.addAttribute("orden", orden != null ? orden : "fecha");
         model.addAttribute("desc", desc);
         model.addAttribute("filtros", filtros);
-        model.addAttribute("stats", asignacionActivoService.resumenListado(filtros));
+        model.addAttribute("puedeVerFinanzasActivo", PermisosDatosActivos.puedeVerFinanzas(request));
 
         return "/seguimiento/asignacion/tabla_registro";
     }
@@ -1034,7 +977,7 @@ public class CAsignacionActivoController {
 
     /**
      * Fragmento de la tabla de actas (para recargas AJAX).
-     * Devuelve solo el fragmento 'tabla' que incluye tarjetas resumen + tabla + paginador.
+     * Devuelve la tabla y su paginador único.
      */
     @ValidarUsuarioAutenticado
     @PostMapping("/tabla-registros-fragment")
@@ -1053,8 +996,10 @@ public class CAsignacionActivoController {
             @RequestParam(required = false) String orden,
             @RequestParam(defaultValue = "true") boolean desc,
             @RequestParam(defaultValue = "0") int pagina,
-            @RequestParam(defaultValue = "25") int tamano,
-            Model model) {
+            @RequestParam(defaultValue = "6") int tamano,
+            Model model, HttpServletRequest request) {
+
+        if ("costo".equalsIgnoreCase(orden) && !PermisosDatosActivos.puedeVerFinanzas(request)) orden = "fecha";
 
         // Reutilizar la lógica de tabla_activos_nuevos pero devolviendo el fragmento
         FiltrosAsignacionDTO filtros = FiltrosAsignacionDTO.normalizar(
@@ -1075,54 +1020,19 @@ public class CAsignacionActivoController {
 
         List<AsignacionActivo> asignaciones = paginaActual.getContent();
 
-        Set<Long> idsUsuarios = new HashSet<>();
-        for (AsignacionActivo asig : asignaciones) {
-            if (asig.getRegistroIdUsuario() != null) idsUsuarios.add(asig.getRegistroIdUsuario());
-            if (asig.getModificacionIdUsuario() != null) idsUsuarios.add(asig.getModificacionIdUsuario());
-        }
-
-        List<Usuario> usuariosAuditores = usuarioService.findAllByIdUsuarioIn(idsUsuarios);
-        Map<Long, String> mapaUsuarios = usuariosAuditores.stream()
-            .collect(Collectors.toMap(
-                Usuario::getIdUsuario,
-                u -> u.getPersona() != null ? u.getPersona().getNombreCompleto() : u.getUsuario()
-            ));
-
-        Set<Integer> gestiones = new HashSet<>();
-        for (AsignacionActivo asig : asignaciones) {
-            if (asig.getFechaAsignacion() != null) gestiones.add(asig.getFechaAsignacion().getYear());
-        }
-        Map<Integer, String> carpetasPorGestion = new HashMap<>();
-        for (Integer g : gestiones) {
-            configuracionGestionService.findByGestion(g)
-                .map(ConfiguracionGestion::getCarpetaDrive)
-                .filter(id -> id != null && !id.isBlank())
-                .ifPresent(id -> carpetasPorGestion.put(g, id));
-        }
-
         List<Long> idsPagina = asignaciones.stream().map(AsignacionActivo::getIdAsignacionActivo).toList();
         Map<Long, ResumenAsignacionDTO> resumenes = asignacionActivoService.resumenPorAsignacion(idsPagina);
         Map<Long, List<RubroAsignacionDTO>> rubros = asignacionActivoService.rubrosPorAsignacion(idsPagina);
 
-        Map<String, Long> actasPorMes = asignaciones.stream()
-                .filter(a -> a.getFechaAsignacion() != null)
-                .collect(Collectors.groupingBy(
-                        a -> a.getFechaAsignacion().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM")),
-                        LinkedHashMap::new, Collectors.counting()));
-
         model.addAttribute("asignaciones", asignaciones);
-        model.addAttribute("mapaUsuarios", mapaUsuarios);
-        model.addAttribute("carpetasPorGestion", carpetasPorGestion);
         model.addAttribute("resumenes", resumenes);
         model.addAttribute("rubros", rubros);
         model.addAttribute("paginaActual", paginaActual);
         model.addAttribute("paginasVisibles", ventanaDePaginas(paginaActual.getNumber(), paginaActual.getTotalPages()));
-        model.addAttribute("tamanosPagina", TAMANOS_PAGINA);
         model.addAttribute("orden", orden != null ? orden : "fecha");
         model.addAttribute("desc", desc);
         model.addAttribute("filtros", filtros);
-        model.addAttribute("stats", asignacionActivoService.resumenListado(filtros));
-        model.addAttribute("actasPorMes", actasPorMes);
+        model.addAttribute("puedeVerFinanzasActivo", PermisosDatosActivos.puedeVerFinanzas(request));
 
         return "/seguimiento/asignacion/tabla_registro :: tabla_completa";
     }

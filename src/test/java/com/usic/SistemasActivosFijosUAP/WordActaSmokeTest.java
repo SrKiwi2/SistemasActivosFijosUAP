@@ -2,6 +2,8 @@ package com.usic.SistemasActivosFijosUAP;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -16,8 +18,11 @@ import java.util.zip.ZipInputStream;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.usic.SistemasActivosFijosUAP.controller.formularios.WordAsignacionActivoService;
+import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableEntregaService;
+import com.usic.SistemasActivosFijosUAP.model.dao.IAsignacionMovimientoDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.AsignacionActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Cargo;
@@ -73,7 +78,12 @@ class WordActaSmokeTest {
         asignacion.setDetalles(List.of(detalle));
 
         // ── Generar ─────────────────────────────────────────────────────
-        byte[] docx = new WordAsignacionActivoService().generarActaAsignacion(asignacion, config);
+        WordAsignacionActivoService servicio = new WordAsignacionActivoService();
+        ReflectionTestUtils.setField(servicio, "responsableEntregaService", mock(IResponsableEntregaService.class));
+        IAsignacionMovimientoDao movimientoDao = mock(IAsignacionMovimientoDao.class);
+        when(movimientoDao.historialDeActa(asignacion.getIdAsignacionActivo())).thenReturn(List.of());
+        ReflectionTestUtils.setField(servicio, "movimientoDao", movimientoDao);
+        byte[] docx = servicio.generarActaAsignacion(asignacion, config);
         assertTrue(docx.length > 0, "El .docx no debe estar vacío");
 
         Path salida = Path.of("target", "acta-smoke.docx");

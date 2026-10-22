@@ -278,7 +278,7 @@ public class PersonasCargosController {
                     cuerpo.get("observacion") == null ? null : cuerpo.get("observacion").toString(),
                     RolesSciaf.usuarioDe(request));
             return ResponseEntity.ok(Map.of("ok", true, "msg", r.mensaje(), "numero", r.numero(),
-                    "pdf", "/administracion/control-activos/custodia/actas/" + r.idActa() + "/pdf"));
+                    "word", "/administracion/control-activos/custodia/actas/" + r.idActa() + "/word"));
         } catch (IllegalArgumentException | IllegalStateException
                  | com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException e) {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));

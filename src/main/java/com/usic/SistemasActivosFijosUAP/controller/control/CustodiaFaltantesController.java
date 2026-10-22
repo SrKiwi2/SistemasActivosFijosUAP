@@ -26,7 +26,9 @@ import com.usic.SistemasActivosFijosUAP.model.dto.control.CustodiaDTOs;
 import com.usic.SistemasActivosFijosUAP.model.dto.control.RegistrarFaltantesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ActaFaltanteService;
-import com.usic.SistemasActivosFijosUAP.model.service.control.PdfActaFaltanteService;
+import com.usic.SistemasActivosFijosUAP.model.service.control.WordActaFaltanteService;
+import com.usic.SistemasActivosFijosUAP.model.service.control.WordReportesCustodiaService;
+import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglaNegocioException;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReportesCustodiaService;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ResolucionFaltanteService;
@@ -36,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Custodia de faltantes — registro de faltantes por persona, actas y su PDF, resolución
+ * Custodia de faltantes — registro de faltantes por persona, actas y su Word, resolución
  * (salida de la custodia), reportes y conciliación.
  * <p>
  * Consultar lo puede cualquiera con acceso a Control de Activos. Registrar, anular,
@@ -53,7 +55,8 @@ public class CustodiaFaltantesController {
     private static final String PERMISO_RESOLVER = "opcion_control_resolver";
 
     private final ActaFaltanteService actaService;
-    private final PdfActaFaltanteService pdfService;
+    private final WordActaFaltanteService wordService;
+    private final WordReportesCustodiaService wordReportesService;
     private final ResolucionFaltanteService resolucionService;
     private final ReportesCustodiaService reportesService;
 
@@ -96,17 +99,21 @@ public class CustodiaFaltantesController {
     }
 
     @ValidarUsuarioAutenticado
-    @GetMapping("/actas/{idActa}/pdf")
-    public ResponseEntity<?> pdf(@PathVariable Long idActa,
-                                 @RequestParam(defaultValue = "false") boolean adjuntos) throws Exception {
+    @GetMapping({"/actas/{idActa}/word", "/actas/{idActa}/pdf"})
+    public ResponseEntity<?> word(@PathVariable Long idActa,
+                                  @RequestParam(defaultValue = "false") boolean adjuntos) throws Exception {
         ActaFaltanteDTO acta = actaService.porId(idActa);
-        byte[] pdf = pdfService.generar(acta, adjuntos);
+        return archivo(wordService.generar(acta, adjuntos),
+                (acta.esNotificacion() ? "notificacion_faltantes_" : "acta_faltantes_")
+                        + acta.numero().replaceAll("[^A-Za-z0-9-]", "-") + ".docx", MediaType.parseMediaType(WordDocumentos.MIME));
+    }
+
+    private ResponseEntity<byte[]> vistaPreviaWord(ActaFaltanteDTO acta, String nombre) throws Exception {
         HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_PDF);
-        h.setContentDisposition(ContentDisposition.inline()
-                .filename((acta.esNotificacion() ? "notificacion_faltantes_" : "acta_faltantes_")
-                        + acta.numero().replaceAll("[^A-Za-z0-9-]", "-") + ".pdf").build());
-        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+        h.setContentType(MediaType.parseMediaType(WordDocumentos.MIME));
+        h.setCacheControl(CacheControl.noStore());
+        h.setContentDisposition(ContentDisposition.attachment().filename(nombre).build());
+        return new ResponseEntity<>(wordService.generarVistaPrevia(acta), h, HttpStatus.OK);
     }
 
     // ── Acciones ─────────────────────────────────────────────────────────────
@@ -137,13 +144,7 @@ public class CustodiaFaltantesController {
             throws Exception {
         exigirPermiso(http);
         ActaFaltanteDTO acta = actaService.vistaPrevia(req, usuarioDe(http));
-        byte[] pdf = pdfService.generarVistaPrevia(acta);
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_PDF);
-        h.setCacheControl(CacheControl.noStore());
-        h.setContentDisposition(ContentDisposition.inline()
-.filename("vista_previa_notificacion_faltantes.pdf").build());
-        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+        return vistaPreviaWord(acta, "vista_previa_notificacion_faltantes.docx");
     }
 
     // ── Notificar plazo (re-emitir notificación con nuevo plazo) ────────────
@@ -172,13 +173,7 @@ public class CustodiaFaltantesController {
             throws Exception {
         exigirPermiso(http);
         ActaFaltanteDTO acta = actaService.notificarPlazoVistaPrevia(req, usuarioDe(http));
-        byte[] pdf = pdfService.generarVistaPrevia(acta);
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_PDF);
-        h.setCacheControl(CacheControl.noStore());
-        h.setContentDisposition(ContentDisposition.inline()
-.filename("vista_previa_notificacion_plazo.pdf").build());
-        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+        return vistaPreviaWord(acta, "vista_previa_notificacion_plazo.docx");
     }
 
     // ── Regenerar notificación (SIN cambiar plazo) ────────────────────────
@@ -207,13 +202,7 @@ public class CustodiaFaltantesController {
             throws Exception {
         exigirPermiso(http);
         ActaFaltanteDTO acta = actaService.regenerarNotificacionVistaPrevia(req, usuarioDe(http));
-        byte[] pdf = pdfService.generarVistaPrevia(acta);
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_PDF);
-        h.setCacheControl(CacheControl.noStore());
-        h.setContentDisposition(ContentDisposition.inline()
-                .filename("vista_previa_regenerar_notificacion.pdf").build());
-        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+        return vistaPreviaWord(acta, "vista_previa_regenerar_notificacion.docx");
     }
 
     // ── Generar notificación reiterativa ────────────────────────────────────
@@ -242,13 +231,7 @@ public class CustodiaFaltantesController {
             throws Exception {
         exigirPermiso(http);
         ActaFaltanteDTO acta = actaService.generarReiterativaVistaPrevia(req, usuarioDe(http));
-        byte[] pdf = pdfService.generarVistaPrevia(acta);
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_PDF);
-        h.setCacheControl(CacheControl.noStore());
-        h.setContentDisposition(ContentDisposition.inline()
-                .filename("vista_previa_reiterativa.pdf").build());
-        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+        return vistaPreviaWord(acta, "vista_previa_reiterativa.docx");
     }
 
     public record AnularRequest(String motivo) {}
@@ -282,12 +265,8 @@ public class CustodiaFaltantesController {
     public ResponseEntity<?> unirVistaPrevia(@RequestBody CustodiaDTOs.UnirNotificacionesRequest req, HttpServletRequest http)
             throws Exception {
         exigirPermiso(http);
-        byte[] pdf = pdfService.generarVistaPrevia(actaService.unirNotificacionesVistaPrevia(req, usuarioDe(http)));
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_PDF);
-        h.setCacheControl(CacheControl.noStore());
-        h.setContentDisposition(ContentDisposition.inline().filename("vista_previa_union.pdf").build());
-        return new ResponseEntity<>(pdf, h, HttpStatus.OK);
+        return vistaPreviaWord(actaService.unirNotificacionesVistaPrevia(req, usuarioDe(http)),
+                "vista_previa_union.docx");
     }
 
     @ValidarUsuarioAutenticado
@@ -366,25 +345,25 @@ public class CustodiaFaltantesController {
     @ValidarUsuarioAutenticado
     @GetMapping("/reportes/predio/{idPredio}")
     public ResponseEntity<?> reporteCustodiaPredio(@PathVariable Long idPredio,
-                                                   @RequestParam(defaultValue = "pdf") String formato,
+                                                   @RequestParam(defaultValue = "docx") String formato,
                                                    HttpServletRequest http) throws Exception {
         String hoy = java.time.LocalDate.now().toString();
         return "xlsx".equalsIgnoreCase(formato)
                 ? archivo(reportesService.custodiaPredioExcel(idPredio), "custodia_predio_" + idPredio + "_" + hoy + ".xlsx", XLSX)
-                : archivo(reportesService.custodiaPredioPdf(idPredio, nombreUsuario(http)),
-                          "custodia_predio_" + idPredio + "_" + hoy + ".pdf", MediaType.APPLICATION_PDF);
+                : archivo(wordReportesService.custodiaPredioWord(idPredio, nombreUsuario(http)),
+                          "custodia_predio_" + idPredio + "_" + hoy + ".docx", MediaType.parseMediaType(WordDocumentos.MIME));
     }
 
     @ValidarUsuarioAutenticado
     @GetMapping("/reportes/consolidado")
-    public ResponseEntity<?> reporteConsolidado(@RequestParam(defaultValue = "pdf") String formato,
+    public ResponseEntity<?> reporteConsolidado(@RequestParam(defaultValue = "docx") String formato,
                                                 @RequestParam(defaultValue = "true") boolean soloPendientes,
                                                 HttpServletRequest http) throws Exception {
         String hoy = java.time.LocalDate.now().toString();
         return "xlsx".equalsIgnoreCase(formato)
                 ? archivo(reportesService.consolidadoExcel(soloPendientes), "faltantes_por_persona_" + hoy + ".xlsx", XLSX)
-                : archivo(reportesService.consolidadoPdf(soloPendientes, nombreUsuario(http)),
-                          "faltantes_por_persona_" + hoy + ".pdf", MediaType.APPLICATION_PDF);
+                : archivo(wordReportesService.consolidadoWord(soloPendientes, nombreUsuario(http)),
+                          "faltantes_por_persona_" + hoy + ".docx", MediaType.parseMediaType(WordDocumentos.MIME));
     }
 
     @ValidarUsuarioAutenticado
@@ -399,8 +378,7 @@ public class CustodiaFaltantesController {
     private ResponseEntity<byte[]> archivo(byte[] contenido, String nombre, MediaType tipo) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(tipo);
-        h.setContentDisposition((MediaType.APPLICATION_PDF.equals(tipo) ? ContentDisposition.inline()
-                : ContentDisposition.attachment()).filename(nombre).build());
+        h.setContentDisposition(ContentDisposition.attachment().filename(nombre).build());
         return new ResponseEntity<>(contenido, h, HttpStatus.OK);
     }
 

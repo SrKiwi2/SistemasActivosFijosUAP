@@ -40,4 +40,14 @@ public interface IMovimientoDao extends JpaRepository<Movimiento, Long> {
         ORDER BY m.fecha DESC NULLS LAST, m.hora DESC NULLS LAST, m.idMovimiento DESC
         """)
     List<Object[]> resumenParaTabla(@Param("gestion") Integer gestion);
+
+    /** Solo los movimientos de las hojas encontradas por número. */
+    @Query("""
+        SELECT m.hojaRuta.idHojaRuta, m.estadoMovimiento, m.fecha, d.nombre
+        FROM Movimiento m
+        LEFT JOIN m.unidadDestino d
+        WHERE m.hojaRuta.idHojaRuta IN :ids
+        ORDER BY m.fecha DESC NULLS LAST, m.hora DESC NULLS LAST, m.idMovimiento DESC
+        """)
+    List<Object[]> resumenParaHojas(@Param("ids") List<Long> ids);
 }

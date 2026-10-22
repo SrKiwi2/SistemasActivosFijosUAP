@@ -275,7 +275,7 @@ Thymeleaf offline. El `revisor` pasó y sus tres hallazgos se aplicaron.
    organismoFinanciero, y en producción loguea «Sin handler de sync».
 6. **Transferencia Londra:** el usuario dijo «dejemos ese módulo» por ahora.
 7. **Pantallas que faltan migrar,** según `OpcionMenuSeeder`. El usuario elige el orden.
-   - Movimientos › Asignaciones, Transferencias.
+   - Movimientos › Transferencias. Asignaciones: listado y paginación ajustados al alto de pantalla (22-oct); detalle y operaciones ya estaban migrados.
    - Historial › Historial activo, Seguimiento de activo (ruta), Historial de transferencias.
    - Consulta › Buscar/Filtrar activos, Reporte de asignaciones.
    - Conciliación › BD↔VSIAF, Revisión de correlativos.

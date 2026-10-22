@@ -8,9 +8,10 @@
 
     <link rel="icon" href="../../../assets/img/logo/activofijos.png" type="image/png">
 
-    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="/assets/vendor/fonts/tabler-icons.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="../../../assets/css/style-hoja-ruta.css">
+    <link rel="stylesheet" href="/assets/css/sciaf-modulo.css">
+    <link rel="stylesheet" href="/assets/css/style-hoja-ruta.css">
 
 </head>
 
@@ -19,20 +20,20 @@
     <nav class="navbar-uap">
         <div class="navbar-content">
             <div class="navbar-brand">
-                <i class='bx bx-file-find'></i>
-                <span>Hoja de Ruta - Activos fijos</span>
+                <i class='ti ti-route'></i>
+                <span>Hojas de ruta <span class="hr-marca-separador">/</span> Activos Fijos</span>
             </div>
 
             <div class="navbar-actions">
                 <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
-                    <i class='bx bx-moon' id="themeIcon"></i>
+                    <i class='ti ti-moon' id="themeIcon"></i>
                 </button>
 
                 <div class="user-menu">
                     <button class="user-button" id="userButton">
-                        <i class='bx bx-user-circle'></i>
+                        <i class='ti ti-user-circle'></i>
                         <span id="userName">Usuario</span>
-                        <i class='bx bx-chevron-down'></i>
+                        <i class='ti ti-chevron-down'></i>
                     </button>
 
                     <div class="user-dropdown" id="userDropdown">
@@ -41,11 +42,11 @@
                             <p id="userRole">Rol de Usuario</p>
                         </div>
                         <div class="dropdown-item" onclick="verPerfil()">
-                            <i class='bx bx-user'></i>
+                            <i class='ti ti-user'></i>
                             <span>Mi Perfil</span>
                         </div>
                         <div class="dropdown-item logout" onclick="cerrarSesion()">
-                            <i class='bx bx-log-out'></i>
+                            <i class='ti ti-logout'></i>
                             <span>Cerrar Sesión</span>
                         </div>
                     </div>
@@ -56,55 +57,56 @@
 
     <!-- Main Container -->
     <div class="main-container">
-        <div class="page-header">
-            <h1>
-                <i class='bx bx-search-alt'></i>
-                Búsqueda de Hoja de Ruta
-            </h1>
-            <div class="breadcrumb">
-                <span>Administración</span> / <span>Hoja de Ruta</span>
+        <header class="sm-cabecera hr-cabecera">
+            <div class="sm-cabecera-icono"><i class="ti ti-route"></i></div>
+            <div class="sm-cabecera-texto">
+                <nav class="sm-migas" aria-label="Ubicación">Administración <i class="ti ti-chevron-right"></i> Hoja de ruta</nav>
+                <div class="hr-titulo-linea">
+                    <h1 class="sm-titulo">Hojas de ruta</h1>
+                    <span class="hr-identidad"><span class="hr-identidad-punto"></span> Activos Fijos</span>
+                </div>
+                <p class="sm-subtitulo">Registro y seguimiento de documentos entre unidades.</p>
             </div>
-        </div>
+            <div class="sm-cabecera-acciones">
+                <button type="button" class="sm-btn" onclick="abrirModalNuevaHojaRuta()">
+                    <i class="ti ti-plus"></i> Nueva hoja de ruta
+                </button>
+            </div>
+        </header>
 
         <!-- Filtros -->
-        <div class="card">
-            <div class="card-header">
-                <h5>
-                    <i class='bx bx-filter'></i>
-                    Filtros de Búsqueda
-                </h5>
-            </div>
+        <div class="card sm-card hr-filtros">
+            <div class="card-header"><h5><i class="ti ti-search"></i> Busque por número; tipo y gestión son opcionales</h5></div>
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-2">
-                        <label class="form-label">Tipo</label>
+                        <label class="form-label" for="filtroCodigo">Número de hoja de ruta</label>
+                        <input type="search" id="filtroCodigo" class="form-control" placeholder="Escriba el número y verá las coincidencias" autocomplete="off" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="filtroTipo">Tipo (opcional)</label>
                         <select id="filtroTipo" class="form-select">
-                            <option value="">Seleccionar</option>
+                            <option value="">Todos los tipos</option>
                             <option value="RECTORADO">RECTORADO</option>
                             <option value="DAF">DAF</option>
                             <option value="PEDIDO">PEDIDO</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">N° Hoja de Ruta</label>
-                        <input type="text" id="filtroCodigo" class="form-control" placeholder="Ej: 12345" disabled />
-                    </div>
                     <div class="col-md-3">
-                        <label class="form-label">Gestión</label>
-                        <input type="number" id="filtroGestion" class="form-control" placeholder="Intorduce un año"
-                            min="2020" max="2030" />
+                        <label class="form-label" for="filtroGestion">Gestión (opcional)</label>
+                        <input type="number" id="filtroGestion" class="form-control" placeholder="Todas"
+                            min="2020" max="2100" />
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="button" class="btn btn-primary w-100" onclick="buscarHojaRuta()" disabled
+                        <button type="button" class="btn btn-primary w-100" onclick="cargarTablaHojaRutas()"
                             id="btnBuscar">
-                            <i class='bx bx-search'></i>
+                            <i class='ti ti-search'></i>
                             Buscar
                         </button>
                     </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button type="button" class="btn btn-success w-100" onclick="abrirModalNuevaHojaRuta()">
-                            <i class='bx bx-plus'></i>
-                            Nueva Hoja de Ruta
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-secondary w-100 hr-limpiar" onclick="limpiarFiltrosTabla()" title="Limpiar búsqueda">
+                            <i class="ti ti-x"></i> Limpiar
                         </button>
                     </div>
                 </div>
@@ -112,19 +114,22 @@
         </div>
 
         <!-- Resultados -->
-        <div class="row" id="contenedorResultados" style="display: none">
+        <div class="row hr-detalle" id="contenedorResultados" style="display: none">
             <div class="col-md-5">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5>
-                            <i class='bx bx-file'></i>
+                            <i class='ti ti-file-text'></i>
                             Datos de Hoja de Ruta
                         </h5>
-                        <button type="button" class="btn btn-sm btn-icon btn-outline-primary" onclick="editarHojaRuta()"
-                            title="Editar"
-                            style="background: rgba(255,255,255,0.2); border-color: white; color: white;">
-                            <i class='bx bx-edit'></i>
-                        </button>
+                        <div class="hr-detalle-acciones">
+                            <button type="button" class="btn btn-sm btn-icon btn-outline-primary" onclick="editarHojaRuta()" title="Editar hoja" aria-label="Editar hoja">
+                                <i class="ti ti-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-icon btn-outline-primary" onclick="cerrarDetalleHojaRuta()" title="Cerrar detalle" aria-label="Cerrar detalle">
+                                <i class="ti ti-x"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body" id="datosHojaRuta"></div>
                 </div>
@@ -137,13 +142,13 @@
                             <div class="col-md-6">
                                 <button type="button" class="btn btn-sm" onclick="abrirModalNuevoMovimiento()"
                                     style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
-                                    <i class='bx bx-plus'></i>
+                                    <i class='ti ti-plus'></i>
                                     Nuevo Movimiento
                                 </button>
                             </div>
                             <div class="col-md-6 text-end">
                                 <span class="badge bg-label-info">
-                                    <i class='bx bx-map'></i>
+                                    <i class='ti ti-map'></i>
                                     Estado: <span id="movimientoActualTexto">-</span>
                                 </span>
                             </div>
@@ -155,11 +160,9 @@
                                 <thead>
                                     <tr>
                                         <th>Estado</th>
-                                        <th>Fecha</th>
-                                        <th>Hora</th>
-                                        <th>Origen</th>
-                                        <th>Destino</th>
-                                        <th>Opciones</th>
+                                        <th>Fecha y hora</th>
+                                        <th>Trayecto</th>
+                                        <th>Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tablaMovimientos"></tbody>
@@ -171,47 +174,29 @@
         </div>
 
         <!-- ============ TABLA LISTADO HOJAS DE RUTA ============ -->
-        <div class="hr-table-wrapper">
+        <div class="hr-table-wrapper sm-card">
 
             <div class="hr-toolbar">
                 <div class="hr-toolbar-left">
-                    <h6><i class='bx bx-table' style="margin-right:5px;"></i>Hojas de Ruta</h6>
-                    <span id="hr-badge-total" class="badge bg-label-secondary" style="font-size:0.7rem;">—</span>
+                    <h6><i class='ti ti-table' style="margin-right:5px;"></i>Hojas de Ruta</h6>
+                    <span id="hr-badge-total" class="badge bg-label-secondary">—</span>
                 </div>
-                <div class="hr-toolbar-right">
-                    <div class="hr-search-box">
-                        <i class='bx bx-search search-icon'></i>
-                        <input type="text" id="hrBusquedaLibre" placeholder="Buscar código, solicitante…"
-                            autocomplete="off" />
-                    </div>
-                    <select id="hrFiltroGestion" style="min-width:120px;">
-                        <option value="">Todas las gestiones</option>
-                    </select>
-                    <button class="btn btn-sm btn-primary" onclick="cargarTablaHojaRutas()"
-                        style="height:32px; font-size:0.78rem; padding:0 12px; border-radius:8px;">
-                        <i class='bx bx-filter-alt'></i> Filtrar
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="limpiarFiltrosTabla()"
-                        title="Limpiar filtros"
-                        style="height:32px; width:32px; padding:0; border-radius:8px; display:flex; align-items:center; justify-content:center;">
-                        <i class='bx bx-x'></i>
-                    </button>
-                </div>
+                <span class="hr-contexto" id="hrContexto">Gestión actual. Escriba un número para buscar en todas las gestiones.</span>
             </div>
 
-            <div style="overflow-x:auto;">
-                <table id="tablaListadoHR">
+            <div class="hr-table-scroll">
+                <table id="tablaListadoHR" class="sm-tabla">
                     <thead>
                         <tr>
                             <th style=" text-align:center;">#</th>
                             <th onclick="ordenarTablaHR('codigo')" data-col="codigo">
-                                Código <i class='bx bx-sort sort-icon'></i>
+                                Código <i class='ti ti-arrows-sort sort-icon'></i>
                             </th>
                             <th onclick="ordenarTablaHR('tipo')" data-col="tipo">
-                                Tipo <i class='bx bx-sort sort-icon'></i>
+                                Tipo <i class='ti ti-arrows-sort sort-icon'></i>
                             </th>
                             <th onclick="ordenarTablaHR('gestion')" data-col="gestion" class="sorted">
-                                Gestión <i class='bx bx-sort-down sort-icon'></i>
+                                Gestión <i class='ti ti-sort-descending sort-icon'></i>
                             </th>
                             <th>Solicitante</th>
                             <th>Descripción</th>
@@ -220,10 +205,10 @@
                     </thead>
                     <tbody id="cuerpoTablaHR">
                         <tr>
-                            <td colspan="8">
+                            <td colspan="7">
                                 <div class="hr-empty-state">
-                                    <i class='bx bx-spreadsheet'></i>
-                                    <p>Presiona <strong>Filtrar</strong> para cargar los registros</p>
+                                    <i class='ti ti-table'></i>
+                                    <p>Cargando hojas de ruta…</p>
                                 </div>
                             </td>
                         </tr>
@@ -239,15 +224,15 @@
 
         <!-- Modal Hoja Ruta -->
         <div class="modal" id="modalHojaRuta">
-            <div class="modal-dialog modal-dialog-lg">
-                <div class="modal-content">
+            <div class="modal-dialog modal-dialog-lg hr-modal-amplio">
+                <div class="modal-content sm-modal">
                     <div class="modal-header">
                         <h5 class="modal-title" id="tituloModalHojaRuta">Nueva Hoja de Ruta</h5>
                         <button type="button" class="btn-close" onclick="cerrarModal('modalHojaRuta')">&times;</button>
                     </div>
                     <form id="formHojaRuta">
                         <input type="hidden" id="idHojaRuta" name="idHojaRuta" />
-                        <div class="modal-body">
+                        <div class="modal-body sm-modal-cuerpo">
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label">Tipo <span class="text-danger">*</span></label>
@@ -265,7 +250,7 @@
                                 <div class="col-md-4">
                                     <label class="form-label">Gestión <span class="text-danger">*</span></label>
                                     <input type="number" id="hrGestion" name="gestion" class="form-control" required
-                                        min="2020" max="2030" />
+                                        min="2020" max="2100" />
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Solicitante <span class="text-danger">*</span></label>
@@ -278,19 +263,21 @@
                                         </select>
                                         <button type="button" class="btn btn-outline-primary"
                                             onclick="abrirModalNuevoSolicitante()" title="Nuevo Solicitante">
-                                            <i class='bx bx-plus'></i>
+                                            <i class='ti ti-plus'></i>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <label class="form-label">Unidad Origen <span class="text-danger">*</span></label>
-                                    <select id="hrUnidadOrigen" name="unidadOrigenId" class="form-select select2"
-                                        required>
-                                        <option value="">Seleccionar</option>
-                                        <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}"
-                                            th:text="${unidad.nombre}"></option>
-                                    </select>
+                                <div class="col-md-6 hr-unidad-campo">
+                                    <label class="form-label" for="hrUnidadOrigen">Unidad de origen <span class="text-danger">*</span></label>
+                                    <div class="hr-unidad-control">
+                                        <select id="hrUnidadOrigen" name="unidadOrigenId" class="form-select select2" required>
+                                            <option value="">Seleccionar</option>
+                                            <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}" th:text="${unidad.nombre}"></option>
+                                        </select>
+                                        <button type="button" class="sm-btn sm-btn-suave hr-btn-unidad" data-select="hrUnidadOrigen" title="Registrar unidad de origen" aria-label="Registrar unidad de origen"><i class="ti ti-plus"></i></button>
+                                    </div>
+                                    <small class="hr-destino-inicial">Destino inicial: ACTIVOS FIJOS.</small>
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label">Descripción <span class="text-danger">*</span></label>
@@ -316,11 +303,11 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="modal-footer">
+                        <div class="modal-footer sm-modal-pie">
                             <button type="button" class="btn btn-secondary"
                                 onclick="cerrarModal('modalHojaRuta')">Cancelar</button>
                             <button type="submit" class="btn btn-success">
-                                <i class='bx bx-save'></i> Guardar
+                                <i class='ti ti-device-floppy'></i> Guardar
                             </button>
                         </div>
                     </form>
@@ -331,14 +318,14 @@
         <!-- Modal de registrar nuevo solicitante -->
         <div class="modal" id="modalNuevoSolicitante">
             <div class="modal-dialog">
-                <div class="modal-content">
+                <div class="modal-content sm-modal">
                     <div class="modal-header">
                         <h5 class="modal-title">Nuevo Solicitante</h5>
                         <button type="button" class="btn-close"
                             onclick="cerrarModal('modalNuevoSolicitante')">&times;</button>
                     </div>
                     <form id="formNuevoSolicitante">
-                        <div class="modal-body">
+                        <div class="modal-body sm-modal-cuerpo">
                             <div class="row g-3">
                                 <div class="col-md-12">
                                     <label class="form-label">Nombre <span class="text-danger">*</span></label>
@@ -352,11 +339,11 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="modal-footer">
+                        <div class="modal-footer sm-modal-pie">
                             <button type="button" class="btn btn-secondary"
                                 onclick="cerrarModal('modalNuevoSolicitante')">Cancelar</button>
                             <button type="submit" class="btn btn-success">
-                                <i class='bx bx-save'></i> Guardar
+                                <i class='ti ti-device-floppy'></i> Guardar
                             </button>
                         </div>
                     </form>
@@ -367,7 +354,7 @@
         <!-- Modal Movimiento -->
         <div class="modal" id="modalMovimiento">
             <div class="modal-dialog">
-                <div class="modal-content">
+                <div class="modal-content sm-modal">
                     <div class="modal-header">
                         <h5 class="modal-title" id="tituloModalMovimiento">Nuevo Movimiento</h5>
                         <button type="button" class="btn-close"
@@ -376,7 +363,7 @@
                     <form id="formMovimiento">
                         <input type="hidden" id="idMovimiento" name="idMovimiento" />
                         <input type="hidden" id="movHojaRutaId" name="hojaRutaId" />
-                        <div class="modal-body">
+                        <div class="modal-body sm-modal-cuerpo">
                             <div class="row g-3">
                                 <div class="col-md-12">
                                     <label class="form-label">Estado <span class="text-danger">*</span></label>
@@ -395,23 +382,25 @@
                                     <label class="form-label">Hora <span class="text-danger">*</span></label>
                                     <input type="time" id="movHora" name="hora" class="form-control" required />
                                 </div>
-                                <div class="col-md-12">
-                                    <label class="form-label">Unidad Origen <span class="text-danger">*</span></label>
-                                    <select id="movUnidadOrigen" name="unidadOrigenId" class="form-select select2"
-                                        required>
-                                        <option value="">Seleccionar</option>
-                                        <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}"
-                                            th:text="${unidad.nombre}"></option>
-                                    </select>
+                                <div class="col-md-6 hr-unidad-campo">
+                                    <label class="form-label" for="movUnidadOrigen">Unidad de origen <span class="text-danger">*</span></label>
+                                    <div class="hr-unidad-control">
+                                        <select id="movUnidadOrigen" name="unidadOrigenId" class="form-select select2" required>
+                                            <option value="">Seleccionar</option>
+                                            <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}" th:text="${unidad.nombre}"></option>
+                                        </select>
+                                        <button type="button" class="sm-btn sm-btn-suave hr-btn-unidad" data-select="movUnidadOrigen" title="Registrar unidad de origen" aria-label="Registrar unidad de origen"><i class="ti ti-plus"></i></button>
+                                    </div>
                                 </div>
-                                <div class="col-md-12">
-                                    <label class="form-label">Unidad Destino <span class="text-danger">*</span></label>
-                                    <select id="movUnidadDestino" name="unidadDestinoId" class="form-select select2"
-                                        required>
-                                        <option value="">Seleccionar</option>
-                                        <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}"
-                                            th:text="${unidad.nombre}"></option>
-                                    </select>
+                                <div class="col-md-6 hr-unidad-campo">
+                                    <label class="form-label" for="movUnidadDestino">Unidad de destino <span class="text-danger">*</span></label>
+                                    <div class="hr-unidad-control">
+                                        <select id="movUnidadDestino" name="unidadDestinoId" class="form-select select2" required>
+                                            <option value="">Seleccionar</option>
+                                            <option th:each="unidad : ${listaUnidades}" th:value="${unidad.idUnidad}" th:text="${unidad.nombre}"></option>
+                                        </select>
+                                        <button type="button" class="sm-btn sm-btn-suave hr-btn-unidad" data-select="movUnidadDestino" title="Registrar unidad de destino" aria-label="Registrar unidad de destino"><i class="ti ti-plus"></i></button>
+                                    </div>
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label">Observación</label>
@@ -420,12 +409,37 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="modal-footer">
+                        <div class="modal-footer sm-modal-pie">
                             <button type="button" class="btn btn-secondary"
                                 onclick="cerrarModal('modalMovimiento')">Cancelar</button>
                             <button type="submit" class="btn btn-success">
-                                <i class='bx bx-save'></i> Guardar
+                                <i class='ti ti-device-floppy'></i> Guardar
                             </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alta rápida: vuelve al formulario y selecciona la unidad registrada. -->
+        <div class="modal" id="modalNuevaUnidad">
+            <div class="modal-dialog">
+                <div class="modal-content sm-modal">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="tituloModalNuevaUnidad">Registrar unidad</h5>
+                        <button type="button" class="btn-close" onclick="cerrarModal('modalNuevaUnidad')" aria-label="Cerrar">&times;</button>
+                    </div>
+                    <form id="formNuevaUnidad">
+                        <div class="modal-body sm-modal-cuerpo">
+                            <label class="form-label" for="unidadNombre">Nombre de la unidad <span class="text-danger">*</span></label>
+                            <input class="form-control" type="text" id="unidadNombre" name="nombre" maxlength="255" required
+                                   autocomplete="off" placeholder="Ej.: DIRECCIÓN ADMINISTRATIVA" />
+                            <p class="hr-unidad-error" id="unidadError" role="alert" hidden></p>
+                            <p class="hr-ayuda-unidad">La unidad quedará disponible para origen y destino en futuras hojas y movimientos.</p>
+                        </div>
+                        <div class="modal-footer sm-modal-pie">
+                            <button type="button" class="sm-btn sm-btn-neutro" onclick="cerrarModal('modalNuevaUnidad')">Cancelar</button>
+                            <button type="submit" class="sm-btn sm-btn-exito"><i class="ti ti-device-floppy"></i> Registrar unidad</button>
                         </div>
                     </form>
                 </div>

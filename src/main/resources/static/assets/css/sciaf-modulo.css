@@ -1499,14 +1499,8 @@ tr.sm-nuevo > td { animation: smNuevo 2.6s ease; }
 .hist-card .hist-meta { font-size: .8rem; color: #64748b; }
 .hist-card .hist-frase { font-size: .92rem; color: #334155; }
 
-/* Tabla activos en modal: descripción clamp 2 líneas */
+/* Tabla de bienes del acta: la descripción usa el alto que necesite. */
 #tabla-activos-modal { font-size: .88rem; }
-#tabla-activos-modal .descripcion-clamp {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
 #tabla-activos-modal thead th { position: sticky; top: 0; z-index: 1; font-size: .82rem; }
 
 /* Modales secundarios: textos y botones más grandes */

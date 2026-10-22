@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * Un acta de faltantes tal como se emitió (sale de la foto guardada, no de los datos de
- * hoy): la usan el PDF y la página pública de verificación, así la reimpresión y la
+ * hoy): la usan el documento Word y la página pública de verificación, así la reimpresión y la
  * verificación dicen lo mismo que el papel firmado.
  */
 public record ActaFaltanteDTO(

@@ -224,7 +224,7 @@
         <div class="sm-aviso sm-aviso-info small mb-3" id="cf-ayuda-lista" style="display:none;">
             <i class="ti ti-hand-click"></i>
             <div>Cada tarjeta es una persona con su notificación. <b>Haga clic en la tarjeta</b> (o en «Ver bienes y opciones»)
-                para ver sus bienes y todo lo que se puede hacer: <b>resolver</b> un bien, <b>imprimir</b>, emitir la
+                para ver sus bienes y todo lo que se puede hacer: <b>resolver</b> un bien, <b>descargar el Word</b>, emitir la
                 <b>reiterativa</b>, <b>cambiar el plazo</b>, <b>corregir</b> datos o <b>unir</b> notificaciones.</div>
         </div>
         <div id="cf-grupos"></div>
@@ -360,24 +360,24 @@
                                 <input type="text" class="form-control form-control-sm" id="cf-reg-obs" maxlength="500">
                             </div>
                         </div>
-                        <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                        <!-- Datos del responsable para el documento (solo afectan al Word, no a la BD) -->
                         <div class="row g-2 mt-2">
                             <div class="col-md-4">
                                 <label class="form-label mb-1" style="font-size:.8rem;">Nombre del responsable (para el documento)</label>
                                 <input type="text" class="form-control form-control-sm" id="cf-reg-resp-nombre" maxlength="160"
-                                       placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                                       placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el Word)">
                                 <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label mb-1" style="font-size:.8rem;">Cargo del responsable (para el documento)</label>
                                 <input type="text" class="form-control form-control-sm" id="cf-reg-resp-cargo" maxlength="120"
-                                       placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                                       placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el Word)">
                                 <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo calculado. No cambia la BD.</div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label mb-1" style="font-size:.8rem;">Unidad/Oficina (para el documento)</label>
                                 <input type="text" class="form-control form-control-sm" id="cf-reg-resp-unidad" maxlength="120"
-                                       placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                                       placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el Word)">
                                 <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad calculada (oficina con más bienes). No cambia la BD.</div>
                             </div>
                         </div>
@@ -385,10 +385,10 @@
                 </div>
                 <div class="sm-modal-pie">
                     <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
-                    <!-- Vista previa: arma la notificación con lo elegido, sin registrar nada -->
+                    <!-- Borrador Word: arma la notificación con lo elegido, sin registrar nada -->
                     <button type="button" class="sm-btn sm-btn-suave" id="cf-reg-previa" disabled
-                            title="Ver cómo saldrá la notificación. No registra nada, no saca número ni toca el VSIAF.">
-                        <i class="ti ti-eye me-1"></i> Vista previa
+                            title="Descargar un borrador Word para revisar cómo saldrá la notificación. No registra nada, no saca número ni toca el VSIAF.">
+                        <i class="ti ti-file-word me-1"></i> Borrador Word
                     </button>
                     <button type="button" class="sm-btn sm-btn-peligro" id="cf-reg-guardar" disabled>
                         <i class="ti ti-file-certificate me-1"></i> Registrar y emitir notificación
@@ -445,24 +445,24 @@
                                    placeholder="Vacío: se conserva la actual">
                         </div>
                     </div>
-                    <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                    <!-- Datos del responsable para el documento (solo afectan al Word, no a la BD) -->
                     <div class="row g-2 mt-2">
                         <div class="col-md-4">
                             <label class="sm-label" for="np-resp-nombre">Nombre del responsable (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="np-resp-nombre" maxlength="160"
-                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="sm-label" for="np-resp-cargo">Cargo del responsable (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="np-resp-cargo" maxlength="120"
-                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo actual del acta. No cambia la BD.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="sm-label" for="np-resp-unidad">Unidad/Oficina (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="np-resp-unidad" maxlength="120"
-                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad actual del acta. No cambia la BD.</div>
                         </div>
                     </div>
@@ -470,8 +470,8 @@
                 <div class="sm-modal-pie">
                     <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="sm-btn sm-btn-suave" id="np-previa" disabled
-                            title="Ver cómo saldrá la notificación con el nuevo plazo. No registra nada.">
-                        <i class="ti ti-eye"></i> Vista previa
+                            title="Descargar un borrador Word para revisar cómo saldrá la notificación con el nuevo plazo. No registra nada.">
+                        <i class="ti ti-file-word"></i> Borrador Word
                     </button>
                     <button type="button" class="sm-btn" id="np-guardar" disabled>
                         <i class="ti ti-clock-edit"></i> Cambiar plazo
@@ -510,24 +510,24 @@
                                    placeholder="Vacío: se conserva la actual">
                         </div>
                     </div>
-                    <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                    <!-- Datos del responsable para el documento (solo afectan al Word, no a la BD) -->
                     <div class="row g-2 mt-2">
                         <div class="col-md-4">
                             <label class="sm-label" for="rn-resp-nombre">Nombre del responsable (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="rn-resp-nombre" maxlength="160"
-                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="sm-label" for="rn-resp-cargo">Cargo del responsable (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="rn-resp-cargo" maxlength="120"
-                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo actual del acta. No cambia la BD.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="sm-label" for="rn-resp-unidad">Unidad/Oficina (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="rn-resp-unidad" maxlength="120"
-                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad actual del acta. No cambia la BD.</div>
                         </div>
                     </div>
@@ -537,7 +537,7 @@
                 </div>
                 <div class="sm-modal-pie">
                     <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="sm-btn sm-btn-suave" id="rn-previa"><i class="ti ti-eye"></i> Vista previa</button>
+                    <button type="button" class="sm-btn sm-btn-suave" id="rn-previa"><i class="ti ti-file-word"></i> Borrador Word</button>
                     <button type="button" class="sm-btn" id="rn-guardar"><i class="ti ti-device-floppy"></i> Guardar corrección</button>
                 </div>
             </div>
@@ -587,24 +587,24 @@
                                    placeholder="Información adicional (opcional)">
                         </div>
                     </div>
-                    <!-- Datos del responsable para el documento (solo afectan al PDF, no a la BD) -->
+                    <!-- Datos del responsable para el documento (solo afectan al Word, no a la BD) -->
                     <div class="row g-2 mt-2">
                         <div class="col-md-4">
                             <label class="sm-label" for="gr-resp-nombre">Nombre del responsable (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="gr-resp-nombre" maxlength="160"
-                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el PDF)">
+                                   placeholder="Ing. Juan Pérez, Lic. María López, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Permite agregar título profesional: Ing., Lic., MsC., Dr., etc. No cambia la BD.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="sm-label" for="gr-resp-cargo">Cargo del responsable (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="gr-resp-cargo" maxlength="120"
-                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el PDF)">
+                                   placeholder="Jefe de Unidad, Analista, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Sobreescribe el cargo del acta anterior. No cambia la BD.</div>
                         </div>
                         <div class="col-md-4">
                             <label class="sm-label" for="gr-resp-unidad">Unidad/Oficina (para el documento)</label>
                             <input type="text" class="form-control form-control-sm" id="gr-resp-unidad" maxlength="120"
-                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el PDF)">
+                                   placeholder="Unidad Funcional, Dirección, etc. (opcional, solo para el Word)">
                             <div class="form-text" style="font-size:.7rem;">Sobreescribe la unidad del acta anterior. No cambia la BD.</div>
                         </div>
                     </div>
@@ -612,8 +612,8 @@
                 <div class="sm-modal-pie">
                     <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="sm-btn sm-btn-suave" id="gr-previa" disabled
-                            title="Ver cómo saldrá la reiterativa. No registra nada.">
-                        <i class="ti ti-eye"></i> Vista previa
+                            title="Descargar un borrador Word para revisar cómo saldrá la reiterativa. No registra nada.">
+                        <i class="ti ti-file-word"></i> Borrador Word
                     </button>
                     <button type="button" class="sm-btn sm-btn-peligro" id="gr-guardar" disabled>
                         <i class="ti ti-repeat"></i> Emitir reiterativa
@@ -688,8 +688,8 @@
                 <div class="sm-modal-pie">
                     <button type="button" class="sm-btn sm-btn-neutro" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="sm-btn sm-btn-suave" id="un-previa" disabled
-                            title="Ver cómo saldrá la notificación unida. No registra nada.">
-                        <i class="ti ti-eye"></i> Vista previa
+                            title="Descargar un borrador Word para revisar cómo saldrá la notificación unida. No registra nada.">
+                        <i class="ti ti-file-word"></i> Borrador Word
                     </button>
                     <button type="button" class="sm-btn sm-btn-peligro" id="un-guardar" disabled>
                         <i class="ti ti-arrows-join"></i> Unir y emitir
@@ -781,7 +781,7 @@
             return window.sciafConfirmar ? window.sciafConfirmar(o)
                 : Promise.resolve(window.confirm(o.titulo + '\n\n' + String(o.texto || '').replace(/<[^>]*>/g, '')));
         }
-        function pdfActa(idActa) { return CUS + '/actas/' + idActa + '/pdf'; }
+        function wordActa(idActa) { return CUS + '/actas/' + idActa + '/word'; }
         /*
          * Casilla "Adjuntar documentos" de los avisos que abren una notificación para imprimir.
          * Se elige en cada impresión (no se guarda): marcada, el documento dice "Se adjunta
@@ -789,7 +789,14 @@
          */
         var CASILLA_ADJUNTOS = { input: 'checkbox', inputValue: 0, inputPlaceholder: 'Adjuntar documentos' };
         function abrirNotificacion(idActa, adjuntos) {
-            window.open(pdfActa(idActa) + (adjuntos ? '?adjuntos=true' : ''), '_blank');
+            descargarArchivo(wordActa(idActa) + (adjuntos ? '?adjuntos=true' : ''));
+        }
+        function descargarArchivo(url) {
+            var enlace = document.createElement('a');
+            enlace.href = url;
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
         }
         /** NOT-AF-001/2026 → "NOT:SCIAF:AF N° 001/2026", como va en el papel. Las actas, tal cual. */
         function numDoc(n) { return n && n.indexOf('NOT-AF-') === 0 ? 'NOT:SCIAF:AF N° ' + n.substring(7) : (n || ''); }
@@ -948,8 +955,8 @@
         function lineaNotif(n) {
             return '<div class="cf-notif-linea" data-acta="' + Number(n.idActa) + '">' + docNotif(n) +
                 (n.plazoDias != null ? contadorHtml(n) : '') +
-                '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro cf-n-imprimir" title="Abrir el documento vigente para imprimirlo">' +
-                '<i class="ti ti-printer"></i> Imprimir</button></div>';
+                '<button type="button" class="sm-btn sm-btn-sm sm-btn-neutro cf-n-imprimir" title="Descargar el documento Word vigente">' +
+                '<i class="ti ti-printer"></i> Descargar Word</button></div>';
         }
 
         /**
@@ -964,8 +971,8 @@
                 return '<button type="button" class="cf-accion ' + clase + '"' + (deshabilitada ? ' disabled' : '') + '>' +
                        '<i class="ti ti-' + icono + '"></i><span><b>' + titulo + '</b><small>' + texto + '</small></span></button>';
             }
-            var ops = op('cf-n-imprimir', 'printer', 'Imprimir ' + (esNot ? 'notificación' : 'acta'),
-                         'Abre el documento vigente para imprimirlo y entregarlo.');
+            var ops = op('cf-n-imprimir', 'file-word', 'Descargar ' + (esNot ? 'notificación Word' : 'acta Word'),
+                         'Descarga el documento vigente para revisarlo, imprimirlo y entregarlo.');
             if (esNot) {
                 ops += op('cf-n-reiterativa' + (vencido && !ultima ? ' cf-accion-sugerida' : ''), 'repeat',
                           ultima ? 'Sin más reiterativas' : (n.numeroReiterativa === 0 ? 'Emitir reiterativa' : 'Emitir la última reiterativa'),
@@ -1114,8 +1121,8 @@
                     '</tr></thead><tbody>' + lista.map(function (a) {
                         return '<tr><td><b>' + esc(numDoc(a.numero)) + '</b></td><td>' + fmtFecha(a.fechaEmision) + '</td>' +
                                '<td class="text-center">' + Number(a.totalBienes) + '</td><td>' + estadoActaBadge(a) + '</td>' +
-                               '<td class="text-end"><a class="sm-btn sm-btn-sm sm-btn-neutro" href="' + pdfActa(a.idActa) +
-                               '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> Ver</a></td></tr>';
+                               '<td class="text-end"><a class="sm-btn sm-btn-sm sm-btn-neutro" href="' + wordActa(a.idActa) +
+                               '"><i class="ti ti-file-word"></i> Descargar Word</a></td></tr>';
                     }).join('') + '</tbody></table></div>');
             }).fail(function (xhr) {
                 $('#cd-hist').html('<p class="text-danger small mb-0">' + esc(errorDe(xhr, 'No se pudo cargar el historial.')) + '</p>');
@@ -1243,7 +1250,7 @@
             var puerta = h.origen === 'HISTORICO' ? 'Regularización'
                 : h.origen === 'REPETIDO' ? 'Registro repetido (regularización)' : (h.numeroInventario || 'Registro directo');
             var origen = h.numeroActa
-                ? '<a href="' + pdfActa(h.idActa) + '" target="_blank" rel="noopener"><i class="ti ti-file-type-pdf"></i> ' +
+                ? '<a href="' + wordActa(h.idActa) + '"><i class="ti ti-file-word"></i> ' +
                   esc(numDoc(h.numeroActa)) + '</a><br><span class="text-muted">' + esc(puerta) + '</span>'
                 : esc(h.numeroInventario || 'Registro directo') + '<br><span class="text-muted">' + fmtFecha(h.fechaDeteccion) + '</span>';
 
@@ -1402,13 +1409,13 @@
                                      ' (' + p.bienes + ' bien(es))</option>';
                           }).join('') + '</select>',
                     showDenyButton: true, showCancelButton: true,
-                    confirmButtonText: '<i class="ti ti-file-type-pdf"></i> PDF',
+                    confirmButtonText: '<i class="ti ti-file-word"></i> Word',
                     denyButtonText: '<i class="ti ti-file-spreadsheet"></i> Excel', cancelButtonText: 'Cancelar',
                     preConfirm: function () { return $('#sw-rep-predio').val(); },
                     preDeny: function () { return $('#sw-rep-predio').val(); }
                 }).then(function (r) {
                     if (r.isDismissed) return;
-                    window.open(CUS + '/reportes/predio/' + r.value + '?formato=' + (r.isDenied ? 'xlsx' : 'pdf'), '_blank');
+                    descargarArchivo(CUS + '/reportes/predio/' + r.value + '?formato=' + (r.isDenied ? 'xlsx' : 'docx'));
                 });
             });
         });
@@ -1420,14 +1427,14 @@
                 html: '<div class="form-check text-start d-inline-block"><input class="form-check-input" type="checkbox" id="sw-rep-pend" checked>' +
                       '<label class="form-check-label" for="sw-rep-pend">Solo personas con faltantes sin aclarar</label></div>',
                 showDenyButton: true, showCancelButton: true,
-                confirmButtonText: '<i class="ti ti-file-type-pdf"></i> PDF',
+                confirmButtonText: '<i class="ti ti-file-word"></i> Word',
                 denyButtonText: '<i class="ti ti-file-spreadsheet"></i> Excel', cancelButtonText: 'Cancelar',
                 preConfirm: function () { return document.getElementById('sw-rep-pend').checked; },
                 preDeny: function () { return document.getElementById('sw-rep-pend').checked; }
             }).then(function (r) {
                 if (r.isDismissed) return;
-                window.open(CUS + '/reportes/consolidado?soloPendientes=' + r.value + '&formato=' +
-                            (r.isDenied ? 'xlsx' : 'pdf'), '_blank');
+                descargarArchivo(CUS + '/reportes/consolidado?soloPendientes=' + r.value + '&formato=' +
+                            (r.isDenied ? 'xlsx' : 'docx'));
             });
         });
 
@@ -1468,7 +1475,7 @@
                 lista.map(function (a) {
                     return '<tr><td><span class="cf-cod">' + esc(a.codigo) + '</span></td><td>' + esc(a.descripcion) + '</td>' +
                         '<td>' + esc(a.persona || '—') + '</td><td style="font-size:.78rem;">' + esc(a.unidad) + ' · ' + esc(a.oficinaActual) + '</td>' +
-                        '<td>' + (a.idActa ? '<a href="' + pdfActa(a.idActa) + '" target="_blank" rel="noopener">' + esc(numDoc(a.numeroActa)) + '</a>' : '—') + '</td>' +
+                        '<td>' + (a.idActa ? '<a href="' + wordActa(a.idActa) + '">' + esc(numDoc(a.numeroActa)) + '</a>' : '—') + '</td>' +
                         '<td style="font-size:.78rem;">' + esc(a.detalle) + '</td></tr>';
                 }).join('') + '</tbody></table></div></div></div>';
         }
@@ -1535,9 +1542,9 @@
                     .done(function (res) {
                         cargar(); cargarConciliacion();
                         Swal.fire({ title: 'Acta ' + res.numero, icon: 'success', html: esc(res.message),
-                                    showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir acta para imprimir',
+                                    showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Descargar acta Word',
                                     cancelButtonText: 'Cerrar' })
-                        .then(function (x) { if (x.isConfirmed) window.open(pdfActa(res.idActa), '_blank'); });
+                        .then(function (x) { if (x.isConfirmed) descargarArchivo(wordActa(res.idActa)); });
                     })
                     .fail(function (xhr) {
                         aviso('No se regularizó', '<div style="text-align:left; white-space:pre-line;">' +
@@ -1590,8 +1597,8 @@
                     a.conError   ? '<span class="badge est-error">' + a.conError + ' con error</span>' : '',
                     a.resueltos  ? '<span class="badge est-ok">' + a.resueltos + ' resueltos</span>' : ''
                 ].filter(Boolean).join(' ') || '—';
-                var acciones = '<a class="sm-btn sm-btn-sm sm-btn-neutro" href="' + pdfActa(a.idActa) +
-                               '" target="_blank" rel="noopener" title="Descargar / imprimir"><i class="ti ti-printer"></i></a>';
+                var acciones = '<a class="sm-btn sm-btn-sm sm-btn-neutro" href="' + wordActa(a.idActa) +
+                               '" title="Descargar Word"><i class="ti ti-printer"></i></a>';
                 if (a.conError > 0 && a.estadoActa === 'VIGENTE') {
                     acciones += ' <button class="sm-btn sm-btn-sm sm-btn-neutro cf-acta-reintentar" data-id="' + a.idActa +
                                 '" data-numero="' + esc(numDoc(a.numero)) + '" title="Reintentar el traslado"><i class="ti ti-reload"></i></button>';
@@ -1698,7 +1705,7 @@
             $('#cf-reg-buscar').val(''); $('#cf-reg-personas').empty();
             $('#cf-reg-doc, #cf-reg-fecha-doc, #cf-reg-obs, #cf-reg-filtro, #cf-reg-plazo, #cf-reg-resp-nombre, #cf-reg-resp-cargo, #cf-reg-resp-unidad').val('');
             $('#cf-reg-plazo').removeClass('is-invalid');
-            $('#cf-reg-previa').html('<i class="ti ti-eye me-1"></i> Vista previa');
+            $('#cf-reg-previa').html('<i class="ti ti-file-word me-1"></i> Borrador Word');
             $('#cf-reg-paso2').hide(); $('#cf-reg-paso1').show();
             actualizarConteo();
             modalRegistro().show();
@@ -2402,11 +2409,11 @@
                     if (window.Swal) {
                         Swal.fire($.extend({
                             title: 'Notificación ' + r.numero, icon: 'success', html: esc(r.message),
-                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir notificación para imprimir',
+                            showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Descargar notificación Word',
                             cancelButtonText: 'Cerrar'
                         }, CASILLA_ADJUNTOS)).then(function (x) { if (x.isConfirmed) abrirNotificacion(r.idActa, x.value === 1); });
                     } else {
-                        window.open(pdfActa(r.idActa), '_blank');
+                        descargarArchivo(wordActa(r.idActa));
                     }
                 })
                 .fail(function (xhr) {
@@ -2417,7 +2424,7 @@
             });
         });
 
-        var ETIQUETA_PREVIA = '<i class="ti ti-eye me-1"></i> Vista previa';
+        var ETIQUETA_PREVIA = '<i class="ti ti-file-word me-1"></i> Borrador Word';
         $('#cf-reg-previa').on('click', function () {
             var sel = seleccionados();
             if (previaEnCurso || !sel.length || !reg.persona) return;
@@ -2436,17 +2443,17 @@
             }).then(function (r) {
                 if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
                 var tipo = r.headers.get('Content-Type') || '';
-                if (r.ok && tipo.indexOf('application/pdf') === 0) {
+                if (r.ok && tipo.indexOf('application/vnd.openxmlformats-officedocument.wordprocessingml.document') === 0) {
                     return r.blob().then(function (blob) {
-                        if ($('#cf-reg').hasClass('show')) mostrarVistaPrevia(blob);
+                        if ($('#cf-reg').hasClass('show')) descargarBorradorWord(blob);
                     });
                 }
                 return r.json().catch(function () { return {}; }).then(function (j) {
-                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
+                    aviso('No se pudo generar la borrador Word', '<div style="text-align:left; white-space:pre-line;">' +
                           esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
                 });
             }).catch(function () {
-                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
+                aviso('No se pudo generar la borrador Word', 'Sin conexión con el servidor.', 'error');
             }).then(function () {
                 previaEnCurso = false;
                 $b.html(ETIQUETA_PREVIA);
@@ -2454,25 +2461,16 @@
             });
         });
 
-        function mostrarVistaPrevia(blob) {
+        function descargarBorradorWord(blob) {
             var url = URL.createObjectURL(blob);
-            var liberar = function () { setTimeout(function () { URL.revokeObjectURL(url); }, 10 * 60 * 1000); };
-            if (!window.Swal) { window.open(url, '_blank'); liberar(); return; }
-            Swal.fire({
-                title: 'Vista previa de la notificación',
-                html: '<div class="alert alert-warning py-2 small text-start mb-2"><i class="ti ti-info-circle me-1"></i>' +
-                      '<b>No se registró nada.</b> Es solo para revisar: no tiene número ni validez. Para emitirla, ' +
-                      'cierre esta ventana y pulse <b>Registrar y emitir notificación</b>.</div>' +
-                      '<iframe src="' + url + '" title="Vista previa de la notificación" ' +
-                      'style="width:100%; height:68vh; border:1px solid #dcdfe6; border-radius:6px;"></iframe>' +
-                      '<div class="mt-2 small text-start"><a href="' + url + '" target="_blank" rel="noopener">' +
-                      '<i class="ti ti-external-link me-1"></i>Abrir en otra pestaña</a> ' +
-                      '<span class="text-muted">(si no se ve arriba, por ejemplo en el celular)</span></div>',
-                width: '92%',
-                showConfirmButton: false,
-                showCloseButton: true,
-                didDestroy: liberar
-            });
+            var enlace = document.createElement('a');
+            enlace.href = url;
+            enlace.download = 'borrador_notificacion_faltantes.docx';
+            document.body.appendChild(enlace);
+            enlace.click();
+            enlace.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 60 * 1000);
+            aviso('Borrador Word descargado', 'Puede revisarlo y editarlo. No se registró nada; el borrador no tiene número ni validez.', 'info');
         }
 
         // ── Exportar ─────────────────────────────────────────────────────
@@ -2554,7 +2552,7 @@
             return !isNaN(n) && n >= 1 && n <= 90;
         }
 
-        /** Vista previa en PDF (no registra nada). */
+        /** Borrador Word (no registra nada). */
         var previaEnCursoN = false;
         function vistaPreviaN(url, datos, $b, alTerminar) {
             if (previaEnCursoN) return;
@@ -2568,13 +2566,13 @@
             }).then(function (r) {
                 if (window.sciafSesion && window.sciafSesion.perdida(r)) return;
                 var tipo = r.headers.get('Content-Type') || '';
-                if (r.ok && tipo.indexOf('application/pdf') === 0) return r.blob().then(mostrarVistaPrevia);
+                if (r.ok && tipo.indexOf('application/vnd.openxmlformats-officedocument.wordprocessingml.document') === 0) return r.blob().then(descargarBorradorWord);
                 return r.json().catch(function () { return {}; }).then(function (j) {
-                    aviso('No se pudo generar la vista previa', '<div style="text-align:left; white-space:pre-line;">' +
+                    aviso('No se pudo generar la borrador Word', '<div style="text-align:left; white-space:pre-line;">' +
                           esc(j.message || ('El servidor respondió ' + r.status + '.')) + '</div>', 'error');
                 });
             }).catch(function () {
-                aviso('No se pudo generar la vista previa', 'Sin conexión con el servidor.', 'error');
+                aviso('No se pudo generar la borrador Word', 'Sin conexión con el servidor.', 'error');
             }).then(function () {
                 previaEnCursoN = false;
                 $b.html(html);
@@ -2582,7 +2580,7 @@
             });
         }
 
-        /** Registra la acción y ofrece abrir el documento para imprimirlo. */
+        /** Registra la acción y ofrece descargar el Word para revisarlo e imprimirlo. */
         function ejecutarN(url, datos, $b, $modal, tituloOk) {
             $b.prop('disabled', true);
             return $.ajax({ url: url, type: 'POST', contentType: 'application/json', data: JSON.stringify(datos) })
@@ -2592,7 +2590,7 @@
                 if ($('#cf-tab-actas').hasClass('active')) cargarActas();
                 Swal.fire($.extend({
                     title: tituloOk, icon: 'success', html: esc(r.message),
-                    showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir para imprimir',
+                    showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Descargar Word',
                     cancelButtonText: 'Cerrar'
                 }, CASILLA_ADJUNTOS)).then(function (x) { if (x.isConfirmed) abrirNotificacion(r.idActa, x.value === 1); });
             })
@@ -2603,16 +2601,16 @@
             .always(function () { $b.prop('disabled', false); });
         }
 
-        // Imprimir: abre el documento VIGENTE (si hubo reiterativa, la reiterativa).
+        // Descarga el documento vigente (si hubo reiterativa, la reiterativa).
         $(document).on('click.cf', '#cf-wrap .cf-n-imprimir', function () {
             var n = notifDe(this);
             if (!n) return;
             // Las actas (sin plazo) no llevan la opción de adjuntos.
-            if (n.plazoDias == null || !window.Swal) { window.open(pdfActa(n.idActa), '_blank'); return; }
+            if (n.plazoDias == null || !window.Swal) { descargarArchivo(wordActa(n.idActa)); return; }
             Swal.fire($.extend({
-                title: 'Imprimir ' + esc(numDoc(n.numeroActa)), icon: 'question',
+                title: 'Descargar ' + esc(numDoc(n.numeroActa)), icon: 'question',
                 html: 'Marque <b>Adjuntar documentos</b> si la notificación se entrega con documentación de respaldo.',
-                showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Abrir para imprimir',
+                showCancelButton: true, confirmButtonText: '<i class="ti ti-printer me-1"></i> Descargar Word',
                 cancelButtonText: 'Cancelar'
             }, CASILLA_ADJUNTOS)).then(function (x) { if (x.isConfirmed) abrirNotificacion(n.idActa, x.value === 1); });
         });

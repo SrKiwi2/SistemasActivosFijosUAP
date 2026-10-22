@@ -180,12 +180,16 @@ public class HojaRutaController {
     public ResponseEntity<Map<String, Object>> listar(
             HttpServletRequest request,
             @RequestParam(required = false) Integer gestion,
-            @RequestParam(required = false) Long unidadOrigenId) {
+            @RequestParam(required = false) Long unidadOrigenId,
+            @RequestParam(required = false) String codigo,
+            @RequestParam(required = false) String tipo) {
 
         if (!puedeLeer(request)) return sinPermisoLectura();
         Map<String, Object> response = new HashMap<>();
         try {
-            List<HojaRutaTablaDTO> lista = hojaRutaService.listarFiltrados(gestion, unidadOrigenId);
+            List<HojaRutaTablaDTO> lista = (codigo != null && !codigo.isBlank()) || (tipo != null && !tipo.isBlank())
+                    ? hojaRutaService.buscarParaRecepcion(codigo, tipo, gestion)
+                    : hojaRutaService.listarFiltrados(gestion, unidadOrigenId);
             response.put("ok", true);
             response.put("hojaRutas", lista);
         } catch (Exception e) {
@@ -298,6 +302,36 @@ public class HojaRutaController {
                     nueva.setRegistroIdUsuario(idUsuario);
                     return unidadService.save(nueva);
                 });
+    }
+
+    /** Alta rápida desde los selectores de origen y destino del formulario de Recepción. */
+    @ValidarUsuarioAutenticado
+    @PostMapping("/unidad/registrar")
+    @ResponseBody
+    @Transactional(rollbackFor = Exception.class)
+    public ResponseEntity<Map<String, Object>> registrarUnidad(HttpServletRequest request,
+                                                               @RequestParam("nombre") String nombre) {
+        if (!puedeRegistrar(request)) return sinPermiso();
+        nombre = mayus(nombre);
+        if (nombre == null) return respuesta(HttpStatus.BAD_REQUEST, false, "Escriba el nombre de la unidad.");
+        if (largo(nombre)) return respuesta(HttpStatus.BAD_REQUEST, false,
+                "El nombre de la unidad supera " + MAX_TEXTO + " caracteres.");
+
+        // Serializa las altas rápidas para que dos operadores no creen el mismo nombre a la vez.
+        hojaRutaService.tomarTurnoRegistro();
+        for (Unidad existente : unidadService.findAll()) {
+            if (nombre.equalsIgnoreCase(existente.getNombre().trim())) {
+                return ResponseEntity.ok(Map.of("ok", true, "idUnidad", existente.getIdUnidad(),
+                        "nombre", existente.getNombre(), "msg", "La unidad ya existía; se seleccionó."));
+            }
+        }
+        Unidad nueva = new Unidad();
+        nueva.setNombre(nombre);
+        nueva.setEstado("ACTIVO");
+        nueva.setRegistroIdUsuario(RolesSciaf.usuarioDe(request).getIdUsuario());
+        unidadService.save(nueva);
+        return ResponseEntity.ok(Map.of("ok", true, "idUnidad", nueva.getIdUnidad(),
+                "nombre", nueva.getNombre(), "msg", "Unidad registrada correctamente."));
     }
 
     /** Lo que se exige en registrar y modificar; null si todo está bien. */
