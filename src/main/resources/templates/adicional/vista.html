@@ -1,6 +1,6 @@
 <!-- ═══════════════════════════════════════════════════════════════
      PANTALLA: Activos adicionales — plantilla de pantallas (docs/PLANTILLA_MODULOS.md)
-     Bienes que no estaban en el sistema. Nada es obligatorio (solo algo con qué reconocerlo:
+     Bienes que no estaban en el sistema. Se exige el estado y algo con qué reconocerlo:
      la descripción o el código antiguo). Con predio y grupo contable reciben un código propio
      con A al final (MUN-PRED-GRP-00001A); existen SOLO en el SCIAF (no van al VSIAF).
      Tabla paginada en el servidor; clic en una fila = detalle en ventana.
@@ -83,11 +83,33 @@
     .adi-seccion-cuerpo { padding: .85rem .9rem; }
     .adi-ayuda { font-size: .78rem; color: var(--sm-texto-2); margin-top: .2rem; }
     .adi-ayuda.mal { color: var(--sm-peligro); }
-    .adi-estados-lista { max-height: 175px; overflow-y: auto; border: 1px solid var(--sm-borde); border-radius: 10px; background: var(--sm-superficie); }
-    .adi-estado-fila { display: flex; align-items: center; gap: .8rem; padding: .28rem .65rem; border-bottom: 1px solid var(--sm-borde); }
-    .adi-estado-fila:last-child { border-bottom: 0; }
-    .adi-estado-fila span { width: min(38%, 220px); flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; font-weight: 700; color: var(--sm-texto-2); }
-    .adi-estado-fila select { flex: 1; min-width: 0; height: 34px; }
+    .adi-unidades-barra { display: grid; grid-template-columns: minmax(160px, 230px) minmax(0, 1fr); gap: 1rem; align-items: end; }
+    .adi-unidades-general { display: flex; gap: .65rem; align-items: end; }
+    .adi-unidades-general > div { flex: 0 1 320px; min-width: 0; }
+    .adi-unidades-general .sm-btn { white-space: nowrap; }
+    .adi-unidades-cab, .adi-unidad-fila { display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr) minmax(180px, .8fr);
+        gap: .75rem; align-items: center; }
+    .adi-unidades-cab { padding: .25rem .7rem; color: var(--sm-texto-2); font-size: .78rem; font-weight: 700; }
+    .adi-unidades-lista { border: 1px solid var(--sm-borde); border-radius: 10px; background: var(--sm-superficie); }
+    .adi-unidad-fila { padding: .55rem .7rem; }
+    .adi-unidad-fila + .adi-unidad-fila { border-top: 1px solid var(--sm-borde); }
+    .adi-unidad-numero { color: var(--ad); font-size: .84rem; font-weight: 700; }
+    .adi-unidad-campo { min-width: 0; }
+    .adi-unidad-campo small { display: none; }
+    .adi-unidad-fila .sm-input, .adi-unidad-fila .sm-select { min-width: 0; margin: 0; }
+    .adi-unidades-paginas { display: flex; justify-content: center; align-items: center; gap: .7rem; min-height: 36px; margin-top: .35rem; }
+    .adi-unidades-paginas button { border: 1px solid var(--sm-borde-fuerte); border-radius: 8px; background: var(--sm-superficie); color: var(--sm-texto); width: 32px; height: 30px; }
+    .adi-unidades-paginas button:disabled { opacity: .4; }
+    .adi-unidades-paginas select { height: 30px; min-width: 160px; border: 1px solid var(--sm-borde-fuerte); border-radius: 8px;
+        background: var(--sm-superficie); color: var(--sm-texto); font-size: .8rem; font-weight: 600; text-align: center; }
+    @media (max-width: 767.98px) {
+        .adi-unidades-barra { grid-template-columns: 1fr; gap: .5rem; }
+        .adi-unidades-cab { display: none; }
+        .adi-unidad-fila { grid-template-columns: 1fr 1fr; gap: .4rem; }
+        .adi-unidad-numero, .adi-unidad-campo:last-child { grid-column: 1 / -1; }
+        .adi-unidad-campo small { display: block; margin-bottom: .2rem; font-size: .74rem; color: var(--sm-texto-2); }
+        .adi-unidad-fila .sm-input { width: 100%; }
+    }
     .adi-info { display: flex; gap: .7rem; align-items: center; border-radius: 10px; padding: .6rem .8rem; margin-top: .8rem;
         background: var(--ad-suave); border: 1px solid rgba(var(--ad-rgb), .25); }
     .adi-info > i { font-size: 1.4rem; color: var(--ad); }
@@ -310,7 +332,7 @@
             <i class="ti ti-box"></i> Administración de activos <i class="ti ti-chevron-right"></i> Activos adicionales
         </nav>
         <h1 class="sm-titulo">Activos adicionales <span class="adi-sello"><i class="ti ti-shield-check"></i> SOLO SCIAF</span></h1>
-        <p class="sm-subtitulo" title="Bienes que no estaban registrados. Nada es obligatorio: registre lo que sepa y su código antiguo. Con predio y grupo contable reciben código propio (01-04-06-00001A); no van al VSIAF.">Bienes que no estaban registrados. Nada es obligatorio: registre lo que sepa y su <b>código antiguo</b>.
+        <p class="sm-subtitulo" title="Bienes que no estaban registrados. Indique el estado de cada unidad y su descripción o código antiguo. Con predio y grupo contable reciben código propio (01-04-06-00001A); no van al VSIAF.">Bienes que no estaban registrados. Indique el <b>estado</b> y la descripción o el <b>código antiguo</b>.
             Con predio y grupo contable reciben código propio <span class="adi-codigo">01-04-06-00001<span class="adi-a">A</span></span>; no van al VSIAF.</p>
     </div>
     <div class="sm-cabecera-acciones">
@@ -371,7 +393,7 @@
             <div class="sm-cabecera-icono"><i class="ti ti-box-multiple"></i></div>
             <div class="flex-grow-1"><span class="sm-detalle-kicker js-form-kicker">Nuevo activo adicional</span>
                 <h5 class="sm-modal-titulo js-form-titulo">Registre lo que sepa del bien</h5>
-                <small>Ningún dato es obligatorio. Solo escriba el nombre o el código antiguo para poder reconocerlo.</small></div>
+                <small>Indique el estado de cada unidad y el nombre o código antiguo para reconocerla.</small></div>
         </div>
         <div class="adi-lotes js-lotes d-none" aria-label="Lotes de esta alta">
             <button type="button" class="sm-btn sm-btn-neutro js-lote-prev" title="Lote anterior"><i class="ti ti-chevron-left"></i></button>
@@ -380,7 +402,7 @@
             <button type="button" class="sm-btn sm-btn-suave js-lote-add" title="Agregar otro lote con su propio grupo y destino"><i class="ti ti-plus"></i> Lote</button>
             <button type="button" class="sm-btn sm-btn-neutro js-lote-remove" title="Quitar este lote"><i class="ti ti-trash"></i></button>
         </div>
-        <!-- Pasos: nada es obligatorio, se puede ir a cualquiera y guardar desde cualquiera -->
+        <!-- Se puede ir a cualquier paso; el estado se valida al guardar. -->
         <div class="adi-pasos" role="tablist" aria-label="Partes del registro">
             <button type="button" class="adi-paso" data-paso="1"><span class="adi-paso-num">1</span><span class="adi-paso-txt">El bien</span></button>
             <button type="button" class="adi-paso" data-paso="2"><span class="adi-paso-num">2</span><span class="adi-paso-txt">Unidades y valor</span></button>
@@ -413,11 +435,11 @@
                 </div>
             </div>
 
-            <!-- Paso 2. Cuántos, cómo se reconocen (una línea por unidad) y cuánto valen -->
+            <!-- Paso 2. Cada unidad se edita en una fila; la paginación evita que crezca el formulario. -->
             <div class="adi-etapa" data-etapa="2">
-                <div class="adi-etapa-ayuda"><i class="ti ti-hash"></i> Varios bienes iguales: un activo por unidad, con su código antiguo y su serie (uno por línea).</div>
-                <div class="row g-2">
-                    <div class="col-lg-3 col-md-4 js-bloque-cantidad">
+                <div class="adi-etapa-ayuda"><i class="ti ti-hash"></i> Un bien por unidad. Anote su código antiguo, serie y estado en la misma fila.</div>
+                <div class="adi-unidades-barra">
+                    <div class="js-bloque-cantidad">
                         <label class="sm-label">Cantidad</label>
                         <div class="adi-cantidad">
                             <button type="button" class="js-menos" aria-label="Uno menos">−</button>
@@ -425,22 +447,20 @@
                             <button type="button" class="js-mas" aria-label="Uno más">+</button>
                         </div>
                     </div>
-                    <div class="col-lg col-md-4">
-                        <label class="sm-label"><span class="text-nowrap">Código antiguo</span> <small class="text-muted adi-etiqueta-extra js-ayuda-antiguo">(el que usaba Activos Fijos)</small></label>
-                        <textarea class="sm-input js-antiguos" rows="1" style="min-height:44px" placeholder="Ej: AF-2015-0231"></textarea>
-                        <div class="adi-ayuda js-info-antiguos"></div>
-                    </div>
-                    <div class="col-lg col-md-4">
-                        <label class="sm-label"><span class="text-nowrap">N° de serie</span> <small class="text-muted adi-etiqueta-extra">(va en la descripción)</small></label>
-                        <textarea class="sm-input js-series" rows="1" style="min-height:44px" placeholder="Ej: 218B096002420"></textarea>
-                        <div class="adi-ayuda js-info-series"></div>
-                    </div>
+                    <div class="adi-unidades-general js-estado-general d-none"><div><label class="sm-label">Estado para todas</label><select class="sm-select js-estado"><option value="">(Elegir por unidad)</option></select></div>
+                        <button type="button" class="sm-btn sm-btn-secundario js-aplicar-estado">Aplicar</button></div>
                 </div>
-                <div class="adi-sub"><i class="ti ti-clipboard-check"></i> Conservación por unidad</div>
-                <div class="adi-ayuda mb-2">Cada fila corresponde a la misma línea del código antiguo y del número de serie. Sin estado individual se usa el general. Puede aplicarlo a todas y ajustar las excepciones.</div>
-                <div class="row g-2 align-items-end mb-2 js-estado-general"><div class="col-md-5"><label class="sm-label">Estado general del lote</label><select class="sm-select js-estado"><option value="">(Sin indicar)</option></select></div>
-                    <div class="col-md-7"><button type="button" class="sm-btn sm-btn-secundario js-aplicar-estado">Aplicar a las unidades</button></div></div>
-                <div class="adi-estados-lista js-estados-lista"></div>
+                <textarea class="js-antiguos d-none" tabindex="-1" aria-hidden="true"></textarea>
+                <textarea class="js-series d-none" tabindex="-1" aria-hidden="true"></textarea>
+                <div class="js-estados-lista d-none" aria-hidden="true"></div>
+                <div class="adi-sub"><i class="ti ti-clipboard-check"></i> Detalle por unidad · estado obligatorio</div>
+                <div class="adi-unidades-cab" aria-hidden="true"><span>Unidad</span><span>Código antiguo <small class="js-ayuda-antiguo">(Activos Fijos)</small></span><span>N° de serie</span><span>Conservación</span></div>
+                <div class="adi-unidades-lista js-unidades-vista"></div>
+                <div class="adi-unidades-paginas js-unidades-paginas d-none">
+                    <button type="button" class="js-unidad-anterior" aria-label="Unidades anteriores"><i class="ti ti-chevron-left"></i></button>
+                    <select class="js-unidades-ir" aria-label="Ir a un grupo de unidades"></select>
+                    <button type="button" class="js-unidad-siguiente" aria-label="Unidades siguientes"><i class="ti ti-chevron-right"></i></button>
+                </div>
                 <div class="adi-sub"><i class="ti ti-receipt"></i> Adquisición</div>
                 <div class="row g-2">
                     <div class="col-lg-3 col-md-3"><label class="sm-label">Fecha de adquisición</label><input type="date" class="sm-input js-fecha" /></div>
@@ -453,12 +473,13 @@
             <!-- Paso 3. Clasificación (da el código nuevo) y dónde está -->
             <div class="adi-etapa" data-etapa="3">
                 <div class="adi-ocultar-en-alta">
-                    <div class="adi-etapa-ayuda"><i class="ti ti-layers-subtract"></i> Con predio y grupo contable recibe código nuevo; la oficina y el responsable dicen dónde está.</div>
+                    <div class="adi-etapa-ayuda"><i class="ti ti-layers-subtract"></i> El grupo contable se elige en cada lote. Con predio y grupo recibe código nuevo; la oficina y el responsable indican dónde está.</div>
                     <div class="row g-2">
                         <div class="col-lg-3 col-md-6"><label class="sm-label">Predio</label><select class="js-predio"><option value=""></option></select></div>
                         <div class="col-lg-3 col-md-6"><label class="sm-label">Grupo contable</label><select class="js-grupo"><option value=""></option></select></div>
                         <div class="col-lg-6 col-md-6"><label class="sm-label">Auxiliar de adicionales</label><div class="adi-con-boton"><div><select class="js-auxiliar" disabled><option value=""></option></select></div>
-                            <button type="button" class="adi-icono-btn js-alta-aux" title="Crear auxiliar para adicionales" disabled><i class="ti ti-plus"></i></button></div>
+                            <button type="button" class="adi-icono-btn js-alta-aux" title="Crear auxiliar para adicionales" disabled><i class="ti ti-plus"></i></button>
+                            <button type="button" class="adi-icono-btn js-admin-aux d-none" title="Corregir o eliminar el auxiliar seleccionado" disabled><i class="ti ti-settings"></i></button></div>
                             <div class="adi-ayuda js-aux-legado d-none">Este bien tiene un auxiliar histórico del VSIAF. Al guardar la corrección se retirará ese vínculo; elija uno del catálogo de adicionales si corresponde.</div></div>
                         <div class="col-md-6"><label class="sm-label">Oficina</label>
                             <div class="adi-con-boton">
@@ -550,7 +571,7 @@
             </div>
         </div>
         <div class="adi-pie">
-            <span class="adi-nota js-pie-nota">Nada es obligatorio.</span>
+            <span class="adi-nota js-pie-nota">Estado obligatorio para cada unidad.</span>
             <button type="button" class="sm-btn sm-btn-neutro js-cancelar" aria-label="Cancelar"><i class="ti ti-x"></i><span class="adi-l-largo"> Cancelar</span></button>
             <button type="button" class="sm-btn sm-btn-neutro js-atras" aria-label="Paso anterior" title="Paso anterior"><i class="ti ti-arrow-left"></i></button>
             <button type="button" class="sm-btn sm-btn-neutro js-siguiente" title="Paso siguiente (Ctrl+Enter)"><span class="adi-l-largo">Siguiente </span><i class="ti ti-arrow-right"></i></button>
@@ -620,6 +641,7 @@
     const $tabla = $raiz.find('.js-tabla');
     const $panel = $raiz.find('.js-panel-form');
     const $form = $raiz.find('.js-form');
+    $form.on('submit', function (e) { e.preventDefault(); });
     const $modal = $raiz.find('.js-modal');
     const $detalle = $raiz.find('.js-detalle');
     const MAX_FOTOS = INICIAL.maxFotos || 3;
@@ -627,7 +649,7 @@
     const predioPorId = {}, grupoPorId = {};
     PREDIOS.forEach(function (p) { predioPorId[p.id] = p; });
     GRUPOS.forEach(function (g) { grupoPorId[g.id] = g; });
-    const st = { edicion: null, enviando: false, token: null, fotos: [], paso: 1, lotes: [], loteActual: 0, tokenLotes: null, cambiandoLote: false };
+    const st = { edicion: null, enviando: false, token: null, fotos: [], paso: 1, lotes: [], loteActual: 0, tokenLotes: null, cambiandoLote: false, unidadPagina: 0, estadosGuardados: [] };
     const URL_OBJ = window.URL || window.webkitURL;
 
     // ── utilidades ──
@@ -777,12 +799,13 @@
         }
     }
 
-    /** Marca los pasos que ya tienen algún dato (nada es obligatorio: solo orienta). */
+    /** Marca los pasos que ya tienen algún dato; la validación se hace al guardar. */
     function marcarPasos() {
         const v = function (sel) { return !!($form.find(sel).val() || '').toString().trim(); };
         const con = {
             1: ['.js-desc', '.js-marca', '.js-modelo', '.js-color', '.js-material', '.js-medidas'].some(v),
             2: ['.js-antiguos', '.js-series', '.js-estado', '.js-fecha', '.js-valor', '.js-vida', '.js-financiador'].some(v)
+                || $form.find('.js-estado-unidad').toArray().some(e => !!e.value)
                 || (!st.edicion && Number($form.find('.js-cantidad').val()) > 1),
             3: ['.js-predio', '.js-grupo', '.js-auxiliar', '.js-oficina', '.js-responsable'].some(v),
             4: ['.js-caract', '.js-obs'].some(v) || st.fotos.length > 0
@@ -816,6 +839,7 @@
 
     const s2 = { dropdownParent: $raiz, width: '100%' };
     const $predio = $form.find('.js-predio'), $grupo = $form.find('.js-grupo'), $aux = $form.find('.js-auxiliar');
+    $form.find('.js-admin-aux').toggleClass('d-none', !INICIAL.esAdmin);
     const $oficina = $form.find('.js-oficina'), $resp = $form.find('.js-responsable'), $fin = $form.find('.js-financiador');
     PREDIOS.forEach(function (p) { $predio.append(new Option(p.nombre + (p.prefijo ? '  ·  ' + p.prefijo : '  (sin configurar)'), p.id)); });
     GRUPOS.forEach(function (g) { $grupo.append(new Option(g.cod + ' - ' + g.nombre, g.id)); });
@@ -848,19 +872,25 @@
             $oficina.trigger('change.select2');
         } catch (e) { SciafModulo.avisarError(e, 'No se pudieron traer las oficinas'); }
     }
+    let cargaAuxiliarSecuencia = 0;
     async function cargarAuxiliares(elegir) {
+        const secuencia = ++cargaAuxiliarSecuencia;
         $aux.prop('disabled', true).empty().append(new Option('', '')).trigger('change.select2');
+        $form.find('.js-admin-aux').prop('disabled', true);
         const g = $grupo.val();
         $form.find('.js-alta-aux').prop('disabled', !g);
         if (!g) return;
         try {
             const auxiliares = await (await SciafModulo.pedir(URL + '/api/auxiliares?grupoId=' + encodeURIComponent(g), { metodo: 'GET' })).json();
+            if (secuencia !== cargaAuxiliarSecuencia || String($grupo.val()) !== String(g)) return;
             auxiliares.forEach(function (a) { $aux.append(new Option(a.text, a.id)); });
             $aux.prop('disabled', false);
             if (elegir) $aux.val(String(elegir));
             $aux.trigger('change.select2');
+            $form.find('.js-admin-aux').prop('disabled', !$aux.val());
         } catch (e) { SciafModulo.avisarError(e, 'No se pudieron traer los auxiliares'); }
     }
+    $aux.on('change', function () { $form.find('.js-admin-aux').prop('disabled', !this.value); });
     $raiz.on('click', '.js-alta-aux', async function () {
         const grupo = grupoPorId[$grupo.val()];
         if (!grupo) return;
@@ -879,8 +909,51 @@
             const creado = await SciafModulo.pedirJson(URL + '/api/auxiliares', { metodo: 'POST', json: r.value });
             if (creado.ok === false) throw new Error(creado.msg || 'No se pudo registrar.');
             $aux.append(new Option(creado.text, creado.id, true, true)).trigger('change.select2');
+            $form.find('.js-admin-aux').prop('disabled', false);
             aviso('Auxiliar adicional registrado.', 'success');
         } catch (e) { SciafModulo.avisarError(e, 'No se pudo registrar el auxiliar'); }
+    });
+    $raiz.on('click', '.js-admin-aux', async function () {
+        const id = Number($aux.val());
+        if (!INICIAL.esAdmin || !id) return;
+        try {
+            const info = await (await SciafModulo.pedir(URL + '/api/auxiliares/' + id, { metodo: 'GET' })).json();
+            const grupos = GRUPOS.map(function (g) {
+                return '<option value="' + g.id + '"' + (String(g.id) === String(info.grupoId) ? ' selected' : '') + '>'
+                    + esc(g.cod + ' - ' + g.nombre) + '</option>';
+            }).join('');
+            const r = await Swal.fire({ title: 'Administrar auxiliar de adicionales',
+                html: '<p class="small">' + (info.usos ? 'Asignado a ' + info.usos + ' bien(es). Para cambiarlo de grupo o eliminarlo, corrija primero esos bienes.'
+                    : 'Puede corregir el grupo o eliminar este auxiliar porque aún no tiene bienes asignados.') + '</p>'
+                    + '<label class="swal2-label" for="adi-aux-ed-grupo">Grupo contable</label>'
+                    + '<select id="adi-aux-ed-grupo" class="swal2-select"' + (info.usos ? ' disabled' : '') + '>' + grupos + '</select>'
+                    + '<input id="adi-aux-ed-nombre" class="swal2-input" maxlength="255" placeholder="Nombre">'
+                    + '<input id="adi-aux-ed-codigo" class="swal2-input" maxlength="30" placeholder="Código histórico (opcional)">',
+                showCancelButton: true, showDenyButton: !info.usos, confirmButtonText: 'Guardar cambios',
+                denyButtonText: 'Eliminar', cancelButtonText: 'Cancelar',
+                didOpen: function () {
+                    $('#adi-aux-ed-nombre').val(info.nombre || '');
+                    $('#adi-aux-ed-codigo').val(info.codigo || '');
+                },
+                preConfirm: function () {
+                    const nombre = mayus($('#adi-aux-ed-nombre').val());
+                    if (!nombre) { Swal.showValidationMessage('Escriba el nombre del auxiliar.'); return false; }
+                    return { grupoId: Number($('#adi-aux-ed-grupo').val()), nombre: nombre,
+                        codigo: mayus($('#adi-aux-ed-codigo').val()) || null };
+                } });
+            if (r.isConfirmed) {
+                const actualizado = await SciafModulo.pedirJson(URL + '/api/auxiliares/' + id + '/actualizar',
+                    { metodo: 'POST', json: r.value });
+                if (actualizado.ok === false) throw new Error(actualizado.msg || 'No se pudo corregir.');
+                await cargarAuxiliares(String(actualizado.grupoId) === String($grupo.val()) ? id : null);
+                aviso('Auxiliar adicional corregido.', 'success');
+            } else if (r.isDenied && await sciafConfirmarEliminar('el auxiliar ' + esc(info.nombre), 'Solo se elimina si no tiene bienes asignados.')) {
+                const eliminado = await SciafModulo.pedirJson(URL + '/api/auxiliares/' + id + '/eliminar', {});
+                if (eliminado.ok === false) throw new Error(eliminado.msg || 'No se pudo eliminar.');
+                await cargarAuxiliares();
+                aviso('Auxiliar adicional eliminado.', 'success');
+            }
+        } catch (e) { if (!e.sesionPerdida) Swal.fire('No se pudo administrar el auxiliar', esc(e.message || ''), 'error'); }
     });
     function bloqueoUbicacion() { return !!(st.edicion && st.edicion.conVida); }
 
@@ -1055,8 +1128,13 @@
     });
 
     // Vista previa del código nuevo (orientativa: no reserva nada)
+    let vistaCodigoSecuencia = 0;
     const actualizarCodigo = debounce(async function () {
+        const secuencia = ++vistaCodigoSecuencia;
         const $c = $form.find('.js-codigo-previo');
+        const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
+        const predioId = String($predio.val() || ''), grupoId = String($grupo.val() || '');
+        $form.find('.js-estado-general').toggleClass('d-none', cant <= 1);
         if (st.edicion && st.edicion.codigo && String($grupo.val()) === String(st.edicion.idGrupo) && String($predio.val()) === String(st.edicion.idPredio)) {
             $c.html('Conserva su código ' + codigoHtml(st.edicion.codigo) + '.'); return;
         }
@@ -1064,14 +1142,25 @@
             $c.html('Sin predio y grupo contable <b>no recibe código nuevo</b>: queda con su código antiguo y se le asigna cuando se complete.');
             return;
         }
-        const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
-        $form.find('.js-estado-general').toggleClass('d-none', cant <= 1);
         try {
             const r = await SciafModulo.pedir(URL + '/api/previsualizar?idPredio=' + $predio.val() + '&idGrupo=' + $grupo.val() + '&cantidad=' + cant, { metodo: 'GET' });
             const d = await r.json();
+            if (secuencia !== vistaCodigoSecuencia || String($predio.val() || '') !== predioId
+                    || String($grupo.val() || '') !== grupoId) return;
             if (!d.conCodigo) { $c.html('El predio no tiene configurado su código: <b>no recibe código nuevo</b> (Ámbito geográfico → Predio).'); return; }
-            $c.html((st.edicion && st.edicion.codigo ? 'Cambia a código nuevo: ' : 'Recibirá ') + codigoHtml(d.desde)
-                + (cant > 1 ? ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(d.hasta) : '') + ' <small class="text-muted">(se confirma al guardar)</small>');
+            const previos = st.edicion ? 0 : st.lotes.slice(0, st.loteActual).reduce(function (suma, lote) {
+                const x = lote.datos;
+                return suma + (String(x.idPredio || '') === predioId && String(x.idGrupoContable || '') === grupoId
+                    ? Number(x.cantidad) || 0 : 0);
+            }, 0);
+            const codigo = /^(.*-)(\d{5})A$/.exec(d.desde);
+            if (codigo && Number(codigo[2]) + previos + cant - 1 > 99999) {
+                $c.text('La serie de adicionales de este predio y grupo se agotaría con estos lotes.'); return;
+            }
+            const mostrarCodigo = function (n) { return codigo ? codigo[1] + String(Number(codigo[2]) + n).padStart(5, '0') + 'A' : d.desde; };
+            $c.html((st.edicion && st.edicion.codigo ? 'Cambia a código nuevo: ' : 'Recibirá ') + codigoHtml(mostrarCodigo(previos))
+                + (cant > 1 ? ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(mostrarCodigo(previos + cant - 1)) : '')
+                + ' <small class="text-muted">(estimado; se confirma al guardar)</small>');
         } catch (e) { $c.text('—'); }
     }, 300);
 
@@ -1079,19 +1168,6 @@
         const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
         if ($form.find('.js-estado-unidad').length !== Math.min(cant, 200)) pintarEstados();
         const ant = lineas($form.find('.js-antiguos').val()), ser = lineas($form.find('.js-series').val());
-        $form.find('.adi-estado-fila span').each(function (i) {
-            const referencia = ant[i] || ser[i] || '';
-            $(this).text('Unidad ' + (i + 1) + (referencia ? ' · ' + referencia : '')).attr('title', referencia);
-        });
-        // Con varias unidades, una línea por unidad: las cajas crecen con la cantidad
-        // (hasta 5 a la vista, 3 en ventanas bajas, para que el paso entre; con más, la caja se desplaza)
-        $form.find('.js-antiguos, .js-series').attr('rows', Math.min(window.innerHeight <= 700 ? 3 : 5, cant)).css('min-height', cant > 1 ? '' : '44px');
-        const repetidas = function (l) { const v = l.filter(Boolean); return v.filter(function (s, k) { return v.indexOf(s) !== k; }); };
-        $form.find('.js-info-antiguos').toggleClass('mal', ant.length > cant)
-            .text(ant.length > cant ? ant.length + ' líneas para ' + cant + ' unidad(es)' : (cant > 1 ? 'Uno por línea, en el orden de las unidades (línea vacía = sin código antiguo).' : ''));
-        const rs = repetidas(ser);
-        $form.find('.js-info-series').toggleClass('mal', ser.length > cant || rs.length > 0)
-            .text(rs.length ? 'Serie repetida: ' + rs[0] : ser.length > cant ? ser.length + ' líneas para ' + cant + ' unidad(es)' : (cant > 1 ? 'Una por línea, en el orden de las unidades.' : ''));
         const d = leer();
         let base = d.descripcion || (ant[0] ? 'BIEN ADICIONAL' : 'SIN DESCRIPCIÓN');
         if (d.material) base += ' MATERIAL ' + d.material;
@@ -1106,24 +1182,95 @@
         $form.find('.js-largo').text('(' + base.length + ' / 1024)').toggleClass('text-danger', base.length > 1024);
         marcarPasos();
     }
+    function unidadesPorPagina() {
+        return window.innerWidth < 768 || window.innerHeight < 700 ? 1 : window.innerHeight < 940 ? 2 : 3;
+    }
+    let ultimoTamUnidades = unidadesPorPagina();
+    $(window).off('resize.adicionalUnidades').on('resize.adicionalUnidades', function () {
+        const tam = unidadesPorPagina();
+        if (tam !== ultimoTamUnidades) { ultimoTamUnidades = tam; pintarUnidades(); }
+    });
+    function pintarUnidades() {
+        const cantidad = Math.min(200, st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1));
+        const tam = unidadesPorPagina(), paginas = Math.ceil(cantidad / tam);
+        st.unidadPagina = Math.max(0, Math.min(st.unidadPagina, paginas - 1));
+        const inicio = st.unidadPagina * tam, fin = Math.min(cantidad, inicio + tam);
+        const antiguos = lineas($form.find('.js-antiguos').val()), series = lineas($form.find('.js-series').val());
+        const $lista = $form.find('.js-unidades-vista').empty();
+        for (let i = inicio; i < fin; i++) {
+            const $fila = $('<div class="adi-unidad-fila"></div>');
+            $fila.append($('<span class="adi-unidad-numero"></span>').text('Unidad ' + (i + 1)));
+            const $antiguo = $('<input type="text" class="sm-input js-unidad-antiguo" maxlength="60" placeholder="Ej: AF-2015-0231">')
+                .attr({ 'data-index': i, 'aria-label': 'Código antiguo de la unidad ' + (i + 1) }).val(antiguos[i] || '');
+            const $serie = $('<input type="text" class="sm-input js-unidad-serie" maxlength="80" placeholder="Ej: 218B096002420">')
+                .attr({ 'data-index': i, 'aria-label': 'Número de serie de la unidad ' + (i + 1) }).val(series[i] || '');
+            $fila.append($('<div class="adi-unidad-campo"><small>Código antiguo</small></div>').append($antiguo));
+            $fila.append($('<div class="adi-unidad-campo"><small>N° de serie</small></div>').append($serie));
+            const $estadoUnidad = $('<select class="sm-select js-estado-unidad-vista"></select>')
+                .attr({ 'data-index': i, 'aria-label': 'Estado de conservación de la unidad ' + (i + 1) });
+            $estadoUnidad.append(new Option($estado.val() ? '(Usar estado para todas)' : '(Elegir estado)', ''));
+            (INICIAL.estados || []).forEach(function (e) { $estadoUnidad.append(new Option(e.nombre, e.id)); });
+            $estadoUnidad.val($form.find('.js-estado-unidad').eq(i).val() || '');
+            $fila.append($('<div class="adi-unidad-campo"><small>Conservación</small></div>').append($estadoUnidad));
+            $lista.append($fila);
+        }
+        $form.find('.js-unidades-paginas').toggleClass('d-none', paginas <= 1);
+        const $ir = $form.find('.js-unidades-ir').empty();
+        for (let p = 0; p < paginas; p++) {
+            const desde = p * tam + 1, hasta = Math.min(cantidad, desde + tam - 1);
+            $ir.append(new Option('Unidades ' + desde + '–' + hasta + ' de ' + cantidad, p));
+        }
+        $ir.val(String(st.unidadPagina));
+        $form.find('.js-unidad-anterior').prop('disabled', st.unidadPagina === 0);
+        $form.find('.js-unidad-siguiente').prop('disabled', st.unidadPagina >= paginas - 1);
+    }
     function pintarEstados(valores) {
-        const anteriores = valores || Array.from($form.find('.js-estado-unidad'), function (e) { return e.value || null; });
+        if (valores) st.estadosGuardados = Array.from(valores);
+        else $form.find('.js-estado-unidad').each(function (i) { st.estadosGuardados[i] = this.value || null; });
         const cantidad = Math.min(200, st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1));
         const $lista = $form.find('.js-estados-lista').empty();
         for (let i = 0; i < cantidad; i++) {
-            const $fila = $('<label class="adi-estado-fila"><span>Unidad ' + (i + 1) + '</span></label>');
-            const $sel = $('<select class="sm-select js-estado-unidad" aria-label="Estado de la unidad ' + (i + 1) + '"></select>');
-            $sel.append(new Option('(Usar estado general)', ''));
+            const $sel = $('<select class="js-estado-unidad" tabindex="-1"></select>');
+            $sel.append(new Option($estado.val() ? '(Usar estado para todas)' : '(Elegir estado)', ''));
             (INICIAL.estados || []).forEach(function (e) { $sel.append(new Option(e.nombre, e.id)); });
-            $sel.val(anteriores[i] == null ? '' : String(anteriores[i]));
-            $fila.append($sel); $lista.append($fila);
+            $sel.val(st.estadosGuardados[i] == null ? '' : String(st.estadosGuardados[i]));
+            $lista.append($sel);
         }
+        pintarUnidades();
     }
     $raiz.on('click', '.js-aplicar-estado', function () {
         $form.find('.js-estado-unidad').val($estado.val() || '');
+        $form.find('.js-estado-unidad').each(function (i) { st.estadosGuardados[i] = this.value || null; });
+        pintarUnidades();
         aviso('Estado aplicado a todas las unidades.', 'success');
     });
-    $raiz.on('input change', '.js-form input, .js-form textarea, .js-form .js-estado', function () { refrescar(); if ($(this).hasClass('js-cantidad')) actualizarCodigo(); });
+    $estado.on('change', pintarUnidades);
+    $raiz.on('click', '.js-unidad-anterior, .js-unidad-siguiente', function () {
+        st.unidadPagina += $(this).hasClass('js-unidad-siguiente') ? 1 : -1;
+        pintarUnidades();
+    });
+    $raiz.on('change', '.js-unidades-ir', function () {
+        st.unidadPagina = Number(this.value);
+        pintarUnidades();
+    });
+    $raiz.on('input', '.js-unidad-antiguo, .js-unidad-serie', function () {
+        const $campo = $(this), $oculto = $form.find($campo.hasClass('js-unidad-antiguo') ? '.js-antiguos' : '.js-series');
+        const valores = lineas($oculto.val());
+        valores[Number(this.dataset.index)] = mayus(this.value);
+        $oculto.val(valores.join('\n'));
+        refrescar();
+    });
+    $raiz.on('change', '.js-estado-unidad-vista', function () {
+        const i = Number(this.dataset.index);
+        $form.find('.js-estado-unidad').eq(i).val(this.value);
+        st.estadosGuardados[i] = this.value || null;
+        marcarPasos();
+    });
+    $raiz.on('input change', '.js-form input, .js-form textarea, .js-form .js-estado', function () {
+        if ($(this).is('.js-unidad-antiguo, .js-unidad-serie')) return;
+        refrescar();
+        if ($(this).hasClass('js-cantidad')) actualizarCodigo();
+    });
     $raiz.on('input', '.js-form input.sm-input[type=text]:not([data-sm-mayus=no]), .js-form textarea:not([data-sm-mayus=no])', function () {
         const p = this.selectionStart, q = this.selectionEnd, v = this.value.toUpperCase();
         if (v !== this.value) { this.value = v; try { this.setSelectionRange(p, q); } catch (e) { /* number/date */ } }
@@ -1135,11 +1282,12 @@
 
     function leer() {
         const n = function ($s) { const v = $s.val(); return v === '' || v == null ? null : Number(v); };
+        const cantidad = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
         return {
             token: st.token,
             descripcion: mayus($form.find('.js-desc').val()) || null,
-            codigosAntiguos: lineas($form.find('.js-antiguos').val()),
-            cantidad: st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1),
+            codigosAntiguos: lineas($form.find('.js-antiguos').val()).slice(0, cantidad),
+            cantidad: cantidad,
             idPredio: n($predio), idOficina: n($oficina), idResponsable: n($resp),
             idGrupoContable: n($grupo), idAuxiliarAdicional: n($aux), idEstadoActivo: n($estado),
             estadosPorUnidad: Array.from($form.find('.js-estado-unidad'), function (e) { return e.value ? Number(e.value) : null; }),
@@ -1149,7 +1297,7 @@
             marca: mayus($form.find('.js-marca').val()) || null, modelo: mayus($form.find('.js-modelo').val()) || null,
             color: mayus($form.find('.js-color').val()) || null, material: mayus($form.find('.js-material').val()) || null,
             dimensiones: mayus($form.find('.js-medidas').val()) || null,
-            series: lineas($form.find('.js-series').val()),
+            series: lineas($form.find('.js-series').val()).slice(0, cantidad),
             caracteristicas: ($form.find('.js-caract').val() || '').trim().toUpperCase() || null,
             observacion: ($form.find('.js-obs').val() || '').trim() || null
         };
@@ -1164,10 +1312,13 @@
     /** @param conservar deja clasificación, ubicación y datos generales (para «registrar otro»). */
     function reiniciar(conservar) {
         st.token = nuevoToken();
+        st.unidadPagina = 0;
+        st.estadosGuardados = [];
         const guardado = conservar ? { predio: $predio.val(), oficina: $oficina.val(), resp: $resp.select2('data')[0], grupo: $grupo.val(),
             aux: $aux.val(), estado: $estado.val(), fin: $fin.val(), fecha: $form.find('.js-fecha').val() } : null;
         st.edicion = null;
         $form[0].reset();
+        $form.find('.js-estados-lista').empty();
         pintarEstados();
         $form.find('.js-aux-legado').addClass('d-none');
         limpiarFotos();
@@ -1257,8 +1408,8 @@
         else st.lotes[st.loteActual] = tomarLote();
         const origen = st.lotes[st.loteActual].datos;
         st.lotes.push({ datos: { cantidad: 1, idPredio: origen.idPredio, idOficina: origen.idOficina,
-            idResponsable: origen.idResponsable, idGrupoContable: origen.idGrupoContable,
-            idAuxiliarAdicional: origen.idAuxiliarAdicional, idEstadoActivo: origen.idEstadoActivo,
+            idResponsable: origen.idResponsable, idGrupoContable: null,
+            idAuxiliarAdicional: null, idEstadoActivo: origen.idEstadoActivo,
             idOrganismoFinanciero: origen.idOrganismoFinanciero, fechaAdquisicion: origen.fechaAdquisicion },
             fotos: [], oficinaTexto: st.lotes[st.loteActual].oficinaTexto,
             responsable: st.lotes[st.loteActual].responsable });
@@ -1294,16 +1445,46 @@
         for (let i = 0; i < lotes.length; i++) {
             const x = lotes[i].datos;
             let error = '', paso = 1, campo = '.js-desc';
+            const estadoFaltante = Array.from({ length: x.cantidad }, function (_, j) { return j; })
+                .find(j => !(x.estadosPorUnidad || [])[j] && !x.idEstadoActivo);
             if (!x.descripcion && !(x.codigosAntiguos || []).some(Boolean)) error = 'Escriba el nombre o el código antiguo.';
             else if (!x.descripcion && (x.codigosAntiguos || []).filter(Boolean).length < x.cantidad) {
-                error = 'Sin descripción, cada unidad necesita su código antiguo.'; paso = 2; campo = '.js-antiguos';
+                error = 'Sin descripción, cada unidad necesita su código antiguo.'; paso = 2; campo = '.js-unidad-antiguo';
             } else if ((x.codigosAntiguos || []).length > x.cantidad || (x.series || []).length > x.cantidad) {
                 error = 'Hay más líneas de código antiguo o serie que unidades.'; paso = 2;
-                campo = (x.codigosAntiguos || []).length > x.cantidad ? '.js-antiguos' : '.js-series';
+                campo = '.js-unidad-antiguo';
+            } else {
+                const repetida = (x.series || []).find(function (s, j) { return s && x.series.indexOf(s) !== j; });
+                if (repetida) { error = 'La serie ' + repetida + ' está repetida.'; paso = 2; campo = '.js-unidad-serie'; }
+            }
+            if (!error && estadoFaltante !== undefined) {
+                error = 'Seleccione el estado de conservación de la unidad ' + (estadoFaltante + 1) + '.';
+                paso = 2; campo = '.js-estado-unidad-vista';
             }
             if (error) {
                 aviso((lotes.length > 1 ? 'Lote ' + (i + 1) + ': ' : '') + error);
                 if (i !== st.loteActual && st.lotes.length) await abrirLote(i);
+                if (paso === 2 && campo === '.js-unidad-antiguo') {
+                    const falta = Array.from({ length: x.cantidad }, function (_, j) { return j; })
+                        .find(j => !(x.codigosAntiguos || [])[j]);
+                    if (falta !== undefined) {
+                        st.unidadPagina = Math.floor(falta / unidadesPorPagina());
+                        pintarUnidades();
+                        campo = '.js-unidad-antiguo[data-index="' + falta + '"]';
+                    }
+                } else if (paso === 2 && campo === '.js-unidad-serie') {
+                    const repetida = (x.series || []).find(function (s, j) { return s && x.series.indexOf(s) !== j; });
+                    const indice = (x.series || []).lastIndexOf(repetida);
+                    if (indice >= 0) {
+                        st.unidadPagina = Math.floor(indice / unidadesPorPagina());
+                        pintarUnidades();
+                        campo = '.js-unidad-serie[data-index="' + indice + '"]';
+                    }
+                } else if (paso === 2 && campo === '.js-estado-unidad-vista') {
+                    st.unidadPagina = Math.floor(estadoFaltante / unidadesPorPagina());
+                    pintarUnidades();
+                    campo = '.js-estado-unidad-vista[data-index="' + estadoFaltante + '"]';
+                }
                 enPaso(paso, campo); return;
             }
         }

@@ -60,8 +60,8 @@ import lombok.extern.slf4j.Slf4j;
  * Activos adicionales (Administración de activos → Adicionales): bienes que no estaban en el
  * sistema y se registran con lo que se sepa de ellos.
  * <ul>
- *   <li><b>Ningún dato es obligatorio</b>, salvo algo con qué reconocer el bien: la
- *       descripción o el código antiguo.</li>
+ *   <li>Se exige algo con qué reconocer el bien (descripción o código antiguo) y un
+ *       estado de conservación para cada unidad.</li>
  *   <li><b>Código antiguo</b>: la codificación que usaba Activos Fijos (columna propia
  *       {@code activo.codigo_antiguo}; no es el CODIGOSEC del VSIAF).</li>
  *   <li><b>Código nuevo</b> con serie propia y una A al final ({@code 01-02-04-00001A}),
@@ -146,6 +146,64 @@ public class AdicionalService {
         auxiliarAdicionalDao.saveAndFlush(auxiliar);
         return Map.of("id", auxiliar.getIdAuxiliarAdicional(),
                 "text", (codigoLimpio == null ? "" : codigoLimpio + " · ") + nombreLimpio);
+    }
+
+    private static void exigirAdministrador(Usuario usuario) {
+        if (usuario == null || !"ACTIVO".equalsIgnoreCase(usuario.getEstado()) || !RolesSciaf.esAdministrativo(usuario))
+            throw new SecurityException("Solo un ADMINISTRADOR o SUPER USUARIO puede administrar auxiliares de adicionales.");
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> detalleAuxiliar(Long id, Usuario usuario) {
+        exigirAdministrador(usuario);
+        AuxiliarAdicional auxiliar = auxiliarAdicionalDao.findById(id)
+                .filter(a -> !ELIMINADO.equalsIgnoreCase(a.getEstado()))
+                .orElseThrow(() -> new IllegalArgumentException("El auxiliar adicional no existe."));
+        Map<String, Object> detalle = new LinkedHashMap<>();
+        detalle.put("id", auxiliar.getIdAuxiliarAdicional());
+        detalle.put("grupoId", auxiliar.getGrupoContable().getIdGrupoContable());
+        detalle.put("nombre", auxiliar.getNombre());
+        detalle.put("codigo", auxiliar.getCodigo());
+        detalle.put("usos", adicionalDao.contarPorAuxiliarAdicional(id));
+        return detalle;
+    }
+
+    @Transactional
+    public Map<String, Object> actualizarAuxiliar(Long id, Long grupoId, String nombre, String codigo, Usuario usuario) {
+        exigirAdministrador(usuario);
+        AuxiliarAdicional auxiliar = auxiliarAdicionalDao.findById(id)
+                .filter(a -> !ELIMINADO.equalsIgnoreCase(a.getEstado()))
+                .orElseThrow(() -> new IllegalArgumentException("El auxiliar adicional no existe."));
+        GrupoContable grupo = grupoId == null ? null : grupoService.findById(grupoId);
+        if (grupo == null) throw new IllegalArgumentException("Seleccione un grupo contable válido.");
+        String nombreLimpio = mayus(nombre), codigoLimpio = mayus(codigo);
+        if (nombreLimpio == null) throw new IllegalArgumentException("Escriba el nombre del auxiliar.");
+        exigirLargo(nombreLimpio, 255, "El nombre del auxiliar");
+        exigirLargo(codigoLimpio, 30, "El código del auxiliar");
+        boolean cambiaGrupo = !grupo.getIdGrupoContable().equals(auxiliar.getGrupoContable().getIdGrupoContable());
+        if (cambiaGrupo && adicionalDao.contarPorAuxiliarAdicional(id) > 0)
+            throw new IllegalArgumentException("Este auxiliar ya está asignado a bienes. Corrija primero esos bienes antes de cambiarlo de grupo.");
+        if ((cambiaGrupo || !nombreLimpio.equalsIgnoreCase(auxiliar.getNombre()))
+                && auxiliarAdicionalDao.existsByGrupoContableIdGrupoContableAndNombreIgnoreCase(grupoId, nombreLimpio))
+            throw new IllegalArgumentException("Ya existe un auxiliar adicional con ese nombre en el grupo.");
+        auxiliar.setGrupoContable(grupo);
+        auxiliar.setNombre(nombreLimpio);
+        auxiliar.setCodigo(codigoLimpio);
+        auxiliarAdicionalDao.saveAndFlush(auxiliar);
+        return Map.of("id", id, "grupoId", grupoId,
+                "text", (codigoLimpio == null ? "" : codigoLimpio + " · ") + nombreLimpio);
+    }
+
+    @Transactional
+    public void eliminarAuxiliar(Long id, Usuario usuario) {
+        exigirAdministrador(usuario);
+        AuxiliarAdicional auxiliar = auxiliarAdicionalDao.findById(id)
+                .filter(a -> !ELIMINADO.equalsIgnoreCase(a.getEstado()))
+                .orElseThrow(() -> new IllegalArgumentException("El auxiliar adicional no existe."));
+        if (adicionalDao.contarPorAuxiliarAdicional(id) > 0)
+            throw new IllegalArgumentException("Este auxiliar ya está asignado a bienes. Corrija primero esos bienes antes de eliminarlo.");
+        auxiliarAdicionalDao.delete(auxiliar);
+        auxiliarAdicionalDao.flush();
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -270,20 +328,15 @@ public class AdicionalService {
         if (r.getIdEstadoActivo() != null) {
             d.estadoActivo = estadoActivoService.findById(r.getIdEstadoActivo());
             if (d.estadoActivo == null) throw new IllegalArgumentException("El estado de conservación elegido no existe.");
-        } else {
-            // Sin dato, el estado por defecto del sistema: otras pantallas y reportes leen el
-            // nombre del estado sin comprobar que exista.
-            d.estadoActivo = estadoActivoService.findById(1L);
         }
-        if (r.getEstadosPorUnidad() != null && !r.getEstadosPorUnidad().isEmpty()) {
-            if (r.getEstadosPorUnidad().size() > d.cantidad)
-                throw new IllegalArgumentException("Hay más estados de conservación que unidades.");
-            for (int u = 0; u < d.cantidad; u++) {
-                Long idEstado = u < r.getEstadosPorUnidad().size() ? r.getEstadosPorUnidad().get(u) : null;
-                EstadoActivo estado = idEstado == null ? d.estadoActivo : estadoActivoService.findById(idEstado);
-                if (estado == null) throw new IllegalArgumentException("El estado de conservación de la unidad " + (u + 1) + " no existe.");
-                d.estados.add(estado);
-            }
+        List<Long> estadosPorUnidad = r.getEstadosPorUnidad();
+        if (estadosPorUnidad != null && estadosPorUnidad.size() > d.cantidad)
+            throw new IllegalArgumentException("Hay más estados de conservación que unidades.");
+        for (int u = 0; u < d.cantidad; u++) {
+            Long idEstado = estadosPorUnidad != null && u < estadosPorUnidad.size() ? estadosPorUnidad.get(u) : null;
+            EstadoActivo estado = idEstado == null ? d.estadoActivo : estadoActivoService.findById(idEstado);
+            if (estado == null) throw new IllegalArgumentException("Seleccione el estado de conservación de la unidad " + (u + 1) + ".");
+            d.estados.add(estado);
         }
         if (r.getIdOrganismoFinanciero() != null) {
             d.financiador = financiadorService.findById(r.getIdOrganismoFinanciero());
@@ -351,7 +404,7 @@ public class AdicionalService {
         if (token != null && token.length() > 40) throw new IllegalArgumentException("Marca de registro inválida.");
         Datos d = validar(req, null);
         adicionalDao.turno(TURNO_ADICIONALES);
-        return registrarValidado(d, token, usuario);
+        return registrarValidado(d, token, usuario, new HashMap<>());
     }
 
     /** Todos los lotes se validan y guardan en una sola transacción. El token permite reintentar. */
@@ -377,11 +430,12 @@ public class AdicionalService {
         }
         adicionalDao.turno(TURNO_ADICIONALES);
         List<List<Map<String, Object>>> resultado = new ArrayList<>();
-        for (int i = 0; i < lotes.size(); i++) resultado.add(registrarValidado(lotes.get(i), token + "-" + i, usuario));
+        Map<String, Integer> siguientes = new HashMap<>();
+        for (int i = 0; i < lotes.size(); i++) resultado.add(registrarValidado(lotes.get(i), token + "-" + i, usuario, siguientes));
         return resultado;
     }
 
-    private List<Map<String, Object>> registrarValidado(Datos d, String token, Usuario usuario) {
+    private List<Map<String, Object>> registrarValidado(Datos d, String token, Usuario usuario, Map<String, Integer> siguientes) {
         if (token != null) {
             List<ActivoAdicional> previos = adicionalDao.findByTokenRegistro(token);
             if (!previos.isEmpty()) {
@@ -390,10 +444,12 @@ public class AdicionalService {
             }
         }
         String prefijo = d.prefijo();
-        int siguiente = prefijo == null ? 0 : adicionalDao.maxCorrelativoAdicional(prefijo) + 1;
+        int siguiente = prefijo == null ? 0 : siguientes.computeIfAbsent(prefijo,
+                p -> adicionalDao.maxCorrelativoAdicional(p) + 1);
         if (prefijo != null && siguiente + d.cantidad - 1 > MAX_CORRELATIVO) {
             throw new IllegalStateException("La serie de adicionales del prefijo " + prefijo + " llegó a 99999A.");
         }
+        if (prefijo != null) siguientes.put(prefijo, siguiente + d.cantidad);
         LocalDate hoy = LocalDate.now();
         List<Map<String, Object>> out = new ArrayList<>();
         List<HistorialActivo> historiales = new ArrayList<>();

@@ -127,6 +127,38 @@ public class AdicionalController {
     }
 
     @ValidarUsuarioAutenticado
+    @GetMapping("/api/auxiliares/{id}")
+    @ResponseBody
+    public ResponseEntity<?> detalleAuxiliar(@PathVariable Long id, HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(adicionalService.detalleAuxiliar(id, RolesSciaf.usuarioDe(request)));
+        } catch (Exception e) { return error(e, "el detalle del auxiliar adicional"); }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/auxiliares/{id}/actualizar")
+    @ResponseBody
+    public ResponseEntity<?> actualizarAuxiliar(@PathVariable Long id, @RequestBody Map<String, Object> datos,
+                                                 HttpServletRequest request) {
+        try {
+            Long grupoId = datos.get("grupoId") == null ? null : Long.valueOf(datos.get("grupoId").toString());
+            String nombre = datos.get("nombre") == null ? null : datos.get("nombre").toString();
+            String codigo = datos.get("codigo") == null ? null : datos.get("codigo").toString();
+            return ResponseEntity.ok(adicionalService.actualizarAuxiliar(id, grupoId, nombre, codigo, RolesSciaf.usuarioDe(request)));
+        } catch (Exception e) { return error(e, "la corrección del auxiliar adicional"); }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/auxiliares/{id}/eliminar")
+    @ResponseBody
+    public ResponseEntity<?> eliminarAuxiliar(@PathVariable Long id, HttpServletRequest request) {
+        try {
+            adicionalService.eliminarAuxiliar(id, RolesSciaf.usuarioDe(request));
+            return ResponseEntity.ok(Map.of("ok", true, "msg", "Auxiliar adicional eliminado."));
+        } catch (Exception e) { return error(e, "la eliminación del auxiliar adicional"); }
+    }
+
+    @ValidarUsuarioAutenticado
     @PostMapping("/api/datatables")
     @ResponseBody
     public ResponseEntity<?> datatables(@RequestParam(name = "draw", defaultValue = "1") int draw,

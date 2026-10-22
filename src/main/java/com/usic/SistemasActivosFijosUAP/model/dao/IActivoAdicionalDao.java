@@ -14,6 +14,9 @@ import com.usic.SistemasActivosFijosUAP.model.entity.ActivoAdicional;
 
 public interface IActivoAdicionalDao extends JpaRepository<ActivoAdicional, Long> {
 
+    @Query("select count(x) from ActivoAdicional x where x.auxiliarAdicional.idAuxiliarAdicional = :id")
+    long contarPorAuxiliarAdicional(@Param("id") Long id);
+
     /** Turno de las altas y cambios de código de adicionales (se libera al terminar la transacción). */
     @Query(value = "select count(*) from (select pg_advisory_xact_lock(:clave)) t", nativeQuery = true)
     long turno(@Param("clave") long clave);
