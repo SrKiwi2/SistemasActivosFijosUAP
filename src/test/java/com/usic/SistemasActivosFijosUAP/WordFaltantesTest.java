@@ -32,8 +32,10 @@ class WordFaltantesTest {
             assertTrue(texto.contains("5 (cinco) días hábiles"));
             assertTrue(texto.contains("Se adjunta documentación de respaldo"));
             assertTrue(doc.getFooterList().stream().anyMatch(f -> f.getText().contains("/verificar/acta-faltantes/token-123")));
-            assertTrue(doc.getFooterList().stream().flatMap(f -> f.getParagraphs().stream())
-                    .flatMap(p -> p.getRuns().stream()).anyMatch(r -> !r.getEmbeddedPictures().isEmpty()));
+            assertTrue(doc.getFooterList().stream().flatMap(f -> f.getTables().stream())
+                    .flatMap(t -> t.getRows().stream()).flatMap(r -> r.getTableCells().stream())
+                    .flatMap(c -> c.getParagraphs().stream()).flatMap(p -> p.getRuns().stream())
+                    .anyMatch(r -> !r.getEmbeddedPictures().isEmpty()));
         }
     }
 

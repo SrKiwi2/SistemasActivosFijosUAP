@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder;
 
 import com.itextpdf.text.BaseColor;
 import com.itextpdf.text.Chunk;
@@ -186,9 +188,11 @@ public class ReporteAdicionalService {
         Oficina oficina = primero.getOficina();
         Responsable responsable = primero.getResponsable();
         String mes = fecha.getMonth().getDisplayName(TextStyle.FULL, Locale.forLanguageTag("es")).toUpperCase(Locale.ROOT);
-        WordDocumentos.parrafo(doc, "ACTA DE ASIGNACION INDIVIDUAL\nDE BIENES - ADICIONAL " + fecha.getYear(),
-                14, true, ParagraphAlignment.CENTER);
-        WordDocumentos.parrafo(doc, "En la ciudad de " + f.ciudad + " a " + String.format("%02d", fecha.getDayOfMonth())
+        XWPFParagraph titulo = WordDocumentos.parrafo(doc, "ACTA DE ASIGNACIÓN INDIVIDUAL\nDE BIENES - ADICIONAL " + fecha.getYear(),
+                12, true, ParagraphAlignment.CENTER);
+        titulo.setSpacingAfter(260);
+        titulo.getRuns().forEach(r -> r.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE));
+        XWPFParagraph introduccion = WordDocumentos.parrafo(doc, "En la ciudad de " + f.ciudad + " a " + String.format("%02d", fecha.getDayOfMonth())
                 + " días del mes de " + mes + " del " + fecha.getYear() + ", a horas "
                 + fecha.format(DateTimeFormatter.ofPattern("HH:mm")) + " en los predios de la Universidad Amazónica de Pando en presencia de la "
                 + f.activos + ". Responsable de Activos Fijos"
@@ -196,7 +200,10 @@ public class ReporteAdicionalService {
                 + " se procedió a la ASIGNACION INDIVIDUAL ADICIONAL de los Activos Fijos que se encuentran físicamente en la "
                 + ubicacion(oficina) + " que no fueron inventariados ni codificados por la empresa que realizó el Revalúo, mencionando así los activos con las siguientes características:",
                 10, false, ParagraphAlignment.BOTH);
+        introduccion.setSpacingAfter(260);
         XWPFTable tabla = WordDocumentos.tabla(doc, "Ítem", "Descripción", "Código", "Observación");
+        int[] anchos = {650, 6250, 2300, 1750};
+        for (var fila : tabla.getRows()) for (int c = 0; c < 4; c++) fila.getCell(c).setWidth(Integer.toString(anchos[c]));
         int numero = 1;
         for (ActivoAdicional x : bienes) {
             Activo a = x.getActivo();
@@ -206,10 +213,13 @@ public class ReporteAdicionalService {
             String estado = a.getEstadoActivo() == null ? "—" : a.getEstadoActivo().getNombre().toUpperCase(Locale.ROOT);
             WordDocumentos.fila(tabla, String.format("%02d", numero++), texto(a.getDescripcion(), "SIN DESCRIPCIÓN"),
                     codigo, estado + (vacio(x.getObservacion()) ? "" : "\n" + x.getObservacion().trim()));
+            for (int c = 0; c < 4; c++) tabla.getRow(numero - 1).getCell(c).setWidth(Integer.toString(anchos[c]));
         }
-        WordDocumentos.parrafo(doc, "Al:", 10, false, ParagraphAlignment.LEFT);
+        XWPFParagraph al = WordDocumentos.parrafo(doc, "Al:", 10, true, ParagraphAlignment.LEFT);
+        al.setSpacingBefore(200);
+        al.setSpacingAfter(60);
         XWPFTable receptor = doc.createTable(1, 1);
-        receptor.setWidth("78%");
+        receptor.setWidth("100%");
         String persona = responsable == null ? "SIN RESPONSABLE REGISTRADO" : nombreResponsable(responsable);
         if (responsable != null && responsable.getPersona() != null) {
             Persona p = responsable.getPersona();
@@ -221,12 +231,30 @@ public class ReporteAdicionalService {
             }
         }
         WordDocumentos.celda(receptor.getRow(0).getCell(0), persona, false, 10);
-        WordDocumentos.parrafo(doc, "Entrega que es realizada de acuerdo al reglamentos y Normas Básicas del SABS y Decreto Supremo 0181, que a la letra dice, es de responsabilidad total de la persona y/o funcionario, que recibe el activo, por cualquier perdida, deterioro y/o por mal uso de los Bienes de la institución.",
+        XWPFParagraph responsabilidad = WordDocumentos.parrafo(doc,
+                "Entrega que es realizada de acuerdo a los reglamentos y Normas Básicas del SABS y Decreto Supremo 0181. "
+                + "Es responsabilidad de la persona o funcionario que recibe el activo cualquier pérdida, deterioro o mal uso de los bienes de la institución.",
                 10, false, ParagraphAlignment.BOTH);
+        responsabilidad.setSpacingBefore(230);
+        responsabilidad.setSpacingAfter(190);
         WordDocumentos.parrafo(doc, "Para constancia de la recepción firmamos al pie del presente documento.", 10, false, ParagraphAlignment.LEFT);
-        WordDocumentos.parrafo(doc, "\n________________________                   ________________________\nRECIBI CONFORME                   ENTREGUE CONFORME",
-                10, true, ParagraphAlignment.CENTER);
-        WordDocumentos.parrafo(doc, "\nVo. Bo.\n\nC.c./Arch. " + (iniciales.isEmpty() ? "" : iniciales) + "/A-F", 8, false, ParagraphAlignment.CENTER);
+        XWPFTable firmas = doc.createTable(1, 2);
+        firmas.setWidth("100%");
+        var bordes = firmas.getCTTbl().getTblPr().addNewTblBorders();
+        bordes.addNewTop().setVal(STBorder.NIL);
+        bordes.addNewBottom().setVal(STBorder.NIL);
+        bordes.addNewLeft().setVal(STBorder.NIL);
+        bordes.addNewRight().setVal(STBorder.NIL);
+        bordes.addNewInsideH().setVal(STBorder.NIL);
+        bordes.addNewInsideV().setVal(STBorder.NIL);
+        WordDocumentos.celda(firmas.getRow(0).getCell(0), "\n\n\n____________________________\nRECIBÍ CONFORME", true, 9);
+        WordDocumentos.celda(firmas.getRow(0).getCell(1), "\n\n\n____________________________\nENTREGUÉ CONFORME", true, 9);
+        firmas.getRow(0).getCell(0).getParagraphs().get(0).setAlignment(ParagraphAlignment.CENTER);
+        firmas.getRow(0).getCell(1).getParagraphs().get(0).setAlignment(ParagraphAlignment.CENTER);
+        XWPFParagraph vistoBueno = WordDocumentos.parrafo(doc, "Vo. Bo.", 9, true, ParagraphAlignment.CENTER);
+        vistoBueno.setSpacingBefore(220);
+        vistoBueno.setSpacingAfter(80);
+        WordDocumentos.parrafo(doc, "C.c./Arch. " + (iniciales.isEmpty() ? "" : iniciales) + "/A-F", 8, false, ParagraphAlignment.LEFT);
     }
 
     private static void escribirActa(Document doc, List<ActivoAdicional> bienes, LocalDateTime fecha,

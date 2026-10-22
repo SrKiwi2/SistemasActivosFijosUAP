@@ -48,11 +48,28 @@ class ReporteAdicionalServiceTest {
                 bien(oficina, responsable(12L, "LUIS"), "ROUTER", null, null)));
         byte[] bytes = servicio.generarWord(7L, null, FECHA, usuario(), Set.of(AdicionalService.PERMISO));
         try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-            assertEquals(4, doc.getTables().size()); // bienes y destinatario de cada acta
+            assertEquals(6, doc.getTables().size()); // bienes, destinatario y firmas de cada acta
             String texto = doc.getParagraphs().stream().map(p -> p.getText()).reduce("", (a, b) -> a + b);
             assertTrue(texto.contains("DE BIENES - ADICIONAL 2026"));
             assertTrue(doc.getTables().get(0).getText().contains("CÁMARA"));
-            assertTrue(doc.getTables().get(2).getText().contains("ROUTER"));
+            assertTrue(doc.getTables().get(3).getText().contains("ROUTER"));
+        }
+    }
+
+    @Test
+    void wordMuestraLaConservacionDeCadaUnidadEnSuFila() throws Exception {
+        IActivoAdicionalDao dao = mock(IActivoAdicionalDao.class);
+        ReporteAdicionalService servicio = servicio(dao);
+        Oficina oficina = oficina();
+        Responsable responsable = responsable(11L, "ANA");
+        ActivoAdicional primero = bien(oficina, responsable, "SILLA 1", "01-02-03-00001A", "A1");
+        ActivoAdicional segundo = bien(oficina, responsable, "SILLA 2", "01-02-03-00002A", "A2");
+        segundo.getActivo().getEstadoActivo().setNombre("Bueno");
+        when(dao.paraReporte(7L, 11L)).thenReturn(List.of(primero, segundo));
+        try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(
+                servicio.generarWord(7L, 11L, FECHA, usuario(), Set.of(AdicionalService.PERMISO))))) {
+            assertEquals("REGULAR", doc.getTables().get(0).getRow(1).getCell(3).getText());
+            assertEquals("BUENO", doc.getTables().get(0).getRow(2).getCell(3).getText());
         }
     }
 

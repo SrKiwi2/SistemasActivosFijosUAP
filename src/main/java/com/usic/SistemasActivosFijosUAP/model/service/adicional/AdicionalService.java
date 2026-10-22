@@ -23,7 +23,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.usic.SistemasActivosFijosUAP.config.RolesSciaf;
-import com.usic.SistemasActivosFijosUAP.model.IService.IAuxiliarService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IEstadoActivoService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IGrupoContableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IOficinaService;
@@ -33,13 +32,14 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoAdicionalDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoFotoDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarAdicionalDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalLotesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
 import com.usic.SistemasActivosFijosUAP.model.entity.ActivoAdicional;
 import com.usic.SistemasActivosFijosUAP.model.entity.ActivoFoto;
-import com.usic.SistemasActivosFijosUAP.model.entity.Auxiliar;
+import com.usic.SistemasActivosFijosUAP.model.entity.AuxiliarAdicional;
 import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.HistorialActivo;
@@ -97,7 +97,7 @@ public class AdicionalService {
     private final IResponsableService responsableService;
     private final IPredioServicio predioService;
     private final IGrupoContableService grupoService;
-    private final IAuxiliarService auxiliarService;
+    private final IAuxiliarAdicionalDao auxiliarAdicionalDao;
     private final IOrganismoFinancieroService financiadorService;
     private final IEstadoActivoService estadoActivoService;
     private final ArchivoStorageService archivos;
@@ -117,6 +117,37 @@ public class AdicionalService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> auxiliares(Long grupoId, Usuario usuario, Object opciones) {
+        exigirPermiso(usuario, opciones);
+        if (grupoId == null) return List.of();
+        return auxiliarAdicionalDao.findByGrupoContableIdGrupoContableAndEstadoNotOrderByNombreAsc(grupoId, ELIMINADO)
+                .stream().map(a -> Map.<String, Object>of("id", a.getIdAuxiliarAdicional(),
+                        "text", (a.getCodigo() == null ? "" : a.getCodigo() + " · ") + a.getNombre()))
+                .toList();
+    }
+
+    @Transactional
+    public Map<String, Object> crearAuxiliar(Long grupoId, String nombre, String codigo, Usuario usuario, Object opciones) {
+        exigirPermiso(usuario, opciones);
+        GrupoContable grupo = grupoId == null ? null : grupoService.findById(grupoId);
+        if (grupo == null) throw new IllegalArgumentException("Seleccione un grupo contable para el auxiliar.");
+        String nombreLimpio = mayus(nombre), codigoLimpio = mayus(codigo);
+        if (nombreLimpio == null) throw new IllegalArgumentException("Escriba el nombre del auxiliar.");
+        exigirLargo(nombreLimpio, 255, "El nombre del auxiliar");
+        exigirLargo(codigoLimpio, 30, "El código del auxiliar");
+        if (auxiliarAdicionalDao.existsByGrupoContableIdGrupoContableAndNombreIgnoreCase(grupoId, nombreLimpio))
+            throw new IllegalArgumentException("Ya existe un auxiliar adicional con ese nombre en el grupo.");
+        AuxiliarAdicional auxiliar = new AuxiliarAdicional();
+        auxiliar.setGrupoContable(grupo);
+        auxiliar.setNombre(nombreLimpio);
+        auxiliar.setCodigo(codigoLimpio);
+        auxiliar.setEstado("ACTIVO");
+        auxiliarAdicionalDao.saveAndFlush(auxiliar);
+        return Map.of("id", auxiliar.getIdAuxiliarAdicional(),
+                "text", (codigoLimpio == null ? "" : codigoLimpio + " · ") + nombreLimpio);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  Validación común (alta y corrección)
     // ════════════════════════════════════════════════════════════════════════
@@ -127,8 +158,9 @@ public class AdicionalService {
         Oficina oficina;
         Responsable responsable;
         GrupoContable grupo;
-        Auxiliar auxiliar;
+        AuxiliarAdicional auxiliar;
         EstadoActivo estadoActivo;
+        List<EstadoActivo> estados = new ArrayList<>();
         OrganismoFinanciero financiador;
         LocalDate fecha;
         Double valor;
@@ -140,6 +172,7 @@ public class AdicionalService {
 
         String codigoAntiguo(int u) { return u < codigosAntiguos.size() ? codigosAntiguos.get(u) : null; }
         String serie(int u) { return u < series.size() ? series.get(u) : null; }
+        EstadoActivo estado(int u) { return estados.isEmpty() ? estadoActivo : estados.get(u); }
 
         /** MUN-PRED-GRP si hay predio configurado y grupo; si no, null (queda sin código). */
         String prefijo() {
@@ -223,13 +256,12 @@ public class AdicionalService {
             d.grupo = grupoService.findById(r.getIdGrupoContable());
             if (d.grupo == null) throw new IllegalArgumentException("El grupo contable elegido no existe.");
         }
-        if (r.getIdAuxiliar() != null) {
-            d.auxiliar = auxiliarService.findById(r.getIdAuxiliar());
-            if (d.auxiliar == null || ELIMINADO.equalsIgnoreCase(d.auxiliar.getEstado())) throw new IllegalArgumentException("El auxiliar elegido ya no existe.");
-            if (d.grupo == null || d.predio == null
-                    || d.auxiliar.getGrupoContable() == null || !d.auxiliar.getGrupoContable().getIdGrupoContable().equals(d.grupo.getIdGrupoContable())
-                    || d.auxiliar.getPredio() == null || !d.auxiliar.getPredio().getIdPredio().equals(d.predio.getIdPredio())) {
-                throw new IllegalArgumentException("El auxiliar '" + d.auxiliar.getNombre() + "' no es del predio y grupo contable elegidos.");
+        if (r.getIdAuxiliarAdicional() != null) {
+            d.auxiliar = auxiliarAdicionalDao.findById(r.getIdAuxiliarAdicional())
+                    .orElseThrow(() -> new IllegalArgumentException("El auxiliar adicional elegido ya no existe."));
+            if (ELIMINADO.equalsIgnoreCase(d.auxiliar.getEstado()) || d.grupo == null
+                    || !d.auxiliar.getGrupoContable().getIdGrupoContable().equals(d.grupo.getIdGrupoContable())) {
+                throw new IllegalArgumentException("El auxiliar adicional no pertenece al grupo contable elegido.");
             }
         }
         if (r.getIdEstadoActivo() != null) {
@@ -239,6 +271,16 @@ public class AdicionalService {
             // Sin dato, el estado por defecto del sistema: otras pantallas y reportes leen el
             // nombre del estado sin comprobar que exista.
             d.estadoActivo = estadoActivoService.findById(1L);
+        }
+        if (r.getEstadosPorUnidad() != null && !r.getEstadosPorUnidad().isEmpty()) {
+            if (r.getEstadosPorUnidad().size() > d.cantidad)
+                throw new IllegalArgumentException("Hay más estados de conservación que unidades.");
+            for (int u = 0; u < d.cantidad; u++) {
+                Long idEstado = u < r.getEstadosPorUnidad().size() ? r.getEstadosPorUnidad().get(u) : null;
+                EstadoActivo estado = idEstado == null ? d.estadoActivo : estadoActivoService.findById(idEstado);
+                if (estado == null) throw new IllegalArgumentException("El estado de conservación de la unidad " + (u + 1) + " no existe.");
+                d.estados.add(estado);
+            }
         }
         if (r.getIdOrganismoFinanciero() != null) {
             d.financiador = financiadorService.findById(r.getIdOrganismoFinanciero());
@@ -370,7 +412,7 @@ public class AdicionalService {
             x.setTokenRegistro(token);
             x.setUsuario(usuario.getUsuario());
             x.setEstado("ACTIVO");
-            volcar(a, x, d, d.serie(u), d.codigoAntiguo(u), usuario.getUsuario(), hoy, true);
+            volcar(a, x, d, d.serie(u), d.codigoAntiguo(u), d.estado(u), usuario.getUsuario(), hoy, true);
             activoDao.save(a);
             adicionalDao.save(x);
             historiales.add(historialAlta(a, usuario));
@@ -383,13 +425,14 @@ public class AdicionalService {
     }
 
     /** Copia los datos validados al activo y a su detalle. */
-    private static void volcar(Activo a, ActivoAdicional x, Datos d, String serie, String codigoAntiguo,
+    private static void volcar(Activo a, ActivoAdicional x, Datos d, String serie, String codigoAntiguo, EstadoActivo estado,
                                String usuario, LocalDate hoy, boolean moverUbicacion) {
         a.setDescripcion(d.descripcionCon(serie, codigoAntiguo));
         a.setCodigoAntiguo(codigoAntiguo);
         a.setGrupoContable(d.grupo);
-        a.setAuxiliar(d.auxiliar);
-        a.setEstadoActivo(d.estadoActivo);
+        if (d.auxiliar != null) a.setAuxiliar(null);
+        x.setAuxiliarAdicional(d.auxiliar);
+        a.setEstadoActivo(estado);
         a.setOrganismoFinanciero(d.financiador);
         a.setOrgFinCode(d.financiador != null ? d.financiador.getCodOf() : null);
         a.setFechaAdquisicion(d.fecha);
@@ -463,7 +506,7 @@ public class AdicionalService {
             nuevoCodigo = prefijo + "-" + String.format("%05d", n) + "A";
         }
         a.setCodigo(nuevoCodigo);
-        volcar(a, x, d, d.serie(0), d.codigoAntiguo(0), usuario.getUsuario(), LocalDate.now(), !conVida);
+        volcar(a, x, d, d.serie(0), d.codigoAntiguo(0), d.estado(0), usuario.getUsuario(), LocalDate.now(), !conVida);
         if (!java.util.Objects.equals(actual, nuevoCodigo)) {
             activoDao.flush();
             adicionalDao.recodificarHistorialAlta(idActivo, Activo.codigoReferencia(a));
@@ -582,8 +625,10 @@ public class AdicionalService {
         m.put("responsable", nombreDe(a.getResponsable()));
         m.put("idGrupoContable", a.getGrupoContable() != null ? a.getGrupoContable().getIdGrupoContable() : null);
         m.put("grupo", a.getGrupoContable() != null ? a.getGrupoContable().getNombre() : null);
-        m.put("idAuxiliar", a.getAuxiliar() != null ? a.getAuxiliar().getIdAuxiliar() : null);
-        m.put("auxiliar", a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
+        m.put("idAuxiliarAdicional", x.getAuxiliarAdicional() != null ? x.getAuxiliarAdicional().getIdAuxiliarAdicional() : null);
+        m.put("auxiliar", x.getAuxiliarAdicional() != null ? x.getAuxiliarAdicional().getNombre()
+                : a.getAuxiliar() != null ? a.getAuxiliar().getNombre() : null);
+        m.put("auxiliarLegado", x.getAuxiliarAdicional() == null && a.getAuxiliar() != null);
         m.put("idEstadoActivo", a.getEstadoActivo() != null ? a.getEstadoActivo().getIdEstadoActivo() : null);
         m.put("conservacion", a.getEstadoActivo() != null ? a.getEstadoActivo().getNombre() : null);
         m.put("idOrganismoFinanciero", a.getOrganismoFinanciero() != null ? a.getOrganismoFinanciero().getIdOrganismoFinanciero() : null);

@@ -90,6 +90,7 @@ public interface IActivoAdicionalDao extends JpaRepository<ActivoAdicional, Long
               join fetch x.activo a
               left join fetch a.grupoContable
               left join fetch a.auxiliar
+              left join fetch x.auxiliarAdicional
               left join fetch a.estadoActivo
               left join fetch a.organismoFinanciero
               left join fetch a.oficina o

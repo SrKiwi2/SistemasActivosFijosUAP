@@ -27,7 +27,10 @@ public class AdicionalRequest {
     private Long idResponsable;
     private Long idGrupoContable;
     private Long idAuxiliar;
+    private Long idAuxiliarAdicional;
     private Long idEstadoActivo;
+    /** Estado por unidad en el mismo orden que códigos antiguos y series. */
+    private List<Long> estadosPorUnidad;
     private Long idOrganismoFinanciero;
 
     // ── Datos ──

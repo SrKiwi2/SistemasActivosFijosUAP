@@ -10,6 +10,7 @@ import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFFooter;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
@@ -45,7 +46,7 @@ public class WordActaFaltanteService {
 
     private byte[] crear(ActaFaltanteDTO acta, boolean previa, boolean adjuntos) throws Exception {
         try (XWPFDocument doc = new XWPFDocument()) {
-            WordDocumentos.pagina(doc, true, 1950, 2600);
+            WordDocumentos.pagina(doc, true, 1950, 3000);
             MembreteWord.aplicar(doc);
             pieVerificacion(doc, acta, previa);
             if (acta.esNotificacion()) notificacion(doc, acta, previa, adjuntos);
@@ -161,14 +162,25 @@ public class WordActaFaltanteService {
         CTSectPr sect = doc.getDocument().getBody().isSetSectPr()
                 ? doc.getDocument().getBody().getSectPr() : doc.getDocument().getBody().addNewSectPr();
         CTPageMar mar = sect.isSetPgMar() ? sect.getPgMar() : sect.addNewPgMar();
-        mar.setFooter(BigInteger.valueOf(1440));
+        mar.setFooter(BigInteger.valueOf(2000));
         XWPFFooter pie = doc.createFooter(HeaderFooterType.DEFAULT);
-        XWPFParagraph p = pie.createParagraph();
-        p.setAlignment(ParagraphAlignment.LEFT);
+        XWPFTable bloque = pie.createTable(1, 2);
+        bloque.setWidth("100%");
+        bloque.removeBorders();
+        bloque.setCellMargins(0, 0, 0, 0);
+        XWPFTableCell celdaQr = bloque.getRow(0).getCell(0);
+        XWPFTableCell celdaTexto = bloque.getRow(0).getCell(1);
+        celdaQr.setWidth("1050");
+        celdaTexto.setWidth("9090");
+        celdaTexto.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
+        XWPFParagraph qr = celdaQr.getParagraphs().get(0);
+        XWPFParagraph p = celdaTexto.getParagraphs().get(0);
+        qr.setSpacingBefore(0);
+        qr.setSpacingAfter(0);
         p.setSpacingBefore(0);
         p.setSpacingAfter(0);
         String url = !previa && a.token() != null ? urlPublica.replaceAll("/$", "") + "/verificar/acta-faltantes/" + a.token() : null;
-        if (url != null) WordDocumentos.imagenQr(p.createRun(), url, 38);
+        if (url != null) WordDocumentos.imagenQr(qr.createRun(), url, 38);
         var texto = p.createRun();
         texto.setFontFamily("Arial");
         texto.setFontSize(7);

@@ -50,6 +50,11 @@ public class ActivoAdicional extends AuditoriaConfig {
     @JoinColumn(name = "id_predio", foreignKey = @ForeignKey(name = "fk_activo_adicional_predio"))
     private Predio predio;
 
+    /** Auxiliar histórico propio del módulo; el auxiliar VSIAF del activo queda intacto en registros anteriores. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_auxiliar_adicional")
+    private AuxiliarAdicional auxiliarAdicional;
+
     @Column(name = "descripcion_base", length = 600)
     private String descripcionBase;
 

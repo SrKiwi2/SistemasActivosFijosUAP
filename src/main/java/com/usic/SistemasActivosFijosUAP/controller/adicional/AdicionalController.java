@@ -103,6 +103,30 @@ public class AdicionalController {
     }
 
     @ValidarUsuarioAutenticado
+    @GetMapping("/api/auxiliares")
+    @ResponseBody
+    public ResponseEntity<?> auxiliares(@RequestParam Long grupoId, HttpServletRequest request) {
+        if (!puede(request)) return sinPermiso();
+        try {
+            return ResponseEntity.ok(adicionalService.auxiliares(grupoId, RolesSciaf.usuarioDe(request), opciones(request)));
+        } catch (Exception e) { return error(e, "la consulta de auxiliares adicionales"); }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/auxiliares")
+    @ResponseBody
+    public ResponseEntity<?> crearAuxiliar(@RequestBody Map<String, Object> datos, HttpServletRequest request) {
+        if (!puede(request)) return sinPermiso();
+        try {
+            Long grupoId = datos.get("grupoId") == null ? null : Long.valueOf(datos.get("grupoId").toString());
+            String nombre = datos.get("nombre") == null ? null : datos.get("nombre").toString();
+            String codigo = datos.get("codigo") == null ? null : datos.get("codigo").toString();
+            return ResponseEntity.ok(adicionalService.crearAuxiliar(grupoId, nombre, codigo,
+                    RolesSciaf.usuarioDe(request), opciones(request)));
+        } catch (Exception e) { return error(e, "el auxiliar adicional"); }
+    }
+
+    @ValidarUsuarioAutenticado
     @PostMapping("/api/datatables")
     @ResponseBody
     public ResponseEntity<?> datatables(@RequestParam(name = "draw", defaultValue = "1") int draw,
