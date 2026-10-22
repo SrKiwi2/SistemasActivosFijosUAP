@@ -17,6 +17,11 @@ import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
+import org.apache.poi.xwpf.usermodel.TableRowAlign;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell.XWPFVertAlign;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.STBorder;
 
 import com.itextpdf.text.BaseColor;
@@ -68,15 +73,14 @@ public class ReporteAdicionalService {
     private static final String MEMBRETE = "/static/assets/img/fondo/0.jpg";
     private static final String CIUDAD_POR_DEFECTO = "Cobija";
     private static final String ACTIVOS_POR_DEFECTO = "Lic. Verónica Layme Cori";
-    /** Prefijo de entidad que el acta de asignación del VSIAF antepone al código. */
-    private static final String PREFIJO_CODIGO = "148-";
 
     private static final Font TITULO = new Font(Font.FontFamily.TIMES_ROMAN, 14, Font.BOLD | Font.UNDERLINE);
     private static final Font NORMAL = new Font(Font.FontFamily.HELVETICA, 10.5f);
     private static final Font NEGRITA = new Font(Font.FontFamily.HELVETICA, 10.5f, Font.BOLD);
-    private static final Font CAB_TABLA = new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD);
-    private static final Font TABLA = new Font(Font.FontFamily.HELVETICA, 9);
-    private static final Font TABLA_NOTA = new Font(Font.FontFamily.HELVETICA, 7.5f, Font.ITALIC, new BaseColor(70, 70, 70));
+    private static final Font CAB_TABLA = new Font(Font.FontFamily.HELVETICA, 11, Font.BOLD);
+    private static final Font TABLA = new Font(Font.FontFamily.HELVETICA, 10);
+    private static final Font TABLA_NOTA = new Font(Font.FontFamily.HELVETICA, 8.5f, Font.ITALIC, new BaseColor(70, 70, 70));
+    private static final BaseColor AZUL_CABECERA = new BaseColor(194, 212, 233);
     private static final Font PIE = new Font(Font.FontFamily.HELVETICA, 7);
 
     @Transactional(readOnly = true)
@@ -192,54 +196,109 @@ public class ReporteAdicionalService {
                 12, true, ParagraphAlignment.CENTER);
         titulo.setSpacingAfter(260);
         titulo.getRuns().forEach(r -> r.setUnderline(org.apache.poi.xwpf.usermodel.UnderlinePatterns.SINGLE));
-        XWPFParagraph introduccion = WordDocumentos.parrafo(doc, "En la ciudad de " + f.ciudad + " a " + String.format("%02d", fecha.getDayOfMonth())
+        XWPFParagraph introduccion = doc.createParagraph();
+        introduccion.setAlignment(ParagraphAlignment.BOTH);
+        agregarWord(introduccion, "En la ciudad de " + f.ciudad + " a " + String.format("%02d", fecha.getDayOfMonth())
                 + " días del mes de " + mes + " del " + fecha.getYear() + ", a horas "
                 + fecha.format(DateTimeFormatter.ofPattern("HH:mm")) + " en los predios de la Universidad Amazónica de Pando en presencia de la "
-                + f.activos + ". Responsable de Activos Fijos"
-                + (f.vistoBueno == null ? "" : " dando el visto bueno " + f.articuloVistoBueno + " " + f.vistoBueno)
-                + " se procedió a la ASIGNACION INDIVIDUAL ADICIONAL de los Activos Fijos que se encuentran físicamente en la "
-                + ubicacion(oficina) + " que no fueron inventariados ni codificados por la empresa que realizó el Revalúo, mencionando así los activos con las siguientes características:",
-                10, false, ParagraphAlignment.BOTH);
-        introduccion.setSpacingAfter(260);
+                + f.activos + ". ", false, 10);
+        agregarWord(introduccion, "Responsable de Activos Fijos", true, 10);
+        if (f.vistoBueno != null) {
+            agregarWord(introduccion, " dando el visto bueno " + f.articuloVistoBueno + " ", false, 10);
+            agregarWord(introduccion, f.vistoBueno, true, 10);
+        }
+        agregarWord(introduccion, " se procedió a la ", false, 10);
+        agregarWord(introduccion, "ASIGNACION INDIVIDUAL ADICIONAL", true, 10);
+        agregarWord(introduccion, " de los Activos Fijos que se encuentran físicamente en la oficina indicada a continuación, "
+                + "y que no fueron inventariados ni codificados por la empresa que realizó el Revalúo, mencionando así los activos con las siguientes características:",
+                false, 10);
+        introduccion.setSpacingAfter(80);
+        XWPFParagraph ubicacion = WordDocumentos.parrafo(doc, ubicacion(oficina), 10, true, ParagraphAlignment.CENTER);
+        ubicacion.setSpacingAfter(180);
         XWPFTable tabla = WordDocumentos.tabla(doc, "Ítem", "Descripción", "Código", "Observación");
         int[] anchos = {650, 6250, 2300, 1750};
-        for (var fila : tabla.getRows()) for (int c = 0; c < 4; c++) fila.getCell(c).setWidth(Integer.toString(anchos[c]));
+        XWPFTableRow cabecera = tabla.getRow(0);
+        cabecera.getCtRow().addNewTrPr().addNewTblHeader();
+        cabecera.getCtRow().getTrPr().addNewCantSplit();
+        for (int c = 0; c < 4; c++) {
+            XWPFTableCell celda = cabecera.getCell(c);
+            celda.setWidth(Integer.toString(anchos[c]));
+            celda.setColor("C2D4E9");
+            celda.setVerticalAlignment(XWPFVertAlign.CENTER);
+            celda.getParagraphs().forEach(p -> {
+                p.setAlignment(ParagraphAlignment.CENTER);
+                p.getRuns().forEach(run -> run.setFontSize(10));
+            });
+        }
         int numero = 1;
         for (ActivoAdicional x : bienes) {
             Activo a = x.getActivo();
             String antiguo = vacio(a.getCodigoAntiguo()) ? null : a.getCodigoAntiguo().trim();
-            String codigo = vacio(a.getCodigo()) ? (antiguo == null ? "S/CD" : antiguo)
-                    : PREFIJO_CODIGO + Activo.codigoDocumento(a.getCodigo()) + (antiguo == null ? "" : "\nAnt.: " + antiguo);
+            String codigo = codigoDocumento(a, antiguo);
             String estado = a.getEstadoActivo() == null ? "—" : a.getEstadoActivo().getNombre().toUpperCase(Locale.ROOT);
             WordDocumentos.fila(tabla, String.format("%02d", numero++), texto(a.getDescripcion(), "SIN DESCRIPCIÓN"),
                     codigo, estado + (vacio(x.getObservacion()) ? "" : "\n" + x.getObservacion().trim()));
-            for (int c = 0; c < 4; c++) tabla.getRow(numero - 1).getCell(c).setWidth(Integer.toString(anchos[c]));
+            XWPFTableRow fila = tabla.getRow(numero - 1);
+            fila.getCtRow().addNewTrPr().addNewCantSplit();
+            for (int c = 0; c < 4; c++) {
+                XWPFTableCell celda = fila.getCell(c);
+                celda.setWidth(Integer.toString(anchos[c]));
+                celda.setVerticalAlignment(XWPFVertAlign.CENTER);
+                final int columna = c;
+                celda.getParagraphs().forEach(p -> {
+                    p.setAlignment(columna == 1 ? ParagraphAlignment.LEFT : ParagraphAlignment.CENTER);
+                    p.getRuns().forEach(run -> run.setFontSize(10));
+                });
+            }
         }
         XWPFParagraph al = WordDocumentos.parrafo(doc, "Al:", 10, true, ParagraphAlignment.LEFT);
         al.setSpacingBefore(200);
         al.setSpacingAfter(60);
+        mantenerConSiguiente(al);
         XWPFTable receptor = doc.createTable(1, 1);
-        receptor.setWidth("100%");
+        receptor.setWidth("82%");
+        receptor.setTableAlignment(TableRowAlign.CENTER);
         String persona = responsable == null ? "SIN RESPONSABLE REGISTRADO" : nombreResponsable(responsable);
+        String cargoReceptor = null;
         if (responsable != null && responsable.getPersona() != null) {
             Persona p = responsable.getPersona();
             if (!vacio(p.getCi())) persona += "  C.I. " + p.getCi().trim()
                     + (vacio(p.getExtension()) ? "" : " " + p.getExtension().trim().toUpperCase(Locale.ROOT) + ".");
             if (responsable.getCargo() != null && !vacio(responsable.getCargo().getNombre())) {
                 String cargo = responsable.getCargo().getNombre().trim().toUpperCase(Locale.ROOT);
-                persona += "\n" + (cargo.contains("U.A.P") || cargo.matches(".*\\bUAP\\b.*") ? cargo : cargo + " – U.A.P.");
+                cargoReceptor = cargo.contains("U.A.P") || cargo.matches(".*\\bUAP\\b.*") ? cargo : cargo + " – U.A.P.";
             }
         }
-        WordDocumentos.celda(receptor.getRow(0).getCell(0), persona, false, 10);
-        XWPFParagraph responsabilidad = WordDocumentos.parrafo(doc,
-                "Entrega que es realizada de acuerdo a los reglamentos y Normas Básicas del SABS y Decreto Supremo 0181. "
-                + "Es responsabilidad de la persona o funcionario que recibe el activo cualquier pérdida, deterioro o mal uso de los bienes de la institución.",
-                10, false, ParagraphAlignment.BOTH);
+        XWPFTableCell celdaReceptor = receptor.getRow(0).getCell(0);
+        celdaReceptor.removeParagraph(0);
+        XWPFParagraph nombre = celdaReceptor.addParagraph();
+        nombre.setAlignment(ParagraphAlignment.CENTER);
+        nombre.setSpacingAfter(cargoReceptor == null ? 0 : 20);
+        agregarWord(nombre, persona, false, 10);
+        if (cargoReceptor != null) {
+            XWPFParagraph cargo = celdaReceptor.addParagraph();
+            cargo.setAlignment(ParagraphAlignment.CENTER);
+            cargo.setSpacingAfter(0);
+            agregarWord(cargo, cargoReceptor, true, 10);
+        }
+        receptor.getRow(0).getCtRow().addNewTrPr().addNewCantSplit();
+        receptor.getRow(0).getCell(0).getParagraphs().forEach(p -> {
+            p.setAlignment(ParagraphAlignment.CENTER);
+            mantenerConSiguiente(p);
+        });
+        XWPFParagraph responsabilidad = doc.createParagraph();
+        responsabilidad.setAlignment(ParagraphAlignment.BOTH);
+        agregarWord(responsabilidad, "La entrega se realiza de acuerdo con los reglamentos, las Normas Básicas del SABS y el Decreto Supremo 0181. ", false, 10);
+        agregarWord(responsabilidad, "La persona que recibe los bienes asume la responsabilidad por su pérdida, deterioro o mal uso.", true, 10);
         responsabilidad.setSpacingBefore(230);
         responsabilidad.setSpacingAfter(190);
-        WordDocumentos.parrafo(doc, "Para constancia de la recepción firmamos al pie del presente documento.", 10, false, ParagraphAlignment.LEFT);
+        mantenerConSiguiente(responsabilidad);
+        XWPFParagraph constancia = WordDocumentos.parrafo(doc,
+                "Para constancia de la recepción firmamos al pie del presente documento.", 10, false, ParagraphAlignment.LEFT);
+        mantenerConSiguiente(constancia);
         XWPFTable firmas = doc.createTable(1, 2);
         firmas.setWidth("100%");
+        firmas.getRow(0).getCtRow().addNewTrPr().addNewCantSplit();
         var bordes = firmas.getCTTbl().getTblPr().addNewTblBorders();
         bordes.addNewTop().setVal(STBorder.NIL);
         bordes.addNewBottom().setVal(STBorder.NIL);
@@ -251,10 +310,24 @@ public class ReporteAdicionalService {
         WordDocumentos.celda(firmas.getRow(0).getCell(1), "\n\n\n____________________________\nENTREGUÉ CONFORME", true, 9);
         firmas.getRow(0).getCell(0).getParagraphs().get(0).setAlignment(ParagraphAlignment.CENTER);
         firmas.getRow(0).getCell(1).getParagraphs().get(0).setAlignment(ParagraphAlignment.CENTER);
+        firmas.getRow(0).getTableCells().forEach(c -> c.getParagraphs().forEach(ReporteAdicionalService::mantenerConSiguiente));
         XWPFParagraph vistoBueno = WordDocumentos.parrafo(doc, "Vo. Bo.", 9, true, ParagraphAlignment.CENTER);
         vistoBueno.setSpacingBefore(220);
         vistoBueno.setSpacingAfter(80);
+        mantenerConSiguiente(vistoBueno);
         WordDocumentos.parrafo(doc, "C.c./Arch. " + (iniciales.isEmpty() ? "" : iniciales) + "/A-F", 8, false, ParagraphAlignment.LEFT);
+    }
+
+    private static void mantenerConSiguiente(XWPFParagraph parrafo) {
+        parrafo.getCTP().getPPr().addNewKeepNext();
+    }
+
+    private static void agregarWord(XWPFParagraph parrafo, String texto, boolean negrita, int puntos) {
+        XWPFRun run = parrafo.createRun();
+        run.setFontFamily("Arial");
+        run.setFontSize(puntos);
+        run.setBold(negrita);
+        run.setText(texto);
     }
 
     private static void escribirActa(Document doc, List<ActivoAdicional> bienes, LocalDateTime fecha,
@@ -286,15 +359,20 @@ public class ReporteAdicionalService {
         }
         intro.add(new Chunk(" se procedió a la ", NORMAL));
         intro.add(new Chunk("ASIGNACION INDIVIDUAL ADICIONAL", NEGRITA));
-        intro.add(new Chunk(" de los Activos Fijos que se encuentran físicamente en la ", NORMAL));
-        intro.add(new Chunk(ubicacion(oficina), NEGRITA));
-        intro.add(new Chunk(" que no fueron inventariados ni codificados por la empresa que realizó el Revalúo, "
+        intro.add(new Chunk(" de los Activos Fijos que se encuentran físicamente en la oficina indicada a continuación, ", NORMAL));
+        intro.add(new Chunk("y que no fueron inventariados ni codificados por la empresa que realizó el Revalúo, "
                 + "mencionando así los activos con las siguientes características:", NORMAL));
         doc.add(intro);
+
+        Paragraph ubicacion = new Paragraph(ubicacion(oficina), NEGRITA);
+        ubicacion.setAlignment(Element.ALIGN_CENTER);
+        ubicacion.setSpacingAfter(12);
+        doc.add(ubicacion);
 
         PdfPTable tabla = new PdfPTable(new float[] { 1f, 4.6f, 2.5f, 1.9f });
         tabla.setWidthPercentage(100);
         tabla.setHeaderRows(1);
+        tabla.setSplitRows(false);
         for (String cab : List.of("Ítem", "Descripción", "Código", "Observación")) tabla.addCell(cabecera(cab));
         int numero = 1;
         for (ActivoAdicional x : bienes) {
@@ -307,25 +385,31 @@ public class ReporteAdicionalService {
         tabla.setSpacingAfter(6);
         doc.add(tabla);
 
+        PdfPTable cierre = new PdfPTable(1);
+        cierre.setWidthPercentage(100);
+        cierre.setKeepTogether(true);
+        PdfPCell contenido = new PdfPCell();
+        contenido.setBorder(Rectangle.NO_BORDER);
+        contenido.setPadding(0);
         Paragraph al = new Paragraph("Al:", NORMAL);
         al.setSpacingAfter(10);
-        doc.add(al);
-        doc.add(recuadroResponsable(responsable));
+        contenido.addElement(al);
+        contenido.addElement(recuadroResponsable(responsable));
 
         Paragraph legal = new Paragraph();
         legal.setAlignment(Element.ALIGN_JUSTIFIED);
         legal.setLeading(14.5f);
         legal.setSpacingBefore(16);
-        legal.add(new Chunk("Entrega que es realizada de acuerdo al reglamentos y Normas Básicas del SABS y Decreto "
-                + "Supremo 0181, que a la letra dice, ", NORMAL));
-        legal.add(new Chunk("es de responsabilidad total de la persona y/o funcionario, que recibe el activo, por "
-                + "cualquier perdida, deterioro y/o por mal uso de los Bienes de la institución.", NEGRITA));
-        doc.add(legal);
+        legal.add(new Chunk("La entrega se realiza de acuerdo con los reglamentos, las Normas Básicas del SABS y el Decreto "
+                + "Supremo 0181. ", NORMAL));
+        legal.add(new Chunk("La persona que recibe los bienes asume la responsabilidad por su pérdida, deterioro o mal uso.", NEGRITA));
+        contenido.addElement(legal);
         Paragraph constancia = new Paragraph("Para constancia de la recepción firmamos al pie del presente documento.", NORMAL);
         constancia.setLeading(14.5f);
-        doc.add(constancia);
-
-        doc.add(firmas(iniciales));
+        contenido.addElement(constancia);
+        contenido.addElement(firmas(iniciales));
+        cierre.addCell(contenido);
+        doc.add(cierre);
     }
 
     /** «Al:» — recuadro centrado con nombre, C.I. y cargo del que recibe. */
@@ -352,6 +436,7 @@ public class ReporteAdicionalService {
         }
         PdfPCell c = new PdfPCell();
         c.addElement(p);
+        c.setHorizontalAlignment(Element.ALIGN_CENTER);
         c.setBorderWidth(0.8f);
         c.setPaddingTop(4);
         c.setPaddingBottom(10);
@@ -393,10 +478,11 @@ public class ReporteAdicionalService {
 
     private static PdfPCell cabecera(String valor) {
         PdfPCell c = new PdfPCell(new Phrase(valor, CAB_TABLA));
+        c.setBackgroundColor(AZUL_CABECERA);
         c.setHorizontalAlignment(Element.ALIGN_CENTER);
         c.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        c.setPaddingTop(5);
-        c.setPaddingBottom(7);
+        c.setPaddingTop(8);
+        c.setPaddingBottom(8);
         return c;
     }
 
@@ -404,22 +490,25 @@ public class ReporteAdicionalService {
         PdfPCell c = new PdfPCell(valor);
         c.setHorizontalAlignment(alineacion);
         c.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        c.setPaddingTop(3);
-        c.setPaddingBottom(5);
-        c.setPaddingLeft(5);
-        c.setPaddingRight(5);
+        c.setPaddingTop(6);
+        c.setPaddingBottom(7);
+        c.setPaddingLeft(6);
+        c.setPaddingRight(6);
         return c;
     }
 
-    /**
-     * Código como en el acta de asignación del VSIAF ("148-" + código sin la letra de la
-     * serie). El código antiguo va debajo; sin ninguno de los dos, «S/CD».
-     */
+    /** El acta de adicionales identifica primero el código antiguo, como el modelo en papel. */
+    private static String codigoDocumento(Activo a, String antiguo) {
+        String nuevo = vacio(a.getCodigo()) ? null : a.getCodigo().trim();
+        if (antiguo != null) return antiguo + (nuevo == null ? "" : "\nSCIAF: " + nuevo);
+        return nuevo == null ? "S/CD" : nuevo;
+    }
+
     private static Phrase codigo(Activo a) {
         String antiguo = vacio(a.getCodigoAntiguo()) ? null : a.getCodigoAntiguo().trim();
-        if (vacio(a.getCodigo())) return new Phrase(antiguo != null ? antiguo : "S/CD", TABLA);
-        Phrase p = new Phrase(PREFIJO_CODIGO + Activo.codigoDocumento(a.getCodigo()), TABLA);
-        if (antiguo != null) p.add(new Chunk("\nAnt.: " + antiguo, TABLA_NOTA));
+        String nuevo = vacio(a.getCodigo()) ? null : a.getCodigo().trim();
+        Phrase p = new Phrase(antiguo != null ? antiguo : nuevo == null ? "S/CD" : nuevo, TABLA);
+        if (antiguo != null && nuevo != null) p.add(new Chunk("\nSCIAF: " + nuevo, TABLA_NOTA));
         return p;
     }
 

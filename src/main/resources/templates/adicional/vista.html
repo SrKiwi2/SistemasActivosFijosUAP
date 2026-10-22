@@ -459,7 +459,7 @@
                         <div class="col-lg-3 col-md-6"><label class="sm-label">Grupo contable</label><select class="js-grupo"><option value=""></option></select></div>
                         <div class="col-lg-6 col-md-6"><label class="sm-label">Auxiliar de adicionales</label><div class="adi-con-boton"><div><select class="js-auxiliar" disabled><option value=""></option></select></div>
                             <button type="button" class="adi-icono-btn js-alta-aux" title="Crear auxiliar para adicionales" disabled><i class="ti ti-plus"></i></button></div>
-                            <div class="adi-ayuda js-aux-legado d-none">Este bien usa un auxiliar histórico del VSIAF. Puede conservarlo o elegir uno propio de adicionales.</div></div>
+                            <div class="adi-ayuda js-aux-legado d-none">Este bien tiene un auxiliar histórico del VSIAF. Al guardar la corrección se retirará ese vínculo; elija uno del catálogo de adicionales si corresponde.</div></div>
                         <div class="col-md-6"><label class="sm-label">Oficina</label>
                             <div class="adi-con-boton">
                                 <div><select class="js-oficina" disabled><option value=""></option></select></div>
@@ -1592,7 +1592,7 @@
         }
         await cargarAuxiliares(d.idAuxiliarAdicional);
         $form.find('.js-aux-legado').toggleClass('d-none', !d.auxiliarLegado)
-            .text(d.auxiliarLegado ? 'Auxiliar histórico: ' + d.auxiliar + '. Se conserva si no elige otro.' : '');
+            .text(d.auxiliarLegado ? 'Auxiliar histórico: ' + d.auxiliar + '. Se retirará al guardar; elija uno propio de adicionales si corresponde.' : '');
         pintarEstados([d.idEstadoActivo]);
         if (st.edicion.conVida) {
             $predio.prop('disabled', !!d.idOficina);

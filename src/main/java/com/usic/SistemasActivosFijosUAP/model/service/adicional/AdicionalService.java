@@ -205,6 +205,9 @@ public class AdicionalService {
      */
     private Datos validar(AdicionalRequest r, Activo actual) {
         if (r == null) throw new IllegalArgumentException("No llegaron datos.");
+        if (r.getIdAuxiliar() != null) {
+            throw new IllegalArgumentException("Los adicionales usan auxiliares propios. Elija un auxiliar de adicionales.");
+        }
         Datos d = new Datos();
         d.base = mayus(r.getDescripcion());
         exigirLargo(d.base, 600, "La descripción");
@@ -430,7 +433,8 @@ public class AdicionalService {
         a.setDescripcion(d.descripcionCon(serie, codigoAntiguo));
         a.setCodigoAntiguo(codigoAntiguo);
         a.setGrupoContable(d.grupo);
-        if (d.auxiliar != null) a.setAuxiliar(null);
+        // Una corrección también retira el vínculo legado con el catálogo del VSIAF.
+        a.setAuxiliar(null);
         x.setAuxiliarAdicional(d.auxiliar);
         a.setEstadoActivo(estado);
         a.setOrganismoFinanciero(d.financiador);

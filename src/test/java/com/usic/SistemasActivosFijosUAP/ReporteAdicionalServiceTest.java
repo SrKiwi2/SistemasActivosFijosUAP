@@ -3,6 +3,7 @@ package com.usic.SistemasActivosFijosUAP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -13,9 +14,11 @@ import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.parser.PdfTextExtractor;
@@ -53,6 +56,21 @@ class ReporteAdicionalServiceTest {
             assertTrue(texto.contains("DE BIENES - ADICIONAL 2026"));
             assertTrue(doc.getTables().get(0).getText().contains("CÁMARA"));
             assertTrue(doc.getTables().get(3).getText().contains("ROUTER"));
+            assertEquals("C2D4E9", doc.getTables().get(0).getRow(0).getCell(0).getColor());
+            assertEquals(ParagraphAlignment.CENTER,
+                    doc.getTables().get(1).getRow(0).getCell(0).getParagraphs().get(0).getAlignment());
+            assertTrue(doc.getParagraphs().stream().anyMatch(p -> p.getText().contains("Oficina 106")
+                    && p.getAlignment() == ParagraphAlignment.CENTER));
+            assertTrue(doc.getTables().get(0).getRow(1).getCtRow().getTrPr().sizeOfCantSplitArray() > 0);
+            assertTrue(doc.getTables().get(2).getRow(0).getCtRow().getTrPr().sizeOfCantSplitArray() > 0);
+            var intro = doc.getParagraphs().stream().filter(p -> p.getText().contains("ASIGNACION INDIVIDUAL ADICIONAL"))
+                    .findFirst().orElseThrow();
+            assertTrue(intro.getRuns().stream().anyMatch(r -> r.isBold() && "Responsable de Activos Fijos".equals(r.getText(0))));
+            assertTrue(intro.getRuns().stream().anyMatch(r -> r.isBold() && "Ing. Mayko A. Antezana Sosa".equals(r.getText(0))));
+            assertTrue(intro.getRuns().stream().anyMatch(r -> r.isBold() && "ASIGNACION INDIVIDUAL ADICIONAL".equals(r.getText(0))));
+            var legal = doc.getParagraphs().stream().filter(p -> p.getText().contains("Decreto Supremo 0181"))
+                    .findFirst().orElseThrow();
+            assertTrue(legal.getRuns().stream().anyMatch(r -> r.isBold() && r.getText(0).contains("asume la responsabilidad")));
         }
     }
 
@@ -62,6 +80,7 @@ class ReporteAdicionalServiceTest {
         ReporteAdicionalService servicio = servicio(dao);
         Oficina oficina = oficina();
         Responsable responsable = responsable(11L, "ANA");
+        Cargo cargo = new Cargo(); cargo.setNombre("RESPONSABLE DE LABORATORIO"); responsable.setCargo(cargo);
         ActivoAdicional primero = bien(oficina, responsable, "SILLA 1", "01-02-03-00001A", "A1");
         ActivoAdicional segundo = bien(oficina, responsable, "SILLA 2", "01-02-03-00002A", "A2");
         segundo.getActivo().getEstadoActivo().setNombre("Bueno");
@@ -70,6 +89,11 @@ class ReporteAdicionalServiceTest {
                 servicio.generarWord(7L, 11L, FECHA, usuario(), Set.of(AdicionalService.PERMISO))))) {
             assertEquals("REGULAR", doc.getTables().get(0).getRow(1).getCell(3).getText());
             assertEquals("BUENO", doc.getTables().get(0).getRow(2).getCell(3).getText());
+            assertTrue(doc.getTables().get(0).getRow(1).getCell(2).getText().startsWith("A1"));
+            assertTrue(doc.getTables().get(0).getRow(2).getCell(2).getText().startsWith("A2"));
+            assertTrue(doc.getTables().get(1).getRow(0).getCell(0).getParagraphs().stream()
+                    .flatMap(p -> p.getRuns().stream())
+                    .anyMatch(r -> r.isBold() && r.getText(0).contains("RESPONSABLE DE LABORATORIO")));
         }
     }
 
@@ -110,7 +134,7 @@ class ReporteAdicionalServiceTest {
             assertTrue(t.contains("Lic. Verónica Layme Cori. Responsable de Activos Fijos"), t);
             assertTrue(t.contains("visto bueno del Ing. Mayko A. Antezana Sosa"), t);
             assertTrue(t.contains("Oficina 106 LABORATORIO"), t);
-            assertTrue(t.contains("148-01-02-03-00001"), t);
+            assertTrue(t.contains("01-02-03-00001A"), t);
             assertTrue(t.contains("UAP - 016303620044"), t);
             assertTrue(t.contains("REGULAR"), t);
             assertTrue(t.contains("C.I. 1767163 PDO."), t);
@@ -129,6 +153,37 @@ class ReporteAdicionalServiceTest {
         ReporteAdicionalService servicio = servicio(dao);
         assertThrows(IllegalArgumentException.class,
                 () -> servicio.generar(7L, 12L, FECHA, usuario(), Set.of(AdicionalService.PERMISO)));
+    }
+
+    @Test
+    void cierreYFirmasQuedanJuntosConUnaTablaLarga() throws Exception {
+        IActivoAdicionalDao dao = mock(IActivoAdicionalDao.class);
+        ReporteAdicionalService servicio = servicio(dao);
+        Oficina oficina = oficina();
+        Responsable responsable = responsable(11L, "ANA");
+        List<ActivoAdicional> bienes = IntStream.range(0, 24)
+                .mapToObj(i -> bien(oficina, responsable,
+                        "SILLA DE OFICINA CON RESPALDO Y ESTRUCTURA METÁLICA NÚMERO " + (i + 1),
+                        null, "ANT-" + (i + 1)))
+                .toList();
+        when(dao.paraReporte(7L, 11L)).thenReturn(bienes);
+        PdfReader reader = new PdfReader(servicio.generar(7L, 11L, FECHA, usuario(), Set.of(AdicionalService.PERMISO)));
+        try {
+            assertTrue(reader.getNumberOfPages() > 1);
+            int cierres = 0;
+            for (int pagina = 1; pagina <= reader.getNumberOfPages(); pagina++) {
+                String texto = PdfTextExtractor.getTextFromPage(reader, pagina);
+                if (texto.contains("Al:")) {
+                    cierres++;
+                    assertTrue(texto.contains("RECIBI CONFORME"));
+                    assertTrue(texto.contains("ENTREGUE CONFORME"));
+                    assertTrue(texto.contains("Vo. Bo."));
+                } else {
+                    assertFalse(texto.contains("RECIBI CONFORME"));
+                }
+            }
+            assertEquals(1, cierres);
+        } finally { reader.close(); }
     }
 
     private static ReporteAdicionalService servicio(IActivoAdicionalDao dao) {

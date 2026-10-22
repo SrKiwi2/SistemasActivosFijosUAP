@@ -69,5 +69,18 @@ class AdicionalUnidadesTest {
         ArgumentCaptor<ActivoAdicional> detalles = ArgumentCaptor.forClass(ActivoAdicional.class);
         verify(adicionalDao, times(3)).save(detalles.capture());
         assertTrue(detalles.getAllValues().stream().allMatch(x -> x.getAuxiliarAdicional() == auxiliar));
+        assertEquals(List.of("A1", "A2", "A3"), activos.getAllValues().stream().map(Activo::getCodigoAntiguo).toList());
+    }
+
+    @Test
+    void noAceptaAuxiliaresDelCatalogoGeneral() {
+        AdicionalRequest r = new AdicionalRequest();
+        r.setDescripcion("Silla");
+        r.setIdAuxiliar(8L);
+        Usuario usuario = new Usuario(); usuario.setEstado("ACTIVO");
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> servicio.registrar(r, usuario, Set.of(AdicionalService.PERMISO)));
+        assertTrue(error.getMessage().contains("auxiliares propios"));
+        verifyNoInteractions(activoDao, adicionalDao);
     }
 }
