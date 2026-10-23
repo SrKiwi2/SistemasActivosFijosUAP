@@ -34,6 +34,8 @@ import com.usic.SistemasActivosFijosUAP.model.IService.IPersonaService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IPredioServicio;
 import com.usic.SistemasActivosFijosUAP.model.IService.IResponsableService;
 import com.usic.SistemasActivosFijosUAP.model.IService.IHistorialBloqueoActivoService;
+import com.usic.SistemasActivosFijosUAP.config.Encriptar;
+import com.usic.SistemasActivosFijosUAP.model.dao.IResposableDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoConsultaDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.ActivoResponsableDTO;
 import com.usic.SistemasActivosFijosUAP.model.dto.AuxOption;
@@ -76,6 +78,7 @@ public class CatalogoRestController {
     /** Alta de auxiliares: el mismo servicio que usa el ABM del módulo Auxiliar. */
     private final AuxiliarRegistroService auxiliarRegistroService;
     private final IHistorialBloqueoActivoService historialBloqueoService;
+    private final IResposableDao responsableDao;
 
     public CatalogoRestController(IResponsableService responsableService,
         IOficinaService oficinaService,
@@ -88,7 +91,8 @@ public class CatalogoRestController {
         IOrganismoFinancieroService organismoFinancieroService,
         ICargoService cargoService,
         AuxiliarRegistroService auxiliarRegistroService,
-        IHistorialBloqueoActivoService historialBloqueoService) {
+        IHistorialBloqueoActivoService historialBloqueoService,
+        IResposableDao responsableDao) {
         this.auxiliarRegistroService = auxiliarRegistroService;
         this.responsableService = responsableService;
         this.oficinaService = oficinaService;
@@ -101,6 +105,7 @@ public class CatalogoRestController {
         this.organismoFinancieroService = organismoFinancieroService;
         this.cargoService = cargoService;
         this.historialBloqueoService = historialBloqueoService;
+        this.responsableDao = responsableDao;
     }
 
     @GetMapping("/responsables")
@@ -152,7 +157,7 @@ public class CatalogoRestController {
 
     @GetMapping("/responsables/card")
     @Transactional(readOnly = true)
-    public ResponseEntity<ResponsableCardDataDTO> obtenerCardResponsable(@RequestParam Long idResponsable) {
+    public ResponseEntity<ResponsableCardDataDTO> obtenerCardResponsable(@RequestParam Long idResponsable) throws Exception {
         Responsable responsable = responsableService.findById(idResponsable);
         if (responsable == null) {
             return ResponseEntity.notFound().build();
@@ -184,13 +189,20 @@ public class CatalogoRestController {
 
         // Bloque C: Resumen de Activos
         List<ResponsableActivoGrupoDTO> desglose = activoService.conteoPorGrupoContableDeResponsable(idResponsable);
-        Long totalActivos = desglose.stream().mapToLong(ResponsableActivoGrupoDTO::getCantidad).sum();
+        Long totalActivos = responsableDao.contarActivosAsignados(idResponsable);
 
         ResponsableCardDataDTO dto = new ResponsableCardDataDTO(
             nombreCompleto, ci, cargo,
             oficinaNumero, oficinaNombre, predio,
             totalActivos, desglose
         );
+        dto.setIdEnc(Encriptar.encrypt(String.valueOf(idResponsable)));
+        dto.setEstado(responsable.getEstado());
+        if (responsable.getOficina() != null) {
+            dto.setIdOficina(responsable.getOficina().getIdOficina());
+            if (responsable.getOficina().getPredio() != null)
+                dto.setIdPredio(responsable.getOficina().getPredio().getIdPredio());
+        }
 
         return ResponseEntity.ok(dto);
     }

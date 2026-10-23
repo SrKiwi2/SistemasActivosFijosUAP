@@ -18,6 +18,20 @@
 <div th:if="${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO' or session.nombre_rol == 'APOYO'}">
 
     <style>
+        #cact-wrap { display:flex; flex-direction:column; gap:.6rem; min-height:0; }
+        #cact-wrap .sm-cabecera { margin-bottom:0; }
+        #cact-wrap .sm-subtitulo { margin-bottom:0; }
+        #cact-wrap .cact-filtros .card-body { padding:.65rem .85rem; }
+        #cact-wrap .cact-filtro-acciones .sm-btn { min-height:31px; padding:.3rem .75rem; white-space:nowrap; }
+        #cact-wrap .cact-resultados .card-body { padding:.45rem .7rem .25rem; }
+        #cact-wrap .cact-resultados .dataTables_wrapper > .row { margin:0; align-items:center; }
+        #cact-wrap .cact-resultados .dataTables_filter input,
+        #cact-wrap .cact-resultados .dataTables_length select { min-height:30px; padding:.18rem .4rem; }
+        #cact-wrap .cact-resultados .dataTables_info,
+        #cact-wrap .cact-resultados .dataTables_paginate { padding-top:.3rem; font-size:.75rem; }
+        #cact-wrap #tblConsulta { margin:.3rem 0 !important; }
+        #cact-wrap #tblConsulta th, #cact-wrap #tblConsulta td { padding:.34rem .48rem; line-height:1.15; }
+        #cact-wrap #tblConsulta th { white-space:nowrap; font-size:.72rem; }
         #cact-wrap .cact-pill {
             font-size:.72rem; font-weight:600; padding:.2rem .55rem; border-radius:6px;
             background:rgba(26,86,160,.1); color:#1a56a0; white-space:nowrap;
@@ -54,19 +68,19 @@
             background: linear-gradient(135deg, #1a56a0 0%, #2c7be5 100%);
             color: #fff;
             border-radius: 12px 12px 0 0 !important;
-            padding: .75rem 1rem;
+            padding: .42rem .75rem;
             font-weight: 600;
             font-size: .9rem;
         }
-        .resp-card .card-body { padding: 1rem; }
-        .resp-card .info-block { padding: .5rem 0; }
+        .resp-card .card-body { padding: .45rem .75rem; }
+        .resp-card .info-block { padding: .12rem 0; }
         .resp-card .info-label {
             font-size: .7rem; font-weight: 600; letter-spacing: .3px;
             text-transform: uppercase; color: #8592a3; margin-bottom: .15rem;
         }
         .resp-card .info-value { font-size: .9rem; color: #212529; font-weight: 500; }
         .resp-card .info-value small { color: #6c757d; font-weight: 400; }
-        .resp-card .divider { border-top: 1px solid #e9ecef; margin: .5rem 0; }
+        .resp-card .divider { border-top: 1px solid #e9ecef; margin: .3rem 0; }
 
         /* Badge total */
         .resp-badge-total {
@@ -118,8 +132,8 @@
         .resp-accordion .accordion-collapse { transition: all .3s ease; }
 
         /* Bloqueo buttons */
-        .resp-bloqueo-btns { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
-        .resp-bloqueo-btns .btn { font-size: .7rem; padding: .35rem .75rem; }
+        .resp-bloqueo-btns { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .25rem; }
+        .resp-bloqueo-btns .btn { font-size: .7rem; padding: .25rem .55rem; }
 
         /* History modal */
         .historial-modal .modal-header { background: linear-gradient(135deg, #1a56a0 0%, #2c7be5 100%); color: #fff; }
@@ -152,77 +166,139 @@
             .resp-bloqueo-btns { flex-direction: column; }
             .resp-bloqueo-btns .btn { width: 100%; }
         }
+
+        /* Consulta: filtros claros y tabla de filas estables. */
+        #cact-wrap { gap:.5rem; }
+        #cact-wrap .sm-cabecera-icono { width:40px; height:40px; }
+        #cact-wrap .sm-cabecera .sm-titulo { margin:0; }
+        #cact-wrap .sm-cabecera .sm-subtitulo { font-size:.78rem; }
+        #cact-wrap .cact-filtros { position:relative; z-index:5; overflow:visible; padding:.65rem .85rem .55rem; }
+        #cact-wrap .cact-filtros-head, #cact-wrap .cact-filtros-foot,
+        #cact-wrap .cact-resultados-head { display:flex; align-items:center; justify-content:space-between; gap:.65rem; }
+        #cact-wrap .cact-filtros-head { margin-bottom:.45rem; }
+        #cact-wrap .cact-eyebrow { color:var(--sm-primario); font-size:.68rem; font-weight:800; letter-spacing:.1em; }
+        #cact-wrap .cact-eyebrow i { font-size:1rem; vertical-align:-2px; margin-right:.2rem; }
+        #cact-wrap .cact-ayuda { color:var(--sm-texto-2); font-size:.74rem; margin-left:.5rem; }
+        #cact-wrap .cact-limpiar, #cact-wrap .cact-mas { border:0; background:none; color:var(--sm-primario); font-size:.76rem; font-weight:700; padding:.2rem .35rem; border-radius:7px; white-space:nowrap; }
+        #cact-wrap .cact-limpiar:hover, #cact-wrap .cact-mas:hover { background:rgba(var(--sm-primario-rgb),.09); }
+        #cact-wrap .cact-limpiar i, #cact-wrap .cact-mas i { margin-right:.25rem; }
+        #cact-wrap .cact-buscador { height:38px; display:flex; align-items:center; gap:.55rem; padding:0 .75rem; border:1px solid var(--sm-borde-fuerte); border-radius:10px; background:var(--sm-superficie-2); }
+        #cact-wrap .cact-buscador:focus-within { border-color:var(--sm-primario); box-shadow:0 0 0 3px rgba(var(--sm-primario-rgb),.1); }
+        #cact-wrap .cact-buscador > i { color:var(--sm-primario); font-size:1.15rem; }
+        #cact-wrap .cact-buscador input { flex:1; min-width:0; height:100%; border:0; outline:0; background:transparent; color:var(--sm-texto); font-size:.85rem; }
+        #cact-wrap .cact-buscador input::placeholder { color:var(--sm-texto-2); }
+        #cact-wrap .cact-buscador > span { color:var(--sm-texto-2); font-size:.7rem; white-space:nowrap; }
+        #cact-wrap .cact-filtro-grid { display:grid; grid-template-columns:1.05fr 1fr 1fr 1.3fr; gap:.55rem; margin-top:.5rem; }
+        #cact-wrap .cact-campo { display:block; min-width:0; margin:0; }
+        #cact-wrap .cact-campo > span:first-child { display:block; color:var(--sm-texto-2); font-size:.68rem; font-weight:750; margin-bottom:.2rem; white-space:nowrap; }
+        #cact-wrap .cact-campo > span:first-child i { color:var(--sm-primario); font-size:.86rem; margin-right:.2rem; }
+        #cact-wrap .cact-campo .form-control, #cact-wrap .cact-campo .form-select,
+        #cact-wrap .cact-campo .select2-container--default .select2-selection--single {
+            height:36px; min-height:36px; width:100%; border:1px solid var(--sm-borde-fuerte); border-radius:8px; background:var(--sm-superficie); color:var(--sm-texto); font-size:.8rem; box-shadow:none;
+        }
+        #cact-wrap .cact-campo .form-control:focus, #cact-wrap .cact-campo .form-select:focus,
+        #cact-wrap .cact-campo .select2-container--open .select2-selection--single { border-color:var(--sm-primario); box-shadow:0 0 0 3px rgba(var(--sm-primario-rgb),.1); }
+        #cact-wrap .cact-campo .select2-container--default .select2-selection--single .select2-selection__rendered { line-height:34px; font-size:.8rem; color:var(--sm-texto); }
+        #cact-wrap .cact-campo .select2-container--default .select2-selection--single .select2-selection__arrow { height:34px; }
+        #cact-wrap .cact-filtros-foot { position:relative; min-height:25px; margin-top:.35rem; }
+        #cact-wrap .cact-activos { color:var(--sm-texto-2); font-size:.72rem; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+        #cact-wrap #cactExtraCount { display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; border-radius:50%; color:#fff; background:var(--sm-primario); font-size:.65rem; }
+        #cact-wrap #cactExtraCount[hidden] { display:none; }
+        #cact-wrap .cact-avanzados { position:absolute; z-index:30; top:100%; left:0; width:min(530px,100%); display:grid; grid-template-columns:1fr 1fr; gap:.7rem; padding:.85rem; border:1px solid var(--sm-borde-fuerte); border-radius:10px; background:var(--sm-superficie); box-shadow:0 14px 35px rgba(20,35,70,.18); }
+        #cact-wrap .cact-avanzados[hidden] { display:none; }
+        #cact-wrap .cact-resultados { z-index:1; min-height:0; }
+        #cact-wrap .cact-resultados-head { padding:.5rem .75rem .2rem; }
+        #cact-wrap .cact-resultados-head h2 { margin:0; color:var(--sm-texto); font-size:.92rem; font-weight:750; }
+        #cact-wrap .cact-total { padding:.25rem .55rem; border-radius:7px; background:rgba(var(--sm-primario-rgb),.09); color:var(--sm-primario); font-size:.72rem; font-weight:750; white-space:nowrap; }
+        #cact-wrap .cact-resultados .card-body { padding:0 .6rem .3rem; }
+        #cact-wrap #tblConsulta { table-layout:fixed; width:100% !important; margin:0 !important; }
+        #cact-wrap #tblConsulta thead th { height:36px; padding:.35rem .5rem; color:var(--sm-texto-2); background:var(--sm-superficie-2); font-size:.68rem; text-transform:uppercase; letter-spacing:.035em; border-bottom:1px solid var(--sm-borde); }
+        #cact-wrap #tblConsulta tbody tr { height:40px; animation:none !important; opacity:1 !important; transform:none !important; }
+        #cact-wrap #tblConsulta tbody td { height:40px; max-height:40px; padding:.35rem .5rem; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.1; font-size:.78rem; }
+        #cact-wrap #tblConsulta th:nth-child(1) { width:3%; }
+        #cact-wrap #tblConsulta th:nth-child(2) { width:16%; }
+        #cact-wrap #tblConsulta th:nth-child(3) { width:24%; }
+        #cact-wrap #tblConsulta th:nth-child(4) { width:16%; }
+        #cact-wrap #tblConsulta th:nth-child(5) { width:13%; }
+        #cact-wrap #tblConsulta th:nth-child(6) { width:8%; }
+        #cact-wrap #tblConsulta th:nth-child(7) { width:7%; }
+        #cact-wrap #tblConsulta th:nth-child(8) { width:6%; }
+        #cact-wrap #tblConsulta th:nth-child(9) { width:7%; }
+        #cact-wrap .cact-cell { display:block; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+        #cact-wrap .cact-cod { color:var(--sm-primario); }
+        #cact-wrap .cact-pie { display:flex; align-items:center; justify-content:space-between; min-height:38px; gap:.4rem; padding:.1rem .25rem; border-top:1px solid var(--sm-borde); }
+        #cact-wrap .cact-pie .dataTables_info, #cact-wrap .cact-pie .dataTables_paginate { padding:0; margin:0; font-size:.72rem; }
+        #cact-wrap .cact-pie .pagination { margin:0; gap:.15rem; }
+        #cact-wrap .cact-pie .page-link { padding:.22rem .5rem; border-radius:6px; font-size:.75rem; }
+        @media(max-width:1100px) {
+            #cact-wrap .cact-filtro-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            #cact-wrap #tblConsulta th:nth-child(8), #cact-wrap #tblConsulta td:nth-child(8),
+            #cact-wrap #tblConsulta th:nth-child(9), #cact-wrap #tblConsulta td:nth-child(9) { display:none; }
+        }
+        @media(max-width:680px) {
+            #cact-wrap .cact-filtro-grid { grid-template-columns:1fr; }
+            #cact-wrap .cact-buscador > span, #cact-wrap .cact-ayuda { display:none; }
+            #cact-wrap .cact-avanzados { grid-template-columns:1fr; }
+            #cact-wrap #tblConsulta th:nth-child(5), #cact-wrap #tblConsulta td:nth-child(5),
+            #cact-wrap #tblConsulta th:nth-child(6), #cact-wrap #tblConsulta td:nth-child(6),
+            #cact-wrap #tblConsulta th:nth-child(7), #cact-wrap #tblConsulta td:nth-child(7) { display:none; }
+        }
     </style>
 
-    <div id="cact-wrap">
+    <div id="cact-wrap" class="sm-pagina" th:attr="data-es-admin=${session.nombre_rol == 'ADMINISTRADOR' or session.nombre_rol == 'SUPER USUARIO'}">
 
-        <h4 class="py-2 mb-1"><span class="text-muted fw-light">Reportes y Consultas /</span> CONSULTA DE ACTIVOS</h4>
-        <p class="text-muted mb-3" style="font-size:.9rem;">
-            Busca y filtra los activos en estado <b>ACTIVO</b>. Usa la búsqueda global (nombre o código)
-            o los filtros específicos, y exporta el resultado a Excel.
-        </p>
+        <header class="sm-cabecera">
+            <div class="sm-cabecera-icono"><i class="ti ti-search"></i></div>
+            <div class="sm-cabecera-texto">
+                <nav class="sm-migas" aria-label="Ubicación"><i class="ti ti-report-search"></i> Reportes y consultas <i class="ti ti-chevron-right"></i> Consulta de activos</nav>
+                <h1 class="sm-titulo">Buscar / filtrar activos</h1>
+                <p class="sm-subtitulo">Consulte activos vigentes por código, ubicación o responsable.</p>
+            </div>
+            <div class="sm-cabecera-acciones"><button type="button" class="sm-btn sm-btn-neutro" id="btnExportar"><i class="ti ti-file-spreadsheet"></i> Exportar Excel</button></div>
+        </header>
 
-        <!-- Filtros -->
-        <div class="card mb-3">
-            <div class="card-body filtros">
-                <div class="row g-3">
-                    <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Código</label>
-                        <input type="text" id="f-codigo" class="form-control form-control-sm" placeholder="Código o código antiguo" />
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Predio</label>
-                        <!-- Sin la clase select-loading: la pone y la saca el JS mientras carga.
-                             Fija en el HTML, su overlay queda tapando el select para siempre. -->
-                        <div id="wrap-predio">
-                            <select id="f-predio" class="form-select form-select-sm">
-                                <option value="">Todos los predios</option>
-                                <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}"></option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Oficina</label>
-                        <div id="wrap-oficina">
-                            <select id="f-oficina" class="form-select form-select-sm">
-                                <option value="">Todas las oficinas</option>
-                                <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
-                                        th:attr="data-predio=${of.predio != null ? of.predio.idPredio : ''}"
-                                        th:text="${(of.codOfi != null ? of.codOfi : '—') + ' - ' + of.nombre}"></option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Responsable</label>
-                        <div id="wrap-responsable">
-                            <select id="f-responsable" class="form-select form-select-sm" style="width:100%"></select>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Fecha de adquisición</label>
-                        <input type="date" id="f-fecha" class="form-control form-control-sm" />
-                    </div>
-                    <div class="col-md-3 col-sm-6">
-                        <label class="form-label">Usuario (registró/modificó)</label>
-                        <input type="text" id="f-usuario" class="form-control form-control-sm" placeholder="Ej: admin-01" />
-                    </div>
-                    <div class="col-md-6 col-sm-6 d-flex align-items-end gap-2 flex-wrap">
-                        <button type="button" class="btn btn-sm btn-primary" id="btnFiltrar">
-                            <i class="ti ti-filter me-1"></i> Filtrar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnLimpiar">
-                            <i class="ti ti-x me-1"></i> Limpiar
-                        </button>
-                        <button type="button" class="btn btn-sm btn-success ms-auto" id="btnExportar">
-                            <i class="ti ti-file-spreadsheet me-1"></i> Exportar Excel
-                        </button>
-                    </div>
+        <section class="sm-card cact-filtros" aria-label="Filtros de consulta">
+            <div class="cact-filtros-head">
+                <div><span class="cact-eyebrow"><i class="ti ti-adjustments-horizontal"></i> FILTROS</span>
+                    <span class="cact-ayuda">La lista se actualiza al cambiar un filtro</span></div>
+                <button type="button" class="cact-limpiar" id="btnLimpiar"><i class="ti ti-restore"></i> Limpiar todo</button>
+            </div>
+            <div class="cact-buscador"><i class="ti ti-search"></i>
+                <input type="search" id="f-global" placeholder="Buscar por nombre, código o código antiguo…" autocomplete="off" aria-label="Búsqueda general">
+                <span>Buscar en todos los activos</span>
+            </div>
+            <div class="cact-filtro-grid">
+                <label class="cact-campo"><span><i class="ti ti-barcode"></i> Código específico</span>
+                    <input type="text" id="f-codigo" class="form-control" placeholder="Ej. 01-04-02-00001A" autocomplete="off" /></label>
+                <label class="cact-campo"><span><i class="ti ti-map-pin"></i> Predio</span>
+                    <span id="wrap-predio"><select id="f-predio" class="form-select">
+                        <option value="">Todos los predios</option>
+                        <option th:each="p : ${predios}" th:value="${p.idPredio}" th:text="${p.descrip}"></option>
+                    </select></span></label>
+                <label class="cact-campo"><span><i class="ti ti-building"></i> Oficina</span>
+                    <span id="wrap-oficina"><select id="f-oficina" class="form-select">
+                        <option value="">Todas las oficinas</option>
+                        <option th:each="of : ${oficinas}" th:value="${of.idOficina}"
+                                th:attr="data-predio=${of.predio != null ? of.predio.idPredio : ''}"
+                                th:text="${(of.codOfi != null ? of.codOfi : '—') + ' - ' + of.nombre}"></option>
+                    </select></span></label>
+                <label class="cact-campo"><span><i class="ti ti-user"></i> Responsable</span>
+                    <span id="wrap-responsable"><select id="f-responsable" class="form-select" style="width:100%"><option value=""></option></select></span></label>
+            </div>
+            <div class="cact-filtros-foot">
+                <button type="button" class="cact-mas" id="btnMasFiltros" aria-expanded="false" aria-controls="cactAvanzados"><i class="ti ti-plus"></i> Más filtros <span id="cactExtraCount" hidden></span></button>
+                <span id="cactFiltrosActivos" class="cact-activos">Mostrando todos los activos</span>
+                <div id="cactAvanzados" class="cact-avanzados" hidden>
+                    <label class="cact-campo"><span><i class="ti ti-calendar"></i> Fecha de adquisición</span>
+                        <input type="date" id="f-fecha" class="form-control" /></label>
+                    <label class="cact-campo"><span><i class="ti ti-user-edit"></i> Usuario que registró o modificó</span>
+                        <input type="text" id="f-usuario" class="form-control" placeholder="Nombre de usuario" autocomplete="off" /></label>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Tarjeta Responsable (se muestra cuando hay responsable seleccionado) -->
-        <div id="respCardWrap" class="mb-3" style="display:none;">
+        <div id="respCardWrap" style="display:none;">
             <div class="card resp-card">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <span><i class="ti ti-user-check me-2"></i>DATOS DEL RESPONSABLE SELECCIONADO</span>
@@ -230,7 +306,7 @@
                 </div>
                 <div class="card-body">
                     <!-- Bloque A: Información del Responsable -->
-                    <div class="row g-3">
+                    <div class="row g-1">
                         <div class="col-12 col-md-4 info-block">
                             <div class="info-label"><i class="ti ti-id me-1"></i>Responsable</div>
                             <div class="info-value" id="rc-nombre">—</div>
@@ -270,6 +346,9 @@
                                 <button type="button" class="btn btn-outline-secondary" id="btnHistorialBloqueo" onclick="mostrarHistorialBloqueo()">
                                     <i class="ti ti-history me-1"></i> Historial
                                 </button>
+                                <button type="button" class="btn btn-outline-danger" id="btnDeshabilitarResponsable" style="display:none;">
+                                    <i class="ti ti-user-off me-1"></i> Deshabilitar en SCIAF y VSIAF
+                                </button>
                             </div>
                             
                             <div class="collapse mt-2" id="desgloseGrupo">
@@ -295,10 +374,12 @@
         </div>
 
         <!-- Tabla -->
-        <div class="card">
+        <section class="sm-card cact-resultados">
+            <div class="cact-resultados-head"><div><span class="cact-eyebrow">RESULTADOS</span><h2>Activos encontrados</h2></div>
+                <span id="cactTotal" class="cact-total">Cargando…</span></div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table id="tblConsulta" class="table table-hover table-striped" style="width:100%">
+                    <table id="tblConsulta" class="table sm-tabla table-hover align-middle" style="width:100%">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -316,7 +397,7 @@
                     </table>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 
     <script>
@@ -324,8 +405,11 @@
             'use strict';
 
             var URL_DT = '/administracion/activo/datatables';
-            var txt = ($.fn.dataTable && $.fn.dataTable.render) ? $.fn.dataTable.render.text() : null;
             function val(sel) { var v = $(sel).val(); return v == null ? '' : String(v).trim(); }
+            function celdaTexto(valor) {
+                var texto = valor == null || valor === '' ? '—' : String(valor);
+                return $('<span class="cact-cell"></span>').text(texto).attr('title', texto).prop('outerHTML');
+            }
 
             // ── Helpers loading selects ──────────────────────────────────────
             function showLoading(wrapId) { $('#' + wrapId).addClass('select-loading'); }
@@ -335,6 +419,7 @@
             var $predio = $('#f-predio');
             var $ofi    = $('#f-oficina');
             var $resp   = $('#f-responsable');
+            var aplicandoResponsable = false;
 
             var SELECT2_BASE = { theme: 'bootstrap-5', width: '100%', allowClear: true, minimumResultsForSearch: 0 };
 
@@ -390,15 +475,26 @@
                 lista.forEach(function (o) {
                     $ofi.append($('<option>').val(o.id).attr('data-predio', o.predio).text(o.nombre));
                 });
-                $ofi.val('').trigger('change');
+                $ofi.val('').trigger(aplicandoResponsable ? 'change.select2' : 'change');
                 hideLoading('wrap-oficina');
             });
 
             $ofi.on('change', function () {
+                if (aplicandoResponsable) return;
                 showLoading('wrap-responsable');
                 $resp.val(null).trigger('change');
                 hideLoading('wrap-responsable');
             });
+
+            function completarUbicacionResponsable(data) {
+                if (!data.idOficina) return;
+                aplicandoResponsable = true;
+                try {
+                    var predioId = data.idPredio == null ? '' : String(data.idPredio);
+                    if (String($predio.val() || '') !== predioId) $predio.val(predioId).trigger('change');
+                    $ofi.val(String(data.idOficina)).trigger('change.select2');
+                } finally { aplicandoResponsable = false; }
+            }
 
             // ── Tarjeta Responsable ─────────────────────────────────────────
             var $respCardWrap = $('#respCardWrap');
@@ -418,39 +514,50 @@
             var URL_ASIGNAR = '/administracion/asignar/asignacionActivo';
             var $btnBloquear = $('#btnBloquear');
             var $btnDesbloquear = $('#btnDesbloquear');
+            var $btnDeshabilitar = $('#btnDeshabilitarResponsable');
             var currentResponsableId = null;
             var currentGrupoFilter = null;
+            var currentResponsableCard = null;
 
             function loadResponsableCard(idResponsable) {
                 if (!idResponsable) {
-                    $respCardWrap.fadeOut(200);
+                    $respCardWrap.stop(true, true).fadeOut(150, ajustarFilas);
                     $respBloqueoBtns.hide();
                     currentResponsableId = null;
+                    currentResponsableCard = null;
                     currentGrupoFilter = null;
                     return;
                 }
                 currentResponsableId = idResponsable;
+                currentResponsableCard = null;
+                $btnDeshabilitar.hide();
                 $.ajax({
                     url: '/api/responsables/card',
                     data: { idResponsable: idResponsable },
                     dataType: 'json',
                     beforeSend: function () { $respCardWrap.addClass('select-loading'); },
                     success: function (data) {
-                        if (!data) { $respCardWrap.fadeOut(200); $respBloqueoBtns.hide(); return; }
+                        if (String($resp.val() || '') !== String(idResponsable)) return;
+                        if (!data) { $respCardWrap.stop(true, true).fadeOut(150, ajustarFilas); $respBloqueoBtns.hide(); return; }
+                        currentResponsableCard = data;
+                        completarUbicacionResponsable(data);
                         $rcNombre.text(data.nombreCompleto || '—');
-                        $rcCi.text(data.ci ? 'CI: ' + data.ci : '—');
-                        $rcCargo.text(data.cargo || '—');
+                        $rcCi.text(data.ci ? 'CI: ' + data.ci : '').toggle(!!data.ci);
+                        $rcCargo.text(data.cargo || '').toggle(!!data.cargo);
                         $rcOficina.text((data.oficinaNumero ? data.oficinaNumero + ' - ' : '') + (data.oficinaNombre || '—'));
                         $rcPredio.text(data.predio || '—');
                         var total = data.totalActivos || 0;
                         $rcTotal.text(total);
                         $respCardBadge.text(total + ' activo' + (total !== 1 ? 's' : ''));
 
-                        // Mostrar botones de bloqueo
-                        $respBloqueoBtns.show();
+                        // La baja usa el mismo endpoint y la misma comprobación de bienes que Responsables.
+                        $respBloqueoBtns.css('display', 'flex');
+                        $btnBloquear.toggle(total > 0);
+                        $btnDesbloquear.toggle(total > 0);
+                        $btnDeshabilitar.toggle(total === 0 && data.estado === 'ACTIVO' && !!data.idEnc);
                         // El atajo a Asignar Activos solo si el usuario tiene ese módulo.
                         $('#btnCambiarResponsable').toggle(
-                            $('#layout-menu .menu-item[data-url="' + URL_ASIGNAR + '"]').length > 0);
+                            total > 0 && $('#layout-menu .menu-item[data-url="' + URL_ASIGNAR + '"]').length > 0);
 
                         // Llenar desglose. El primer ítem, "Todos los grupos", quita el filtro:
                         // sin él, una vez elegido un grupo no había forma de volver a ver todo
@@ -488,20 +595,26 @@
                         } else {
                             $listaGrupos.html('<div class="text-muted text-center py-2 small">Sin desglose disponible</div>');
                         }
-                        $respCardWrap.fadeIn(300);
+                        $respCardWrap.stop(true, true).fadeIn(150, ajustarFilas);
                     },
-                    error: function () { $respCardWrap.fadeOut(200); $respBloqueoBtns.hide(); },
+                    error: function () {
+                        if (String($resp.val() || '') === String(idResponsable)) {
+                            $respCardWrap.stop(true, true).fadeOut(150, ajustarFilas); $respBloqueoBtns.hide();
+                        }
+                    },
                     complete: function () { $respCardWrap.removeClass('select-loading'); }
                 });
             }
 
             function filtrarPorGrupoContable(grupoId) {
                 currentGrupoFilter = grupoId;
+                resumenFiltros();
                 tabla.ajax.reload();
             }
 
             function quitarFiltroGrupo() {
                 currentGrupoFilter = null;
+                resumenFiltros();
                 $listaGrupos.find('.grupo-item').removeClass('active');
                 $listaGrupos.find('.grupo-todos').addClass('active');
                 tabla.ajax.reload();
@@ -524,6 +637,41 @@
             function mensajeError(xhr, porDefecto) {
                 return (xhr && xhr.responseJSON && xhr.responseJSON.msg) || porDefecto;
             }
+
+            $btnDeshabilitar.on('click', async function () {
+                var ficha = currentResponsableCard;
+                var id = currentResponsableId;
+                if (!ficha || !id || ficha.totalActivos !== 0 || ficha.estado !== 'ACTIVO' || !ficha.idEnc) return;
+                var esAdmin = $('#cact-wrap').attr('data-es-admin') === 'true';
+                var r = await Swal.fire({
+                    title: esAdmin ? '¿Deshabilitar responsable?' : '¿Solicitar deshabilitación?',
+                    text: (ficha.nombreCompleto || 'Responsable') + ' no tiene bienes a cargo. Quedará inactivo en el SCIAF y VSIAF.',
+                    input: esAdmin ? undefined : 'textarea',
+                    inputPlaceholder: 'Motivo de la solicitud',
+                    inputValidator: esAdmin ? undefined : function (valor) { return valor && valor.trim() ? null : 'Indique el motivo.'; },
+                    icon: 'warning', showCancelButton: true,
+                    confirmButtonText: esAdmin ? 'Sí, deshabilitar' : 'Enviar solicitud', cancelButtonText: 'Cancelar',
+                    focusCancel: true
+                });
+                if (!r.isConfirmed) return;
+                $btnDeshabilitar.prop('disabled', true);
+                $.ajax({
+                    url: '/administracion/responsable/estado/' + encodeURIComponent(ficha.idEnc),
+                    type: 'POST', data: { habilitar: false, motivo: r.value || '' },
+                    success: function (res) {
+                        if (!res.ok) { Swal.fire('No se pudo deshabilitar', res.msg || 'Revise los datos.', 'error'); return; }
+                        Swal.fire(res.solicitud ? 'Solicitud enviada' : 'Responsable deshabilitado',
+                            res.msg || '', res.vsiafOk === false ? 'warning' : 'success');
+                        if (!res.solicitud) {
+                            $resp.find('option[value="' + id + '"]').remove();
+                            $resp.val(null).trigger('change');
+                            tabla.ajax.reload();
+                        }
+                    },
+                    error: function (xhr) { Swal.fire('No se pudo deshabilitar', mensajeError(xhr, 'Intente nuevamente.'), 'error'); },
+                    complete: function () { $btnDeshabilitar.prop('disabled', false); }
+                });
+            });
 
             /**
               * Lleva a "Asignar Activos" con este responsable ya elegido como origen, que es
@@ -658,6 +806,7 @@
                 $iconDesglose.removeClass('ti-chevron-up').addClass('ti-chevron-down');
                 $txtDesglose.text('Ver desglose');
             });
+            $('#desgloseGrupo, #collapseGrupo').on('shown.bs.collapse hidden.bs.collapse', ajustarFilas);
 
             // Cuando cambia el responsable en el filtro, cargar tarjeta
             $resp.on('change', function () {
@@ -672,18 +821,25 @@
                 $('#tblConsulta').DataTable().clear().destroy();
             }
 
+            function filasEnPantalla() {
+                var tablaEl = document.getElementById('tblConsulta');
+                if (!tablaEl) return 4;
+                var desde = tablaEl.getBoundingClientRect().top;
+                var cabecera = $(tablaEl).find('thead').outerHeight() || 36;
+                var pie = $('#tblConsulta_wrapper .cact-pie').outerHeight() || 38;
+                return Math.max(2, Math.min(14, Math.floor((window.innerHeight - desde - cabecera - pie - 14) / 40)));
+            }
             var tabla = $('#tblConsulta').DataTable({
                 processing: true,
                 serverSide: true,
                 searching: true,
                 ordering: false,
-                lengthMenu: [10, 25, 50, 100],
-                pageLength: 25,
+                autoWidth: false,
+                dom: 't<"cact-pie"ip>',
+                pageLength: 4,
                 language: {
                     processing: 'Cargando…',
-                    search: 'Buscar (nombre/código/cód. antiguo):',
-                    lengthMenu: 'Mostrar _MENU_',
-                    info: 'Mostrando _START_ a _END_ de _TOTAL_ activos',
+                    info: '_START_–_END_ de _TOTAL_',
                     infoEmpty: 'Sin activos',
                     infoFiltered: '(filtrado de _MAX_)',
                     zeroRecords: 'No se encontraron activos',
@@ -700,6 +856,8 @@
                     $.ajax({
                         url: URL_DT, type: 'POST', data: d,
                         success: function (res) {
+                            var total = Number(res.recordsFiltered || 0);
+                            $('#cactTotal').text(total.toLocaleString('es-BO') + ' activo' + (total === 1 ? '' : 's'));
                             callback({
                                 draw: d.draw,
                                 recordsTotal: res.recordsTotal || 0,
@@ -708,6 +866,7 @@
                             });
                         },
                         error: function () {
+                            $('#cactTotal').text('No se pudo cargar');
                             callback({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
                             if (window.Swal) Swal.fire('Error', 'No se pudo cargar la consulta de activos.', 'error');
                         }
@@ -717,24 +876,30 @@
                     { data: null, orderable: false, className: 'text-muted',
                       render: function (dt, type, row, meta) { return meta.row + 1 + meta.settings._iDisplayStart; } },
                     { data: 'codigo', render: function (d, type, row) {
-                        // Un adicional puede no tener código todavía: se reconoce por su código antiguo.
-                        var esc = SciafModulo.escapar;
-                        var cod = d ? '<span class="cact-cod">' + esc(d) + '</span>' : '<span class="text-muted small">SIN CÓDIGO</span>';
-                        return cod + (window.SciafCatalogos && SciafCatalogos.marcaDonacion ? SciafCatalogos.marcaDonacion(d) : '')
-                            + (row.codigoAntiguo ? '<br><small class="text-muted">Cód. antiguo ' + esc(row.codigoAntiguo) + '</small>' : '');
+                        if (type !== 'display') return d || row.codigoAntiguo || '';
+                        var titulo = (d || 'Sin código nuevo') + (row.codigoAntiguo ? ' · Cód. antiguo: ' + row.codigoAntiguo : '');
+                        var cod = $('<span class="cact-cell cact-cod"></span>').text(d || row.codigoAntiguo || 'SIN CÓDIGO')
+                            .attr('title', titulo).prop('outerHTML');
+                        return cod + (window.SciafCatalogos && SciafCatalogos.marcaDonacion ? SciafCatalogos.marcaDonacion(d) : '');
                     } },
-                    { data: 'descripcion', className: 'cact-desc', render: txt },
-                    { data: 'responsable', render: txt },
-                    { data: 'oficina', render: txt },
-                    { data: 'estado', render: function (d) { return d ? '<span class="cact-pill">' + d + '</span>' : ''; } },
+                    { data: 'descripcion', className: 'cact-desc', render: function (d, type) { return type === 'display' ? celdaTexto(d) : d; } },
+                    { data: 'responsable', render: function (d, type) { return type === 'display' ? celdaTexto(d) : d; } },
+                    { data: 'oficina', render: function (d, type) { return type === 'display' ? celdaTexto(d) : d; } },
+                    { data: 'estado', render: function (d, type) { return type === 'display' ? $('<span class="cact-pill"></span>').text(d || '—').prop('outerHTML') : d; } },
                     { data: 'costo', className: 'text-end', render: function (d) {
                         if (d == null || d === '') return '—';
                         var n = Number(d); return isNaN(n) ? d : n.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     } },
-                    { data: 'vidaUtil', className: 'text-center' },
-                    { data: 'fechaAdquisicion' }
+                    { data: 'vidaUtil', className: 'text-center', render: function (d, type) { return type === 'display' ? celdaTexto(d) : d; } },
+                    { data: 'fechaAdquisicion', render: function (d, type) { return type === 'display' ? celdaTexto(d) : d; } }
                 ]
             });
+            function ajustarFilas() {
+                var filas = filasEnPantalla();
+                if (tabla && tabla.page.len() !== filas) tabla.page.len(filas).draw(false);
+            }
+            $(window).off('resize.cactConsulta').on('resize.cactConsulta', ajustarFilas);
+            ajustarFilas();
 
             // ── Pestañas: los filtros los repone el gestor (son campos); acá solo hay que
             //    volver a ejecutar la búsqueda y recargar la tarjeta del responsable.
@@ -747,32 +912,59 @@
                     currentGrupoFilter = (d && d.grupo) || null;
                     var idResp = $('#f-responsable').val();
                     if (idResp) loadResponsableCard(Number(idResp));
-                    tabla.ajax.reload(function () {
+                    resumenFiltros();
+                    tabla.search(val('#f-global')).ajax.reload(function () {
                         if (d && d.pagina) tabla.page(d.pagina).draw('page');
                     }, false);
                 }
             });
 
-            // ── Acciones de filtro ─────────────────────────────────────────
-            $('#btnFiltrar').on('click', function () { tabla.ajax.reload(); });
-            $('#f-codigo, #f-fecha, #f-usuario').on('keydown', function (e) { if (e.key === 'Enter') tabla.ajax.reload(); });
-
-            var reloadTimer = null;
-            function reloadDebounced() {
-                clearTimeout(reloadTimer);
-                reloadTimer = setTimeout(function () { tabla.ajax.reload(); }, 120);
+            // ── Filtros en vivo ─────────────────────────────────────────────
+            var reloadTimer = null, limpiandoFiltros = false;
+            function resumenFiltros() {
+                var extras = [val('#f-fecha'), val('#f-usuario')].filter(Boolean).length;
+                var total = [val('#f-global'), val('#f-codigo'), val('#f-predio'), val('#f-oficina'),
+                    val('#f-responsable'), val('#f-fecha'), val('#f-usuario'), currentGrupoFilter].filter(Boolean).length;
+                $('#cactExtraCount').text(extras).prop('hidden', extras === 0);
+                $('#cactFiltrosActivos').text(total ? total + ' filtro' + (total === 1 ? '' : 's') + ' activo' + (total === 1 ? '' : 's') : 'Mostrando todos los activos');
             }
-            $('#f-oficina, #f-responsable, #f-predio').on('change', reloadDebounced);
-
-            $('#btnLimpiar').on('click', function () {
-                $('#f-codigo, #f-fecha, #f-usuario').val('');
-                $('#f-predio').val(null).trigger('change');
+            function reloadDebounced() {
+                if (limpiandoFiltros) return;
+                resumenFiltros();
                 clearTimeout(reloadTimer);
+                reloadTimer = setTimeout(function () { tabla.search(val('#f-global')).ajax.reload(); }, 230);
+            }
+            $('#f-global, #f-codigo, #f-usuario').on('input', reloadDebounced);
+            $('#f-fecha, #f-oficina, #f-responsable, #f-predio').on('change', reloadDebounced);
+            $('#f-global, #f-codigo, #f-usuario').on('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); clearTimeout(reloadTimer); tabla.search(val('#f-global')).ajax.reload(); }
+            });
+            $('#btnMasFiltros').on('click', function () {
+                var abierto = !$('#cactAvanzados').prop('hidden');
+                $('#cactAvanzados').prop('hidden', abierto);
+                $(this).attr('aria-expanded', String(!abierto)).find('i').toggleClass('ti-plus', abierto).toggleClass('ti-minus', !abierto);
+                if (!abierto) $('#f-fecha').trigger('focus');
+            });
+            $(document).off('click.cactFiltros').on('click.cactFiltros', function (e) {
+                if (!$(e.target).closest('#btnMasFiltros, #cactAvanzados').length) {
+                    $('#cactAvanzados').prop('hidden', true);
+                    $('#btnMasFiltros').attr('aria-expanded', 'false').find('i').removeClass('ti-minus').addClass('ti-plus');
+                }
+            });
+            $('#btnLimpiar').on('click', function () {
+                limpiandoFiltros = true;
+                clearTimeout(reloadTimer);
+                $('#f-global, #f-codigo, #f-fecha, #f-usuario').val('');
+                $predio.val('').trigger('change');
+                $ofi.val('').trigger('change.select2');
+                $resp.val(null).trigger('change');
                 currentGrupoFilter = null;
                 $listaGrupos.find('.grupo-item').removeClass('active');
+                limpiandoFiltros = false;
+                resumenFiltros();
                 tabla.search('').ajax.reload();
-                loadResponsableCard(null);
             });
+            resumenFiltros();
 
             // ── Exportar a Excel (todos los resultados filtrados) ──────────
             function withXLSX(cb) {
@@ -791,7 +983,7 @@
                     'search[value]': tabla.search() || '',
                     codigo: val('#f-codigo'), oficina: val('#f-oficina'),
                     responsable: val('#f-responsable'), predio: val('#f-predio'),
-                    usuario: val('#f-usuario'), fecha: val('#f-fecha')
+                    usuario: val('#f-usuario'), fecha: val('#f-fecha'), grupo: currentGrupoFilter
                 };
                 $.ajax({
                     url: URL_DT, type: 'POST', data: body,

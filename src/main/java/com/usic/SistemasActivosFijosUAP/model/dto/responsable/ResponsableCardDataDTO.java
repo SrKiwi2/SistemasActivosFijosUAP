@@ -12,6 +12,10 @@ public class ResponsableCardDataDTO {
     private String oficinaNumero;
     private String oficinaNombre;
     private String predio;
+    private Long idOficina;
+    private Long idPredio;
+    private String idEnc;
+    private String estado;
 
     // Bloque C: Resumen de Activos
     private Long totalActivos;
@@ -79,6 +83,15 @@ public class ResponsableCardDataDTO {
     public void setPredio(String predio) {
         this.predio = predio;
     }
+
+    public Long getIdOficina() { return idOficina; }
+    public void setIdOficina(Long idOficina) { this.idOficina = idOficina; }
+    public Long getIdPredio() { return idPredio; }
+    public void setIdPredio(Long idPredio) { this.idPredio = idPredio; }
+    public String getIdEnc() { return idEnc; }
+    public void setIdEnc(String idEnc) { this.idEnc = idEnc; }
+    public String getEstado() { return estado; }
+    public void setEstado(String estado) { this.estado = estado; }
 
     public Long getTotalActivos() {
         return totalActivos;

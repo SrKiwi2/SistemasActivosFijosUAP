@@ -235,7 +235,7 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
            "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' — ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
            ") " +
            "FROM Responsable r JOIN r.persona p " +
-           "WHERE r.oficina.idOficina = :oficinaId AND (r.estado IS NULL OR r.estado <> 'INACTIVO') " +
+           "WHERE r.oficina.idOficina = :oficinaId AND (r.estado IS NULL OR r.estado = 'ACTIVO') " +
            "AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "     LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "     LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
@@ -243,10 +243,11 @@ public interface IResposableDao extends JpaRepository<Responsable, Long>{
 
     @Query("SELECT new com.usic.SistemasActivosFijosUAP.model.dto.RespOption(" +
            "r.idResponsable, " +
-           "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' — ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''))" +
+           "CONCAT(COALESCE(r.codigoFuncionario, 'S/C'), ' — ', p.nombre, ' ', p.paterno, ' ', COALESCE(p.materno, ''), " +
+           "' · Of. ', CAST(o.codOfi AS String), ' ', COALESCE(o.nombre, ''))" +
            ") " +
-           "FROM Responsable r JOIN r.persona p " +
-           "WHERE (r.estado IS NULL OR r.estado <> 'INACTIVO') AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+           "FROM Responsable r JOIN r.persona p JOIN r.oficina o " +
+           "WHERE (r.estado IS NULL OR r.estado = 'ACTIVO') AND (LOWER(p.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "       LOWER(p.paterno) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "       LOWER(COALESCE(r.codigoFuncionario, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
     Page<RespOption> searchGlobalConCodigo(@Param("q") String q, Pageable pageable);
