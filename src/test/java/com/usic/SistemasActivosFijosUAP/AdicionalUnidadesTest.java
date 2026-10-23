@@ -4,8 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.Set;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +33,7 @@ import com.usic.SistemasActivosFijosUAP.model.service.documento.WordEtiquetasQrS
 @ExtendWith(MockitoExtension.class)
 class AdicionalUnidadesTest {
     @Mock IActivoAdicionalDao adicionalDao;
+    @Mock IReservaCodigoAdicionalDao reservaDao;
     @Mock IActivoFotoDao fotoDao;
     @Mock IActivoDao activoDao;
     @Mock IHistorialActivoDao historialDao;
@@ -44,6 +48,62 @@ class AdicionalUnidadesTest {
     @Mock WordEtiquetasQrService hojaEtiquetas;
     @Mock PlatformTransactionManager txManager;
     @InjectMocks AdicionalService servicio;
+
+    @Test
+    void dosUsuariosReservanCodigosDistintosYElCanceladoSeLibera() {
+        Municipio municipio = new Municipio(); municipio.setCodigo("04");
+        Predio predio = new Predio(); predio.setCodigo("15"); predio.setMunicipio(municipio);
+        GrupoContable grupo = new GrupoContable(); grupo.setCodDbf(2);
+        when(predioService.findById(7L)).thenReturn(predio);
+        when(grupoService.findById(2L)).thenReturn(grupo);
+        when(adicionalDao.maxCorrelativoAdicional("04-15-02")).thenReturn(7);
+        Map<String, ReservaCodigoAdicional> reservas = new HashMap<>();
+        when(reservaDao.findById(anyString())).thenAnswer(i -> Optional.ofNullable(reservas.get(i.getArgument(0))));
+        when(reservaDao.save(any())).thenAnswer(i -> {
+            ReservaCodigoAdicional r = i.getArgument(0); reservas.put(r.getToken(), r); return r;
+        });
+        when(reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(eq("04-15-02"), any(LocalDateTime.class)))
+                .thenAnswer(i -> reservas.values().stream().filter(r -> r.getVence().isAfter(i.getArgument(1)))
+                        .sorted(java.util.Comparator.comparingInt(ReservaCodigoAdicional::getDesde)).toList());
+        doAnswer(i -> { ReservaCodigoAdicional r = i.getArgument(0); reservas.remove(r.getToken()); return null; })
+                .when(reservaDao).delete(any());
+        Usuario ana = new Usuario(); ana.setEstado("ACTIVO"); ana.setUsuario("ana");
+        Usuario luis = new Usuario(); luis.setEstado("ACTIVO"); luis.setUsuario("luis");
+        Map<String, Object> primera = servicio.reservarCodigo("ana-token", 7L, 2L, 1, ana, Set.of(AdicionalService.PERMISO));
+        Map<String, Object> segunda = servicio.reservarCodigo("luis-token", 7L, 2L, 1, luis, Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00008A", primera.get("desde"));
+        assertEquals("04-15-02-00009A", segunda.get("desde"));
+        servicio.liberarCodigo("ana-token", ana, Set.of(AdicionalService.PERMISO));
+        Map<String, Object> tercera = servicio.reservarCodigo("ana-otro", 7L, 2L, 1, ana, Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00008A", tercera.get("desde"));
+        verify(adicionalDao, times(4)).turno(anyLong());
+    }
+
+    @Test
+    void guardaElCodigoReservadoSinRecalcularElMaximo() {
+        Municipio municipio = new Municipio(); municipio.setCodigo("04");
+        Predio predio = new Predio(); predio.setIdPredio(7L); predio.setCodigo("15"); predio.setMunicipio(municipio);
+        GrupoContable grupo = new GrupoContable(); grupo.setCodDbf(2);
+        EstadoActivo bueno = new EstadoActivo(); bueno.setIdEstadoActivo(1L);
+        when(predioService.findById(7L)).thenReturn(predio);
+        when(grupoService.findById(2L)).thenReturn(grupo);
+        when(estadoActivoService.findById(1L)).thenReturn(bueno);
+        ReservaCodigoAdicional reserva = new ReservaCodigoAdicional();
+        reserva.setToken("primero"); reserva.setPrefijo("04-15-02"); reserva.setDesde(8);
+        reserva.setCantidad(1); reserva.setUsuario("ana"); reserva.setVence(LocalDateTime.now().plusMinutes(20));
+        when(reservaDao.findById("primero")).thenReturn(Optional.of(reserva));
+        AdicionalRequest r = new AdicionalRequest();
+        r.setToken("primero"); r.setCodigoReservado(true); r.setDescripcion("Silla"); r.setCantidad(1);
+        r.setIdPredio(7L); r.setIdGrupoContable(2L); r.setIdEstadoActivo(1L);
+        Usuario ana = new Usuario(); ana.setEstado("ACTIVO"); ana.setUsuario("ana");
+        TransactionSynchronizationManager.initSynchronization();
+        try { servicio.registrar(r, ana, Set.of(AdicionalService.PERMISO)); }
+        finally { TransactionSynchronizationManager.clearSynchronization(); }
+        ArgumentCaptor<Activo> activo = ArgumentCaptor.forClass(Activo.class);
+        verify(activoDao).save(activo.capture());
+        assertEquals("04-15-02-00008A", activo.getValue().getCodigo());
+        verify(reservaDao).delete(reserva);
+    }
 
     @Test
     void cadaUnidadConservaSuEstadoYAyudanteHistoricoSeparado() {
@@ -130,7 +190,7 @@ class AdicionalUnidadesTest {
         verify(activoDao, times(3)).save(activos.capture());
         assertEquals(List.of("01-04-02-00001A", "01-04-02-00002A", "01-04-02-00003A"),
                 activos.getAllValues().stream().map(Activo::getCodigo).toList());
-        verify(adicionalDao, times(1)).maxCorrelativoAdicional("01-04-02");
+        verify(adicionalDao, times(2)).maxCorrelativoAdicional("01-04-02");
         InOrder orden = inOrder(adicionalDao);
         orden.verify(adicionalDao).turno(anyLong());
         orden.verify(adicionalDao).maxCorrelativoAdicional("01-04-02");

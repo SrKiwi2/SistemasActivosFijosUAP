@@ -34,6 +34,7 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IActivoFotoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarAdicionalDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IReservaCodigoAdicionalDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalLotesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
@@ -48,6 +49,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCodigoAdicional;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ArchivoStorageService;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfEtiquetasQrService;
@@ -85,11 +87,13 @@ public class AdicionalService {
     private static final int TOPE_UNIDADES = 200;
     private static final int MAX_DESCRIPCION = 1024;
     private static final int MAX_CORRELATIVO = 99_999;
+    private static final int MINUTOS_RESERVA = 30;
     private static final long MAX_BYTES_FOTO = 6L * 1024 * 1024;
     private static final String ELIMINADO = "ELIMINADO";
     private static final String SIN_DESCRIPCION = "SIN DESCRIPCIÓN";
 
     private final IActivoAdicionalDao adicionalDao;
+    private final IReservaCodigoAdicionalDao reservaDao;
     private final IActivoFotoDao fotoDao;
     private final IActivoDao activoDao;
     private final IHistorialActivoDao historialDao;
@@ -404,7 +408,7 @@ public class AdicionalService {
         if (token != null && token.length() > 40) throw new IllegalArgumentException("Marca de registro inválida.");
         Datos d = validar(req, null);
         adicionalDao.turno(TURNO_ADICIONALES);
-        return registrarValidado(d, token, usuario, new HashMap<>());
+        return registrarValidado(d, token, usuario, new HashMap<>(), req.isCodigoReservado());
     }
 
     /** Todos los lotes se validan y guardan en una sola transacción. El token permite reintentar. */
@@ -431,11 +435,19 @@ public class AdicionalService {
         adicionalDao.turno(TURNO_ADICIONALES);
         List<List<Map<String, Object>>> resultado = new ArrayList<>();
         Map<String, Integer> siguientes = new HashMap<>();
-        for (int i = 0; i < lotes.size(); i++) resultado.add(registrarValidado(lotes.get(i), token + "-" + i, usuario, siguientes));
+        Set<String> tokens = new HashSet<>();
+        for (int i = 0; i < lotes.size(); i++) {
+            AdicionalRequest lote = req.getLotes().get(i);
+            String tokenLote = limpiar(lote.getToken());
+            if (tokenLote == null) tokenLote = token + "-" + i;
+            if (tokenLote.length() > 40 || !tokens.add(tokenLote))
+                throw new IllegalArgumentException("Marca de registro repetida o inválida en el lote " + (i + 1) + ".");
+            resultado.add(registrarValidado(lotes.get(i), tokenLote, usuario, siguientes, lote.isCodigoReservado()));
+        }
         return resultado;
     }
 
-    private List<Map<String, Object>> registrarValidado(Datos d, String token, Usuario usuario, Map<String, Integer> siguientes) {
+    private List<Map<String, Object>> registrarValidado(Datos d, String token, Usuario usuario, Map<String, Integer> siguientes, boolean reservaObligatoria) {
         if (token != null) {
             List<ActivoAdicional> previos = adicionalDao.findByTokenRegistro(token);
             if (!previos.isEmpty()) {
@@ -444,12 +456,19 @@ public class AdicionalService {
             }
         }
         String prefijo = d.prefijo();
-        int siguiente = prefijo == null ? 0 : siguientes.computeIfAbsent(prefijo,
-                p -> adicionalDao.maxCorrelativoAdicional(p) + 1);
+        ReservaCodigoAdicional reserva = token == null ? null : reservaDao.findById(token).orElse(null);
+        if (reserva != null && !reserva.getUsuario().equals(usuario.getUsuario()))
+            throw new SecurityException("La reserva de código pertenece a otro usuario.");
+        boolean reservaValida = reserva != null && reserva.getVence().isAfter(LocalDateTime.now())
+                && java.util.Objects.equals(reserva.getPrefijo(), prefijo) && reserva.getCantidad() == d.cantidad;
+        if (reservaObligatoria && prefijo != null && !reservaValida)
+            throw new IllegalStateException("La reserva de código venció o cambió. Revise el código mostrado y vuelva a guardar.");
+        int siguiente = prefijo == null ? 0 : reservaValida ? reserva.getDesde()
+                : Math.max(siguientes.getOrDefault(prefijo, 1), siguienteDisponible(prefijo));
         if (prefijo != null && siguiente + d.cantidad - 1 > MAX_CORRELATIVO) {
             throw new IllegalStateException("La serie de adicionales del prefijo " + prefijo + " llegó a 99999A.");
         }
-        if (prefijo != null) siguientes.put(prefijo, siguiente + d.cantidad);
+        if (prefijo != null) siguientes.merge(prefijo, siguiente + d.cantidad, Math::max);
         LocalDate hoy = LocalDate.now();
         List<Map<String, Object>> out = new ArrayList<>();
         List<HistorialActivo> historiales = new ArrayList<>();
@@ -478,6 +497,7 @@ public class AdicionalService {
             out.add(resumen(a));
         }
         guardarHistorialAlConfirmar(historiales);
+        if (reserva != null) reservaDao.delete(reserva);
         log.info("[ADICIONAL] {} activo(s) adicional(es) registrados por {} ({}).", d.cantidad, usuario.getUsuario(),
                 prefijo == null ? "sin código: falta predio o grupo" : "prefijo " + prefijo);
         return out;
@@ -561,7 +581,7 @@ public class AdicionalService {
             if (actual != null && conVida) {
                 throw new IllegalArgumentException("El activo ya tiene movimientos: no se puede cambiar su predio ni su grupo contable (cambiaría su código).");
             }
-            int n = adicionalDao.maxCorrelativoAdicional(prefijo) + 1;
+            int n = siguienteDisponible(prefijo);
             if (n > MAX_CORRELATIVO) throw new IllegalStateException("La serie de adicionales del prefijo " + prefijo + " llegó a 99999A.");
             nuevoCodigo = prefijo + "-" + String.format("%05d", n) + "A";
         }
@@ -579,6 +599,75 @@ public class AdicionalService {
     }
 
     private static boolean mismoId(Long a, Long b) { return java.util.Objects.equals(a, b); }
+
+    private int siguienteDisponible(String prefijo) {
+        return Math.max(adicionalDao.maxCorrelativoAdicional(prefijo),
+                reservaDao.maxReservado(prefijo, LocalDateTime.now())) + 1;
+    }
+
+    /** Reutiliza un rango liberado sin tocar códigos ya registrados ni reservas ajenas. */
+    private int siguienteReserva(String prefijo, int cantidad, String token) {
+        int desde = adicionalDao.maxCorrelativoAdicional(prefijo) + 1;
+        for (ReservaCodigoAdicional ocupada : reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, LocalDateTime.now())) {
+            if (ocupada.getToken().equals(token)) continue;
+            if (desde + cantidad - 1 < ocupada.getDesde()) break;
+            desde = Math.max(desde, ocupada.getDesde() + ocupada.getCantidad());
+        }
+        return desde;
+    }
+
+    /** Se serializa con altas y correcciones para que la primera selección retenga su rango. */
+    @Transactional
+    public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
+                                               Usuario usuario, Object opciones) {
+        exigirPermiso(usuario, opciones);
+        if (token == null || token.isBlank() || token.length() > 40)
+            throw new IllegalArgumentException("Marca de reserva inválida.");
+        if (cantidad < 1 || cantidad > TOPE_UNIDADES)
+            throw new IllegalArgumentException("La cantidad debe estar entre 1 y " + TOPE_UNIDADES + ".");
+        adicionalDao.turno(TURNO_ADICIONALES);
+        reservaDao.eliminarVencidas(LocalDateTime.now());
+        ReservaCodigoAdicional reserva = reservaDao.findById(token).orElse(null);
+        if (reserva != null && !reserva.getUsuario().equals(usuario.getUsuario()))
+            throw new SecurityException("La reserva pertenece a otro usuario.");
+        Predio predio = idPredio == null ? null : predioService.findById(idPredio);
+        GrupoContable grupo = idGrupo == null ? null : grupoService.findById(idGrupo);
+        if (predio == null || grupo == null) throw new IllegalArgumentException("Seleccione un predio y grupo contable válidos.");
+        Datos d = new Datos(); d.predio = predio; d.grupo = grupo;
+        String prefijo = d.prefijo();
+        if (prefijo == null) {
+            if (reserva != null) reservaDao.delete(reserva);
+            return Map.of("ok", true, "conCodigo", false);
+        }
+        LocalDateTime ahora = LocalDateTime.now();
+        if (reserva != null && reserva.getVence().isAfter(ahora) && reserva.getPrefijo().equals(prefijo)
+                && reserva.getCantidad() == cantidad) {
+            reserva.setVence(ahora.plusMinutes(MINUTOS_RESERVA));
+        } else {
+            int desde = siguienteReserva(prefijo, cantidad, token);
+            if (desde + cantidad - 1 > MAX_CORRELATIVO)
+                throw new IllegalStateException("La serie de adicionales del prefijo " + prefijo + " llegó a 99999A.");
+            if (reserva == null) { reserva = new ReservaCodigoAdicional(); reserva.setToken(token); }
+            reserva.setPrefijo(prefijo); reserva.setDesde(desde); reserva.setCantidad(cantidad);
+            reserva.setUsuario(usuario.getUsuario()); reserva.setVence(ahora.plusMinutes(MINUTOS_RESERVA));
+        }
+        reservaDao.save(reserva);
+        return Map.of("ok", true, "conCodigo", true,
+                "desde", prefijo + "-" + String.format("%05d", reserva.getDesde()) + "A",
+                "hasta", prefijo + "-" + String.format("%05d", reserva.getDesde() + cantidad - 1) + "A",
+                "vence", reserva.getVence().toString());
+    }
+
+    @Transactional
+    public void liberarCodigo(String token, Usuario usuario, Object opciones) {
+        exigirPermiso(usuario, opciones);
+        if (token == null || token.isBlank() || token.length() > 40) return;
+        adicionalDao.turno(TURNO_ADICIONALES);
+        reservaDao.findById(token).ifPresent(r -> {
+            if (!r.getUsuario().equals(usuario.getUsuario())) throw new SecurityException("La reserva pertenece a otro usuario.");
+            reservaDao.delete(r);
+        });
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     //  Eliminar (un registro equivocado que nadie usó)
@@ -733,7 +822,7 @@ public class AdicionalService {
             out.put("motivo", predio == null ? "sin predio" : d.grupo == null ? "sin grupo contable" : "predio sin configurar");
             return out;
         }
-        int n = adicionalDao.maxCorrelativoAdicional(prefijo) + 1;
+        int n = siguienteDisponible(prefijo);
         int c = Math.max(1, Math.min(TOPE_UNIDADES, cantidad));
         out.put("conCodigo", true);
         out.put("desde", prefijo + "-" + String.format("%05d", n) + "A");

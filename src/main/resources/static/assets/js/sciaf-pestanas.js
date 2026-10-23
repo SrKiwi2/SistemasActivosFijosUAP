@@ -51,13 +51,17 @@
             const texto = JSON.stringify(obj ?? null);
             try { localStorage.setItem('sciaf.espacio.' + clave, texto); } catch (_) {}
             try {
-                await fetch(API(clave), {
+                const respuesta = await fetch(API(clave), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: texto,
                     keepalive: !!alCerrar      // que el guardado sobreviva al cierre de la pestaña
                 });
+                if (!respuesta.ok) return false;
+                const resultado = await respuesta.json();
+                return resultado && resultado.ok === true;
             } catch (_) { /* queda la copia local */ }
+            return false;
         },
         async limpiar(clave) {
             try { localStorage.removeItem('sciaf.espacio.' + clave); } catch (_) {}
@@ -322,15 +326,19 @@
             return estado;
         }
 
-        function guardarEstado(alCerrar) {
-            if (activa < 0 || restaurando) return;
+        function guardarEstado(alCerrar, forzar) {
+            if (restaurando) return Promise.resolve(false);
+            if (activa < 0) return Promise.resolve(true);
             const p = pestanas[activa];
             const estado = estadoActual();
-            if (!estado) return;
+            if (!estado) return Promise.resolve(true);
             const texto = JSON.stringify(estado);
-            if (!alCerrar && texto === ultimoGuardado) return;   // nada cambió
+            if (!alCerrar && !forzar && texto === ultimoGuardado) return Promise.resolve(true);   // nada cambió
             ultimoGuardado = texto;
-            Espacio.guardar(claveTab(p.url), estado, alCerrar);
+            return Espacio.guardar(claveTab(p.url), estado, alCerrar).then(ok => {
+                if (!ok && ultimoGuardado === texto) ultimoGuardado = null;
+                return ok;
+            });
         }
 
         setInterval(() => guardarEstado(false), AUTOGUARDADO_MS);
@@ -809,7 +817,17 @@
             },
             abrir: url => abrir(url),
             cerrarActiva: () => cerrar(activa),
-            guardarAhora: () => guardarEstado(false),
+            /** Antes de una recarga voluntaria espera a que el borrador quede respaldado. */
+            guardarAhora: async () => {
+                const resultados = await Promise.all([
+                    guardarEstado(false, true),
+                    Espacio.guardar(CLAVE_PESTANAS, {
+                        activa,
+                        pestanas: pestanas.map(p => ({ url: p.url, titulo: p.titulo, icono: p.icono }))
+                    })
+                ]);
+                return resultados.every(Boolean);
+            },
             lista: () => pestanas.map(p => ({ url: p.url, titulo: p.titulo })),
             /** La pantalla activa declara qué módulo es, para su guardado a medida. */
             moduloActivo: clave => { if (activa >= 0) pestanas[activa].modulo = clave; }

@@ -193,6 +193,29 @@ public class AdicionalController {
     }
 
     @ValidarUsuarioAutenticado
+    @PostMapping("/api/reservar-codigo")
+    @ResponseBody
+    public ResponseEntity<?> reservarCodigo(@RequestBody Map<String, Object> datos, HttpServletRequest request) {
+        try {
+            return ResponseEntity.ok(adicionalService.reservarCodigo(
+                    (String) datos.get("token"), Long.valueOf(String.valueOf(datos.get("idPredio"))),
+                    Long.valueOf(String.valueOf(datos.get("idGrupo"))),
+                    Integer.parseInt(String.valueOf(datos.get("cantidad"))),
+                    RolesSciaf.usuarioDe(request), opciones(request)));
+        } catch (Exception e) { return error(e, "la reserva de código"); }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/liberar-codigo")
+    @ResponseBody
+    public ResponseEntity<?> liberarCodigo(@RequestBody Map<String, String> datos, HttpServletRequest request) {
+        try {
+            adicionalService.liberarCodigo(datos.get("token"), RolesSciaf.usuarioDe(request), opciones(request));
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (Exception e) { return error(e, "la liberación de código"); }
+    }
+
+    @ValidarUsuarioAutenticado
     @PostMapping("/api/registrar-lotes")
     @ResponseBody
     public ResponseEntity<?> registrarLotes(@RequestBody AdicionalLotesRequest req, HttpServletRequest request) {

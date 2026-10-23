@@ -14,6 +14,8 @@ public class AdicionalRequest {
 
     /** Marca del intento de alta (evita duplicar si la respuesta se pierde). */
     private String token;
+    /** La interfaz confirmó una reserva; si vence, no reasignar el código sin avisar. */
+    private boolean codigoReservado;
 
     // ── Identificación ──
     private String descripcion;
