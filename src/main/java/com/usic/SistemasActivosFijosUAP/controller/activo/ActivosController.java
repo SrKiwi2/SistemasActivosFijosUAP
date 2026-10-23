@@ -460,6 +460,7 @@ public class ActivosController {
             OrganismoFinanciero orgFinGlobal = (request.getIdOrganismoFinanciero() != null) ? organismoFinancieroService.findById(request.getIdOrganismoFinanciero()) : null;
 
             List<String> idsReporte = new ArrayList<>();
+            List<String> codigosConfirmados = new ArrayList<>();
             int totalCreados = 0;
 
             // Reservar el turno antes de leer el primer correlativo; se libera al confirmar.
@@ -469,6 +470,7 @@ public class ActivosController {
             for (DetalleRegistroItem item : request.getItems()) {
 
                 if (item.getIdResponsable() == null) {
+                    org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                     return ResponseEntity.badRequest().body(
                         Map.of("ok", false, "msg", "Falta responsable en uno de los ítems."));
                 }
@@ -529,6 +531,7 @@ public class ActivosController {
                     a.setFechaUlt(LocalDate.now());
                     
                     activoService.save(a);
+                    codigosConfirmados.add(codigoFinal);
                     idsReporte.add(Encriptar.encrypt(String.valueOf(a.getIdActivo())));
                     totalCreados++;
                 }
@@ -540,6 +543,7 @@ public class ActivosController {
             return ResponseEntity.ok(Map.of(
                 "ok", true,
                 "msg", "Se registraron " + totalCreados + " activos correctamente.",
+                "codigos", codigosConfirmados,
                 "idsParaReporte", idsReporte
             ));
 

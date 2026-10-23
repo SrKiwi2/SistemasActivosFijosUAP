@@ -1436,7 +1436,7 @@
             <div class="batch-row-line" style="border-top:1px solid #f1f5f9; padding-top:0.45rem;">
                 <div class="batch-row-field full-width">
                     <label>
-                        <i class="fa-solid fa-barcode text-primary"></i> Código que se asignará
+                        <i class="fa-solid fa-barcode text-primary"></i> Códigos estimados (se confirman al guardar)
                     </label>
                     <div class="d-flex gap-2 align-items-start">
                         <textarea class="form-control txt-codigo-preview font-monospace flex-grow-1"
@@ -1618,8 +1618,9 @@
     window.ActivoForm = (function () {
         let uiState = { modo: 'LOCK' };
         let $root;
-        let _correlativos = {};
         let _recalcTimer = null;
+        let _refrescoCorrelativos = null;
+        let _revisionCorrelativos = 0;
         let _currentSlide = 0;
         let _$currentDetalleSlide = null;
         let _modalDetalleBS = null;
@@ -1639,6 +1640,11 @@
             initSelectsGlobales();
             bindEvents();
             switchView('LOCK');
+            clearInterval(_refrescoCorrelativos);
+            _refrescoCorrelativos = setInterval(() => {
+                if ($root && uiState.modo === 'NEW_BATCH' && document.visibilityState === 'visible')
+                    recalcularCodigosBatch();
+            }, 5000);
         }
 
         function matchCustom(params, data) {
@@ -2562,16 +2568,6 @@
         }
 
         async function fetchCorrelativoBase(munCode, predCode, grpFmt) {
-
-            const cacheKey = `${munCode}||${predCode}||${grpFmt}`;
-
-            console.log('🔍 fetchCorrelativoBase params:', { munCode, predCode, grpFmt, cacheKey });
-
-            if (_correlativos[cacheKey] !== undefined) {
-                console.log('⚡ Desde caché:', _correlativos[cacheKey]);
-                return _correlativos[cacheKey];
-            }
-
             try {
                 const fd = new URLSearchParams({ mun: munCode, pred: predCode, grp: grpFmt });
                 const r = await fetch('/administracion/activo/generar-correlativo', {
@@ -2583,11 +2579,8 @@
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
                 const data = await r.json();
 
-                console.log('📡 Respuesta BD:', data);
-
                 const parts = (data.codigo || '').split('-');
                 const num = parseInt(parts[parts.length - 1]) || 1;
-                _correlativos[cacheKey] = num;
                 return num;
             } catch (e) {
                 console.error('fetchCorrelativoBase error:', e);
@@ -2596,6 +2589,7 @@
         }
 
         async function recalcularCodigosBatch() {
+            const revision = ++_revisionCorrelativos;
             const filas = [];
             
             $root.find('#batchTrack .batch-slide').each(function () {
@@ -2635,6 +2629,7 @@
 
             const promesas = Object.entries(grupos).map(async ([key, grupo]) => {
                 const base = await fetchCorrelativoBase(grupo.munCode, grupo.predCode, grupo.grpFmt);
+                if (revision !== _revisionCorrelativos || !$root) return;
 
                 let currentNum = base;
 
@@ -2912,7 +2907,7 @@
         }
 
         function limpiarBatch() {
-            _correlativos = {};
+            _revisionCorrelativos++;
             _currentSlide = 0;
             clearTimeout(_recalcTimer);
             $root.find('#batchTrack').empty().css('transform', 'translateX(0)');
@@ -3059,7 +3054,11 @@
                 const res = await r.json();
                 hideGlobalLoader();
                 if (res.ok) {
-                    Swal.fire('Éxito', res.msg, 'success').then(() => {
+                    const confirmados = Array.isArray(res.codigos) ? res.codigos : [];
+                    const muestra = confirmados.slice(0, 5).join(' · ')
+                        + (confirmados.length > 5 ? ` · … (${confirmados.length} en total)` : '');
+                    Swal.fire({ icon: 'success', title: 'Registro confirmado',
+                        text: res.msg + (muestra ? ' Códigos definitivos: ' + muestra : '') }).then(() => {
                         if (res.idsParaReporte) descargarReporte(res.idsParaReporte, "S/N");
                         limpiarBatch(); switchView('LOCK');
                         if (window.cargarTabla) window.cargarTabla();
@@ -3551,6 +3550,9 @@
 
         function destroy() {
             if (!$root) return;
+            clearInterval(_refrescoCorrelativos);
+            clearTimeout(_recalcTimer);
+            _revisionCorrelativos++;
             $root.find('select').each(function () { if ($(this).data('select2')) $(this).select2('destroy'); });
             $root.off(); $root = null;
         }
