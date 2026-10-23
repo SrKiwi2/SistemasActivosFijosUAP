@@ -88,7 +88,7 @@ public class AdicionalService {
     private static final int MAX_DESCRIPCION = 1024;
     private static final int MAX_CORRELATIVO = 99_999;
     private static final int MINUTOS_RESERVA = 30;
-    // El formulario renueva cada 5 s (60 s si la pestaña interna está en segundo plano).
+    // El formulario visible renueva el lote actual cada 5 s y los otros lotes cada 60 s.
     // Una reserva sin renovación durante 10 min se considera abandonada. Se conserva el
     // vencimiento almacenado a +30 min para reconocer también las reservas antiguas.
     private static final int MINUTOS_INACTIVIDAD = 10;
@@ -707,9 +707,14 @@ public class AdicionalService {
             reserva.setUsuario(usuario.getUsuario()); reserva.setVence(ahora.plusMinutes(MINUTOS_RESERVA));
         }
         reservaDao.save(reserva);
+        int desdeActual = reserva.getDesde();
+        int unidadesReservadasAntes = reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, limiteReserva(ahora))
+                .stream().filter(r -> !r.getToken().equals(token) && r.getDesde() < desdeActual)
+                .mapToInt(ReservaCodigoAdicional::getCantidad).sum();
         return Map.of("ok", true, "conCodigo", true,
                 "desde", prefijo + "-" + String.format("%05d", reserva.getDesde()) + "A",
                 "hasta", prefijo + "-" + String.format("%05d", reserva.getDesde() + cantidad - 1) + "A",
+                "reservasPrevias", unidadesReservadasAntes,
                 "vence", reserva.getVence().toString());
     }
 

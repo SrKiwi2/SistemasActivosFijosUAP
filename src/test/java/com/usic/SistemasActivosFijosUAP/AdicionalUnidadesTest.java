@@ -83,6 +83,8 @@ class AdicionalUnidadesTest {
         Map<String, Object> segunda = servicio.reservarCodigo("luis-token", 7L, 2L, 1, luis, Set.of(AdicionalService.PERMISO));
         assertEquals("04-15-02-00008A", primera.get("desde"));
         assertEquals("04-15-02-00009A", segunda.get("desde"));
+        assertEquals(0, primera.get("reservasPrevias"));
+        assertEquals(1, segunda.get("reservasPrevias"));
         Map<String, Object> ampliada = servicio.reservarCodigo("luis-token", 7L, 2L, 2, luis, Set.of(AdicionalService.PERMISO));
         assertEquals("04-15-02-00009A", ampliada.get("desde"));
         assertEquals("04-15-02-00010A", ampliada.get("hasta"));
@@ -134,6 +136,7 @@ class AdicionalUnidadesTest {
         Map<String, Object> renovada = servicio.reservarCodigo("admin2-token", 7L, 2L, 1, admin2,
                 Set.of(AdicionalService.PERMISO));
         assertEquals("04-15-02-00008A", renovada.get("desde"));
+        assertEquals(0, renovada.get("reservasPrevias"));
         assertEquals(false, reservas.containsKey("saul-vieja"));
         Map<String, Object> nueva = servicio.reservarCodigo("admin2-nueva", 7L, 2L, 1, admin2,
                 Set.of(AdicionalService.PERMISO));

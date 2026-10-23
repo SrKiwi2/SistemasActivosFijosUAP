@@ -396,6 +396,9 @@
                 ant.scroll = scrollActual();
                 if (activa !== i) {
                     soltarPrecarga(false);
+                    const $anterior = $contenido.children();
+                    $anterior.filter('#modAdicional').add($anterior.find('#modAdicional'))
+                        .triggerHandler('sciaf:pestana-desactivada');
                     ant.$dom = $contenido.children().detach();
                     // Si se salió antes de que la pantalla terminara de cargar, no hay nada
                     // que devolver: se marca para que se cargue de nuevo al volver (antes
@@ -412,6 +415,8 @@
             if (p.$dom && p.$dom.length && p.cargada && !forzarRecarga) {
                 $contenido.empty().append(p.$dom);
                 p.$dom = null;
+                $contenido.children().filter('#modAdicional').add($contenido.find('#modAdicional'))
+                    .triggerHandler('sciaf:pestana-activada');
                 restaurarScroll(p.scroll);
                 render(); marcarMenu(p.url); guardarPestanas();
                 return;

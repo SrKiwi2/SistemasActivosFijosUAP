@@ -650,7 +650,7 @@
     const predioPorId = {}, grupoPorId = {};
     PREDIOS.forEach(function (p) { predioPorId[p.id] = p; });
     GRUPOS.forEach(function (g) { grupoPorId[g.id] = g; });
-    const st = { edicion: null, enviando: false, token: null, fotos: [], paso: 1, lotes: [], loteActual: 0, tokenLotes: null, cambiandoLote: false, unidadPagina: 0, estadosGuardados: [], reservas: new Map() };
+    const st = { edicion: null, enviando: false, token: null, fotos: [], paso: 1, lotes: [], loteActual: 0, tokenLotes: null, cambiandoLote: false, unidadPagina: 0, estadosGuardados: [], reservas: new Map(), codigoAntesPausa: new Map(), pausada: false };
     const URL_OBJ = window.URL || window.webkitURL;
 
     // ── utilidades ──
@@ -1151,6 +1151,7 @@
         tokens.forEach(liberarToken);
     }
     const actualizarCodigo = debounce(async function () {
+        if (st.pausada) return;
         const secuencia = ++vistaCodigoSecuencia;
         const $c = $form.find('.js-codigo-previo');
         const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
@@ -1174,8 +1175,10 @@
             colaReserva = pendiente.catch(function () {});
             const d = await pendiente;
             if (!d.ok) throw new Error(d.msg || 'No se pudo reservar el código.');
-            const anterior = st.reservas.get(token);
-            if (!st.edicion && d.conCodigo) st.reservas.set(token, { predioId, grupoId, cantidad: cant, desde: d.desde, hasta: d.hasta });
+            const anterior = st.reservas.get(token) || st.codigoAntesPausa.get(token);
+            if (!st.edicion && d.conCodigo && !st.pausada) st.reservas.set(token, { predioId, grupoId, cantidad: cant, desde: d.desde, hasta: d.hasta });
+            if (st.pausada) return;
+            st.codigoAntesPausa.delete(token);
             if (secuencia !== vistaCodigoSecuencia || String($predio.val() || '') !== predioId
                     || String($grupo.val() || '') !== grupoId || st.token !== token) return;
             if (!d.conCodigo) { st.reservas.delete(token); reservasPagina.consumir(token); $c.html('El predio no tiene configurado su código: <b>no recibe código nuevo</b> (Ámbito geográfico → Predio).'); return; }
@@ -1184,39 +1187,65 @@
                 : 'Se liberaron códigos anteriores y su reserva pasó al primer rango disponible.', 'info');
             $c.html((st.edicion && st.edicion.codigo ? 'Cambia a código nuevo: ' : 'Recibirá ') + codigoHtml(d.desde)
                 + (cant > 1 ? ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(d.hasta) : '')
-                + (st.edicion ? ' <small class="text-muted">(se asigna al guardar)</small>' : ' <small class="text-muted">(reservado mientras trabaja; se libera al cancelar)</small>'));
+                + (st.edicion ? ' <small class="text-muted">(se asigna al guardar)</small>' : ' <small class="text-muted">(reservado mientras trabaja; se libera al cancelar o salir del módulo)</small>')
+                + (!st.edicion && d.reservasPrevias > 0 ? ' <small class="text-muted">Hay ' + d.reservasPrevias
+                    + (d.reservasPrevias === 1 ? ' código anterior reservado' : ' códigos anteriores reservados')
+                    + ' en otros formularios, aún sin registrar.</small>' : ''));
         } catch (e) { if (secuencia === vistaCodigoSecuencia) $c.text(e.message || 'No se pudo reservar el código.'); }
     }, 300);
 
-    // Renovar la reserva activa; la reserva vence si el formulario queda abandonado.
+    // Solo se renuevan reservas de un formulario visible. Una pestaña interna apartada
+    // libera sus códigos y conserva los datos para recuperarlos cuando el usuario vuelva.
     const refrescoCorrelativo = setInterval(function () {
-        if (!document.contains($raiz[0])) return; // una pestaña interna puede estar desprendida
+        if (st.pausada || document.hidden || !document.contains($raiz[0])) return;
         if ($panel.is(':visible') && !st.enviando
                 && $predio.val() && $grupo.val()) actualizarCodigo();
     }, 5000);
-    const refrescoLotes = setInterval(function () {
-        const desprendida = !document.contains($raiz[0]);
-        if ((!desprendida && !$panel.is(':visible')) || st.enviando || st.cambiandoLote) return;
-        if (desprendida && st.reservas.has(st.token)) actualizarCodigo();
+    function renovarLotes() {
+        if (st.pausada || document.hidden || !document.contains($raiz[0]) || !$panel.is(':visible') || st.enviando || st.cambiandoLote) return;
         st.lotes.forEach(function (lote, indice) {
             if (indice === st.loteActual) return;
-            const x = lote.datos, anterior = st.reservas.get(x.token);
-            if (!anterior || !x.idPredio || !x.idGrupoContable) return;
+            const x = lote.datos, anterior = st.reservas.get(x.token) || st.codigoAntesPausa.get(x.token);
+            if (!x.idPredio || !x.idGrupoContable) return;
+            reservasPagina.registrar(x.token);
             colaReserva = colaReserva.catch(function () {}).then(function () {
                 return SciafModulo.pedirJson(URL + '/api/reservar-codigo', {
                     json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad }
                 }).then(function (r) {
-                    if (!r.ok || !r.conCodigo) return;
+                    if (!r.ok || st.pausada) return;
+                    if (!r.conCodigo) { reservasPagina.consumir(x.token); st.reservas.delete(x.token); return; }
                     st.reservas.set(x.token, { predioId: String(x.idPredio), grupoId: String(x.idGrupoContable),
                         cantidad: x.cantidad, desde: r.desde, hasta: r.hasta });
-                    if (anterior.desde !== r.desde) aviso('La reserva del lote ' + (indice + 1) + ' cambió a ' + r.desde + '. Revísela.');
+                    st.codigoAntesPausa.delete(x.token);
+                    if (anterior && anterior.desde !== r.desde) aviso('La reserva del lote ' + (indice + 1) + ' cambió a ' + r.desde + '. Revísela.');
                 });
             }).catch(function () {});
         });
-    }, 60000);
+    }
+    const refrescoLotes = setInterval(renovarLotes, 60000);
+    function alVolverVisible() {
+        if (document.hidden || st.pausada || !document.contains($raiz[0]) || !$panel.is(':visible')) return;
+        if ($predio.val() && $grupo.val()) actualizarCodigo();
+        renovarLotes();
+    }
+    document.addEventListener('visibilitychange', alVolverVisible);
+    $raiz.on('sciaf:pestana-desactivada', function () {
+        st.pausada = true;
+        ++vistaCodigoSecuencia;
+        st.codigoAntesPausa = new Map(st.reservas);
+        if (!st.enviando) liberarTodasReservas();
+    });
+    $raiz.on('sciaf:pestana-activada', function () {
+        st.pausada = false;
+        if (!$panel.is(':visible')) return;
+        if ($predio.val() && $grupo.val()) actualizarCodigo();
+        renovarLotes();
+    });
     $raiz.on('sciaf:pestana-cerrada', function () {
         clearInterval(refrescoCorrelativo);
         clearInterval(refrescoLotes);
+        document.removeEventListener('visibilitychange', alVolverVisible);
+        st.pausada = true;
         liberarTodasReservas();
     });
 
@@ -1635,6 +1664,7 @@
                 text: codigos.length ? codigos.slice(0, 6).join(' · ') + (codigos.length > 6 ? ' …' : '') : '', showConfirmButton: false, timer: 5000 });
             st.reservas.forEach(function (_, token) { reservasPagina.consumir(token); });
             st.reservas.clear();
+            st.codigoAntesPausa.clear();
             if (ed) { soltarLotes(); reiniciar(false); mostrar('listado'); abrirDetalle(ed.id); }
             else if (otro) { soltarLotes(); reiniciar(true); setTimeout(function () { $form.find('.js-desc').trigger('focus'); }, 80); }
             else { soltarLotes(); reiniciar(false); mostrar('listado'); }
@@ -1643,6 +1673,7 @@
                 + (ed ? '' : '<br><small>Puede volver a pulsar «Guardar»: si ya se había guardado, no se duplica.</small>'), 'error');
         } finally {
             st.enviando = false;
+            if (st.pausada) liberarTodasReservas();
             $form.find('.js-guardar, .js-guardar-otro').prop('disabled', false);
         }
     }
