@@ -29,6 +29,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.ClienteReserva;
 import com.usic.SistemasActivosFijosUAP.model.service.adicional.AdicionalService;
 import com.usic.SistemasActivosFijosUAP.model.service.adicional.ReporteAdicionalService;
 import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
@@ -201,18 +202,10 @@ public class AdicionalController {
                     (String) datos.get("token"), Long.valueOf(String.valueOf(datos.get("idPredio"))),
                     Long.valueOf(String.valueOf(datos.get("idGrupo"))),
                     Integer.parseInt(String.valueOf(datos.get("cantidad"))),
-                    RolesSciaf.usuarioDe(request), opciones(request), new AdicionalService.ClienteReserva(
-                            entero(datos.get("version")),
-                            datos.get("pagina") == null ? null : String.valueOf(datos.get("pagina")),
-                            entero(datos.get("carga")),
-                            datos.get("vigentes") instanceof List<?> l ? l.stream().map(String::valueOf).toList() : List.of())));
-        } catch (AdicionalService.ReservaObsoletaException e) {
+                    RolesSciaf.usuarioDe(request), opciones(request), ClienteReserva.de(datos)));
+        } catch (ClienteReserva.ReservaObsoletaException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("ok", false, "obsoleta", true, "msg", e.getMessage()));
         } catch (Exception e) { return error(e, "la reserva de código"); }
-    }
-
-    private static Integer entero(Object valor) {
-        return valor == null ? null : Integer.valueOf(String.valueOf(valor));
     }
 
     @ValidarUsuarioAutenticado

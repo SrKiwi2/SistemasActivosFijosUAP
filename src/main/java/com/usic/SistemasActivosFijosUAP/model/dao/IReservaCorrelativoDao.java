@@ -26,4 +26,12 @@ public interface IReservaCorrelativoDao extends JpaRepository<ReservaCorrelativo
     @Modifying
     @Query("delete from ReservaCorrelativo r where r.vence <= :ahora")
     int eliminarVencidas(@Param("ahora") LocalDateTime ahora);
+
+    boolean existsByTipoAndPaginaAndUsuarioAndCargaGreaterThan(String tipo, String pagina, String usuario, Integer carga);
+
+    @Modifying
+    @Query("delete from ReservaCorrelativo r where r.tipo = :tipo and r.pagina = :pagina and r.usuario = :usuario "
+            + "and r.token not in :vigentes and (r.carga is null or r.carga < :carga)")
+    int eliminarDeCargasAnteriores(@Param("tipo") String tipo, @Param("pagina") String pagina, @Param("usuario") String usuario,
+            @Param("vigentes") List<String> vigentes, @Param("carga") int carga);
 }

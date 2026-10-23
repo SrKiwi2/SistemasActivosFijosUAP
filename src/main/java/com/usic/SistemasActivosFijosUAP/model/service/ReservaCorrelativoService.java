@@ -55,8 +55,29 @@ public class ReservaCorrelativoService {
         return Integer.parseInt(codigo.substring(codigo.lastIndexOf('-') + 1));
     }
 
-    @Transactional
+    /**
+     * Al recargar (F5) una renovación tardía de la página vieja podía volver a crear su reserva
+     * después de liberarla: quedaba huérfana 30 min reteniendo los códigos. La carga nueva de la
+     * misma pestaña descarta lo que no sigue usando y la página reemplazada ya no reserva.
+     */
+    private void controlarPagina(String tipo, String token, Usuario usuario, ClienteReserva cliente) {
+        cliente.exigirVersion();
+        if (!cliente.conPagina()) return;
+        if (dao.existsByTipoAndPaginaAndUsuarioAndCargaGreaterThan(tipo, cliente.pagina(), usuario.getUsuario(), cliente.carga()))
+            throw new ClienteReserva.ReservaObsoletaException();
+        dao.eliminarDeCargasAnteriores(tipo, cliente.pagina(), usuario.getUsuario(), cliente.vigentesCon(token), cliente.carga());
+    }
+
+    private static void marcarPagina(ReservaCorrelativo r, ClienteReserva cliente) {
+        if (cliente.conPagina()) { r.setPagina(cliente.pagina()); r.setCarga(cliente.carga()); }
+    }
+
     public List<ReservaCorrelativo> reservar(String tipo, String token, List<Lote> lotes, Usuario usuario) {
+        return reservar(tipo, token, lotes, usuario, ClienteReserva.INTERNO);
+    }
+
+    @Transactional
+    public List<ReservaCorrelativo> reservar(String tipo, String token, List<Lote> lotes, Usuario usuario, ClienteReserva cliente) {
         validarToken(token);
         if (usuario == null || usuario.getUsuario() == null) throw new SecurityException("Inicie sesión otra vez.");
         if (lotes == null || lotes.isEmpty() || lotes.size() > 100)
@@ -69,6 +90,7 @@ public class ReservaCorrelativoService {
         turno(tipo);
         LocalDateTime ahora = LocalDateTime.now();
         dao.eliminarVencidas(ahora);
+        controlarPagina(tipo, token, usuario, cliente);
         List<ReservaCorrelativo> previas = dao.findByTipoAndTokenOrderByIndiceAsc(tipo, token);
         if (previas.stream().anyMatch(r -> !usuario.getUsuario().equals(r.getUsuario())))
             throw new SecurityException("La reserva pertenece a otro usuario.");
@@ -79,7 +101,7 @@ public class ReservaCorrelativoService {
                     && r.getPrefijo().equals(l.prefijo()) && r.getCantidad() == l.cantidad();
         }
         if (iguales) {
-            previas.forEach(r -> r.setVence(ahora.plusMinutes(30)));
+            previas.forEach(r -> { r.setVence(ahora.plusMinutes(30)); marcarPagina(r, cliente); });
             return dao.saveAll(previas);
         }
         if (!previas.isEmpty()) { dao.deleteAll(previas); dao.flush(); }
@@ -107,18 +129,23 @@ public class ReservaCorrelativoService {
             r.setId(tipo + ":" + token + ":" + i); r.setToken(token); r.setIndice(i);
             r.setTipo(tipo); r.setPrefijo(lote.prefijo()); r.setDesde(desde);
             r.setCantidad(lote.cantidad()); r.setUsuario(usuario.getUsuario());
-            r.setVence(ahora.plusMinutes(30)); nuevas.add(r);
+            r.setVence(ahora.plusMinutes(30)); marcarPagina(r, cliente); nuevas.add(r);
         }
         return dao.saveAllAndFlush(nuevas);
     }
 
-    @Transactional
     public ReservaCorrelativo reservarCodigoLibre(String token, String prefijo, int numero, Usuario usuario) {
+        return reservarCodigoLibre(token, prefijo, numero, usuario, ClienteReserva.INTERNO);
+    }
+
+    @Transactional
+    public ReservaCorrelativo reservarCodigoLibre(String token, String prefijo, int numero, Usuario usuario, ClienteReserva cliente) {
         validarToken(token);
         if (usuario == null || usuario.getUsuario() == null) throw new SecurityException("Inicie sesión otra vez.");
         if (prefijo == null || !prefijo.matches("[^-]+-[^-]+-[0-9]{2,3}") || numero < 1 || numero > MAX_CORRELATIVO)
             throw new IllegalArgumentException("Código libre inválido.");
         turno(REGISTRO);
+        controlarPagina(REGISTRO, token, usuario, cliente);
         List<ReservaCorrelativo> previas = dao.findByTipoAndTokenOrderByIndiceAsc(REGISTRO, token);
         if (previas.stream().anyMatch(r -> !usuario.getUsuario().equals(r.getUsuario())))
             throw new SecurityException("La reserva pertenece a otro usuario.");
@@ -126,6 +153,7 @@ public class ReservaCorrelativoService {
                 && previas.get(0).getDesde() == numero && previas.get(0).getCantidad() == 1
                 && previas.get(0).getVence().isAfter(LocalDateTime.now())) {
             previas.get(0).setVence(LocalDateTime.now().plusMinutes(30));
+            marcarPagina(previas.get(0), cliente);
             return dao.save(previas.get(0));
         }
         if (!previas.isEmpty()) { dao.deleteAll(previas); dao.flush(); }
@@ -137,6 +165,7 @@ public class ReservaCorrelativoService {
         r.setId(REGISTRO + ":" + token + ":0"); r.setToken(token); r.setIndice(0);
         r.setTipo(REGISTRO); r.setPrefijo(prefijo); r.setDesde(numero); r.setCantidad(1);
         r.setUsuario(usuario.getUsuario()); r.setVence(LocalDateTime.now().plusMinutes(30));
+        marcarPagina(r, cliente);
         return dao.saveAndFlush(r);
     }
 

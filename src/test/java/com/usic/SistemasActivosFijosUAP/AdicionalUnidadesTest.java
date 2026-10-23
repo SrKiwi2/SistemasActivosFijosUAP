@@ -27,6 +27,7 @@ import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalLotesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.*;
 import com.usic.SistemasActivosFijosUAP.model.service.ArchivoStorageService;
+import com.usic.SistemasActivosFijosUAP.model.service.ClienteReserva;
 import com.usic.SistemasActivosFijosUAP.model.service.adicional.AdicionalService;
 import com.usic.SistemasActivosFijosUAP.model.service.documento.WordEtiquetasQrService;
 
@@ -194,6 +195,7 @@ class AdicionalUnidadesTest {
         r.setDescripcion("Silla"); r.setCantidad(3); r.setIdGrupoContable(9L);
         r.setIdAuxiliarAdicional(4L); r.setCodigosAntiguos(List.of("A1", "A2", "A3"));
         r.setEstadosPorUnidad(List.of(1L, 2L, 1L));
+        r.setMaterial("madera"); r.setDimensiones("12*4*5m");
         Usuario usuario = new Usuario(); usuario.setEstado("ACTIVO"); usuario.setUsuario("operador");
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -207,6 +209,8 @@ class AdicionalUnidadesTest {
         verify(adicionalDao, times(3)).save(detalles.capture());
         assertTrue(detalles.getAllValues().stream().allMatch(x -> x.getAuxiliarAdicional() == auxiliar));
         assertEquals(List.of("A1", "A2", "A3"), activos.getAllValues().stream().map(Activo::getCodigoAntiguo).toList());
+        // Formato pedido por Activos Fijos: «DE material» y «D:medidas».
+        assertEquals("SILLA DE MADERA D:12*4*5M", activos.getAllValues().get(0).getDescripcion());
     }
 
     @Test
@@ -336,18 +340,18 @@ class AdicionalUnidadesTest {
 
         // La renovación tardía de la carga 1 llega cuando la carga 2 ya reservó.
         when(reservaDao.existsByPaginaAndUsuarioAndCargaGreaterThan("P", "saul", 1)).thenReturn(true);
-        assertThrows(AdicionalService.ReservaObsoletaException.class, () -> servicio.reservarCodigo("viejo", 7L, 2L, 1, saul,
-                permiso, new AdicionalService.ClienteReserva(2, "P", 1, List.of())));
+        assertThrows(ClienteReserva.ReservaObsoletaException.class, () -> servicio.reservarCodigo("viejo", 7L, 2L, 1, saul,
+                permiso, new ClienteReserva(2, "P", 1, List.of())));
         verify(reservaDao, never()).save(any());
 
         // La carga 2 descarta lo que haya dejado la carga 1 de la misma pestaña.
         when(reservaDao.findById(anyString())).thenReturn(Optional.empty());
         when(reservaDao.save(any())).thenAnswer(i -> i.getArgument(0));
-        servicio.reservarCodigo("nuevo", 7L, 2L, 1, saul, permiso, new AdicionalService.ClienteReserva(2, "P", 2, List.of("lote-2")));
-        verify(reservaDao).eliminarDeCargasAnteriores("P", "saul", List.of("nuevo", "lote-2"), 2);
+        servicio.reservarCodigo("nuevo", 7L, 2L, 1, saul, permiso, new ClienteReserva(2, "P", 2, List.of("lote-2")));
+        verify(reservaDao).eliminarDeCargasAnteriores("P", "saul", List.of("lote-2", "nuevo"), 2);
 
         // Sin versión (pantalla de una versión anterior) no se renueva.
         assertThrows(IllegalStateException.class, () -> servicio.reservarCodigo("nuevo", 7L, 2L, 1, saul,
-                permiso, new AdicionalService.ClienteReserva(null, "P", 2, List.of())));
+                permiso, new ClienteReserva(null, "P", 2, List.of())));
     }
 }

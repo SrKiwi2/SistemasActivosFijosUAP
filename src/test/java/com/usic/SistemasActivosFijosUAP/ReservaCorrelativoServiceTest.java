@@ -24,6 +24,7 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IReservaCorrelativoDao;
 import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCorrelativo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
+import com.usic.SistemasActivosFijosUAP.model.service.ClienteReserva;
 import com.usic.SistemasActivosFijosUAP.model.service.ReservaCorrelativoService;
 
 @ExtendWith(MockitoExtension.class)
@@ -93,5 +94,28 @@ class ReservaCorrelativoServiceTest {
         assertEquals(9, service.reservar(ReservaCorrelativoService.DONACION, "dluis", lote, luis).get(0).getDesde());
         verify(funciones, atLeast(4)).tomarTurnoRegistro();
         verify(actaDao, times(2)).turno(anyLong());
+    }
+
+    @Test
+    void trasRecargarLaPaginaAnteriorNoReservaYLaNuevaDescartaSusHuerfanas() {
+        Usuario ana = new Usuario(); ana.setUsuario("ana");
+        var lote = List.of(new ReservaCorrelativoService.Lote("04-15-02", 1));
+        // La renovación tardía de la carga 1 llega cuando la carga 2 ya reservó.
+        when(dao.existsByTipoAndPaginaAndUsuarioAndCargaGreaterThan("R", "P", "ana", 1)).thenReturn(true);
+        assertThrows(ClienteReserva.ReservaObsoletaException.class, () -> service.reservar(ReservaCorrelativoService.REGISTRO,
+                "viejo", lote, ana, new ClienteReserva(2, "P", 1, List.of())));
+        verify(dao, never()).saveAllAndFlush(any());
+
+        // La carga 2 descarta lo de cargas anteriores que ya no usa.
+        when(funciones.previewCodigoPorCodes("04", "15", "02")).thenReturn("04-15-02-00008");
+        when(dao.saveAllAndFlush(any())).thenAnswer(i -> new ArrayList<>(i.getArgument(0)));
+        var r = service.reservar(ReservaCorrelativoService.REGISTRO, "nuevo", lote, ana, new ClienteReserva(2, "P", 2, List.of()));
+        verify(dao).eliminarDeCargasAnteriores("R", "P", "ana", List.of("nuevo"), 2);
+        assertEquals("P", r.get(0).getPagina());
+        assertEquals(2, r.get(0).getCarga());
+
+        // Pantalla de una versión anterior (sin versión): se le pide recargar.
+        assertThrows(IllegalStateException.class, () -> service.reservar(ReservaCorrelativoService.REGISTRO,
+                "nuevo", lote, ana, new ClienteReserva(null, "P", 2, List.of())));
     }
 }

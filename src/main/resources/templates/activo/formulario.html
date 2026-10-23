@@ -1614,7 +1614,7 @@
     </div>
 </div>
 
-<script src="/assets/js/sciaf-reservas-pagina.js"></script>
+<script src="/assets/js/sciaf-reservas-pagina.js?v=20261023c"></script>
 <script>
     window.ActivoForm = (function () {
         let uiState = { modo: 'LOCK' };
@@ -1624,8 +1624,14 @@
         let _revisionCorrelativos = 0;
         let _tokenReserva = null;
         let _tieneReservaBatch = false;
-        const reservasPagina = SciafReservasPagina.abrir('registro-activos', '/administracion/activo/liberar-correlativos');
+        // Las reservas se conservan al recargar (F5), al cambiar de pestaña y al volver a
+        // ingresar: la pantalla repone el formulario con su estado guardado (activo/vista.html)
+        // y retoma el mismo token. Se liberan al cancelar, guardar o cerrar la pestaña.
+        const reservasPagina = SciafReservasPagina.abrir('registro-activos', '/administracion/activo/liberar-correlativos', { conservar: true });
         let _colaReserva = reservasPagina.inicio;
+        let _reponiendo = false;      // el gestor de pestañas está reponiendo el formulario
+        let _obsoleta = false;        // otra carga de esta misma pestaña tomó el formulario
+        let _dejarDeEscuchar = null;
         let _currentSlide = 0;
         let _$currentDetalleSlide = null;
         let _modalDetalleBS = null;
@@ -1646,10 +1652,23 @@
             bindEvents();
             switchView('LOCK');
             clearInterval(_refrescoCorrelativos);
+            // Se renueva aunque la pestaña esté en segundo plano: el código queda reservado
+            // hasta cancelar, guardar o cerrar la pestaña.
             _refrescoCorrelativos = setInterval(() => {
                 if ($root && uiState.modo === 'NEW_BATCH')
                     recalcularCodigosBatch();
             }, 20000);
+            if (_dejarDeEscuchar) _dejarDeEscuchar();
+            const raiz = $root[0];
+            _dejarDeEscuchar = SciafReservasPagina.alCerrarPestana(raiz, info => {
+                clearInterval(_refrescoCorrelativos);
+                // Al recargar la pestaña, la pantalla nueva retoma la reserva con el estado guardado.
+                if (!info.recarga) liberarReservaBatch();
+            });
+            // Si no hubo nada que reponer, lo que reservaron cargas anteriores de esta pestaña sobra.
+            setTimeout(() => {
+                if (!_reponiendo && !_obsoleta) reservasPagina.liberarSobrantes([_tokenReserva]);
+            }, 15000);
         }
 
         function matchCustom(params, data) {
@@ -2588,15 +2607,20 @@
         function pedirReservaBatch(token, lotes) {
             reservasPagina.registrar(token);
             return fetch('/administracion/activo/reservar-correlativos', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, lotes })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, lotes, ...reservasPagina.cliente([token]) })
             }).then(r => r.json()).then(d => {
-                if (!d.ok) throw new Error(d.msg || 'No se pudo reservar el correlativo.');
+                if (d.obsoleta) { _obsoleta = true; clearInterval(_refrescoCorrelativos); }
+                if (!d.ok) throw new Error((d.msg || 'No se pudo reservar el correlativo.') + (d.obsoleta ? ' Recargue (F5) para seguir.' : ''));
                 if (token === _tokenReserva) _tieneReservaBatch = true;
                 return d.lotes;
             });
         }
 
         async function recalcularCodigosBatch() {
+            // Mientras se repone el formulario los lotes llegan de a poco: con un lote incompleto
+            // se cambiaría (o soltaría) la reserva que se está por retomar.
+            if (_reponiendo || _obsoleta) return;
             const revision = ++_revisionCorrelativos;
             const filas = [];
             
@@ -3554,9 +3578,11 @@
             $('body').append(form); form.submit(); form.remove();
         }
 
-        function destroy() {
+        /** @param conservarReserva la pantalla se vuelve a cargar y retomará la reserva. */
+        function destroy(conservarReserva) {
             if (!$root) return;
-            liberarReservaBatch();
+            if (_dejarDeEscuchar) { _dejarDeEscuchar(); _dejarDeEscuchar = null; }
+            if (!conservarReserva) liberarReservaBatch();
             clearInterval(_refrescoCorrelativos);
             clearTimeout(_recalcTimer);
             _revisionCorrelativos++;
@@ -3906,13 +3932,33 @@
             });
         }
 
+        /** Para el gestor de pestañas: retomar la reserva al reponer el formulario. */
+        function tokenReserva() { return _tieneReservaBatch ? _tokenReserva : null; }
+        function retomarReserva(token) {
+            if (!token) return;
+            _reponiendo = true;
+            _tokenReserva = token;
+            reservasPagina.registrar(token);
+            // Si la reposición se corta (se cambió de pestaña a mitad), no quedar sin reservar.
+            setTimeout(finReponer, 20000);
+        }
+        function finReponer() {
+            if (!_reponiendo) return;
+            _reponiendo = false;
+            recalcularCodigosBatch();
+            reservasPagina.liberarSobrantes([_tokenReserva]);
+        }
+
         return {
             init,
             destroy,
             cargarParaEdicion,
             ejecutarBaja,
             exportarDetalles,
-            importarDetalles
+            importarDetalles,
+            tokenReserva,
+            retomarReserva,
+            finReponer
         };
 
     })();

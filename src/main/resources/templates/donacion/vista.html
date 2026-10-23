@@ -803,7 +803,7 @@
 
 </div>
 
-<script src="/assets/js/sciaf-reservas-pagina.js"></script>
+<script src="/assets/js/sciaf-reservas-pagina.js?v=20261023c"></script>
 <script th:inline="javascript">
 (function () {
     const URL = '/administracion/donacion';
@@ -836,8 +836,15 @@
 
     const MAX_DESC = 1024;
     const st = { paso: 1, tipo: 'INSTITUCION', idActa: null, enviando: false, token: null, edicion: null, reservaBienes: [] };
-    const reservasPagina = SciafReservasPagina.abrir('donacion', URL + '/api/liberar-codigos');
+    // Las reservas se conservan al recargar (F5), al cambiar de pestaña y al volver a ingresar:
+    // el asistente se repone con su estado guardado y retoma el mismo token. Se liberan al
+    // cancelar, registrar o cerrar la pestaña del módulo.
+    const reservasPagina = SciafReservasPagina.abrir('donacion', URL + '/api/liberar-codigos', { conservar: true });
     let colaReserva = reservasPagina.inicio;
+    let reponiendo = false;           // el gestor de pestañas está reponiendo el asistente
+    // Solo una instancia del módulo renueva: si la pantalla se vuelve a cargar, la anterior se detiene.
+    const instancia = {};
+    window.__sciafDonacion = instancia;
     function liberarReservaDonacion(token) {
         if (!token) return;
         st.reservaBienes = [];
@@ -1565,12 +1572,16 @@
     // Un pedido reserva todos los rangos de esta acta bajo el mismo turno del guardado.
     let previaN = 0;
     async function calcularCodigos() {
+        // Mientras se repone el asistente los datos llegan de a poco: sin oficina todavía se
+        // soltaría la reserva que se está por retomar.
+        if (reponiendo || st.detenida) return false;
         const $todos = $bienes.children('.dn-bien');
         if (!$todos.length) return false;
         const idOficina = $oficina.val();
         const bienes = leerBienes().map(function (b) { return { idGrupoContable: b.idGrupoContable, cantidad: b.cantidad || 1 }; });
         if (!idOficina) {
-            if (!st.edicion) liberarReservaDonacion(st.token);
+            // Recién repuesto, la oficina puede no haber llegado todavía (depende del predio).
+            if (!st.edicion && Date.now() > (st.reponerHasta || 0)) liberarReservaDonacion(st.token);
             $todos.find('.js-rango').addClass('vacio').text('elija la oficina en el paso 2');
             return false;
         }
@@ -1579,11 +1590,12 @@
             const token = st.token;
             if (!st.edicion) reservasPagina.registrar(token);
             const tarea = function () { return SciafModulo.pedirJson(URL + (st.edicion ? '/api/previsualizar' : '/api/reservar-codigos'), {
-                json: { token: token, idOficina: Number(idOficina), bienes: bienes }
+                json: { token: token, idOficina: Number(idOficina), bienes: bienes, ...reservasPagina.cliente([token]) }
             }); };
             const pendiente = colaReserva.catch(function () {}).then(tarea);
             colaReserva = pendiente.catch(function () {});
             const d = await pendiente;
+            if (d.obsoleta) { detenerRenovacion(); throw new Error((d.msg || '') + ' Recargue (F5) para seguir.'); }
             if (n !== previaN) return false;
             if (!d.ok) throw new Error(d.msg || 'No se pudo reservar el código.');
             if (!st.edicion) {
@@ -1613,11 +1625,24 @@
         } catch (e) { if (n === previaN) $todos.find('.js-rango').addClass('vacio').text(e.message || 'No se pudo reservar el código'); return false; }
     }
     const actualizarCodigos = debounce(calcularCodigos, 350);
+    // Se renueva mientras el asistente esté abierto, aunque la pestaña del módulo o la del
+    // navegador estén en segundo plano (antes se detenía al cambiar de pestaña y la reserva
+    // vencía a los 30 min): el código queda reservado hasta cancelar, registrar o cerrarla.
     const renovacionCodigos = setInterval(function () {
-        if (!document.contains($raiz[0])) { clearInterval(renovacionCodigos); return; }
+        if (st.detenida) return;
+        if (window.__sciafDonacion !== instancia) { detenerRenovacion(); return; }
         if (!$form.hasClass('d-none') && !st.enviando && !st.edicion && $oficina.val() && $bienes.children('.dn-bien').length)
             calcularCodigos();
     }, 20000);
+    function detenerRenovacion() {
+        st.detenida = true;
+        clearInterval(renovacionCodigos);
+    }
+    SciafReservasPagina.alCerrarPestana($raiz[0], function (info) {
+        detenerRenovacion();
+        // Al recargar la pestaña, la pantalla nueva retoma la reserva con el estado guardado.
+        if (!info.recarga && !st.edicion) liberarReservaDonacion(st.token);
+    });
 
     /** Códigos de un bien que se está editando: los que conserva, los nuevos y los que se borran. */
     function rangoEdicion($b) {
@@ -2342,6 +2367,46 @@
     reiniciarAsistente();
     iniciarTabla();
     mostrar('listado');
+
+    // El gestor de pestañas guarda y repone los campos generales; esto agrega lo que no vive
+    // en ellos: que el asistente estaba abierto, el paso, cada bien y la marca de la reserva,
+    // para que al volver (F5, otro ingreso, otro día) se retomen los mismos códigos.
+    // Las fotos que aún no se subieron no se pueden guardar: hay que volver a elegirlas.
+    if (window.sciafPestanas && window.sciafModulo) {
+        window.sciafPestanas.moduloActivo('donacion');
+        window.sciafModulo.registrar('donacion', {
+            guardar: function () {
+                if (window.__sciafDonacion !== instancia || $form.hasClass('d-none') || st.edicion) return { abierto: false };
+                return { abierto: true, paso: st.paso, tipo: st.tipo, token: st.reservaBienes.length ? st.token : null, bienes: leerBienes() };
+            },
+            antes: async function (d) {
+                if (!d || !d.abierto) return;
+                reponiendo = true;
+                reiniciarAsistente();
+                if (d.token) { st.token = d.token; reservasPagina.registrar(d.token); }
+                ponerTipo(d.tipo || 'INSTITUCION');
+                mostrar('asistente');
+                irAPaso(1);
+                // Si la reposición se corta (se cambió de pestaña a mitad), no quedar sin reservar.
+                setTimeout(function () { if (reponiendo) { reponiendo = false; calcularCodigos(); } }, 20000);
+            },
+            despues: async function (d) {
+                if (!d || !d.abierto) return;
+                (d.bienes || []).forEach(function (b) {
+                    const $b = agregarBien(b);
+                    $b.find('.js-series').val((b.series || []).join('\n'));
+                    refrescarBien($b);
+                });
+                irAPaso(Math.min(Math.max(1, d.paso || 1), 4));
+                st.reponerHasta = Date.now() + 15000;
+                reponiendo = false;
+                await calcularCodigos();
+                reservasPagina.liberarSobrantes([st.token]);
+            }
+        });
+    }
+    // Si no hubo nada que reponer, lo que reservaron cargas anteriores de esta pestaña sobra.
+    setTimeout(function () { if (!reponiendo && !st.detenida) reservasPagina.liberarSobrantes([st.token]); }, 15000);
     // Solo la etapa se mide (y se desplaza si la ventana es muy baja): los pasos y el pie con
     // los botones quedan siempre a la vista. La pantalla de éxito, igual.
     const ajustarEtapas = SciafModulo.ajustarAlto($etapas, 12);

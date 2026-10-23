@@ -53,6 +53,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCodigoAdicional;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.service.ArchivoStorageService;
+import com.usic.SistemasActivosFijosUAP.model.service.ClienteReserva;
 import com.usic.SistemasActivosFijosUAP.model.service.PdfEtiquetasQrService;
 import com.usic.SistemasActivosFijosUAP.model.service.documento.WordEtiquetasQrService;
 
@@ -253,12 +254,14 @@ public class AdicionalService {
             return mun + "-" + pred + "-" + String.format("%02d", grupo.getCodDbf());
         }
 
-        /** Descripción del activo: descripción, material, medidas, color, M:, MOD:, N/S:. */
+        /** Descripción del activo: descripción, DE material, D:medidas, color, M:, MOD:, N/S:
+         * (p. ej. «SILLA DE MADERA D:12*4*5M»). */
         String descripcionCon(String serie, String codigoAntiguo) {
             String b = base != null ? base : (codigoAntiguo != null ? "BIEN ADICIONAL" : SIN_DESCRIPCION);
             StringBuilder sb = new StringBuilder(b);
-            if (material != null)    sb.append(" MATERIAL ").append(material);
-            if (dimensiones != null) sb.append(" MEDIDAS ").append(dimensiones);
+            // Si ya lo escribieron con su prefijo («DE MADERA», «D:12*4M») no se repite.
+            if (material != null)    sb.append(material.startsWith("DE ") ? " " : " DE ").append(material);
+            if (dimensiones != null) sb.append(dimensiones.startsWith("D:") ? " " : " D:").append(dimensiones);
             if (color != null)       sb.append(" COLOR ").append(color);
             List<String> t = new ArrayList<>();
             if (marca != null)  t.add("M:" + marca);
@@ -684,50 +687,28 @@ public class AdicionalService {
     @Transactional
     public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
                                                Usuario usuario, Object opciones) {
-        return reservarCodigo(token, idPredio, idGrupo, cantidad, usuario, opciones, new ClienteReserva(2, null, null, List.of()));
-    }
-
-    /**
-     * Quién pide la reserva.
-     * @param version  versión del formulario. Las pantallas anteriores no la envían y renovaban
-     *                 sin fin: se les pide recargar y su reserva vence.
-     * @param pagina   la pestaña del navegador (se conserva al recargar con F5).
-     * @param carga    el número de carga de la página dentro de esa pestaña.
-     * @param vigentes las reservas que el formulario sigue usando (la actual y la de cada lote):
-     *                 las demás de cargas anteriores de esta pestaña quedaron huérfanas.
-     */
-    public record ClienteReserva(Integer version, String pagina, Integer carga, List<String> vigentes) {}
-
-    /** La página que pidió la reserva ya fue reemplazada (F5) en la misma pestaña. */
-    public static class ReservaObsoletaException extends IllegalStateException {
-        public ReservaObsoletaException() {
-            super("Esta pantalla se volvió a cargar en esta misma pestaña: este formulario ya no reserva códigos.");
-        }
+        return reservarCodigo(token, idPredio, idGrupo, cantidad, usuario, opciones, ClienteReserva.INTERNO);
     }
 
     @Transactional
     public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
                                                Usuario usuario, Object opciones, ClienteReserva cliente) {
         exigirPermiso(usuario, opciones);
-        String pagina = limpiar(cliente.pagina());
+        cliente.exigirVersion();
+        String pagina = cliente.pagina();
         Integer carga = cliente.carga();
-        if (pagina != null && pagina.length() > 40) throw new IllegalArgumentException("Marca de pestaña inválida.");
-        if (cliente.version() == null)
-            throw new IllegalStateException("Esta pantalla es de una versión anterior del sistema. Recárguela (F5) para seguir registrando.");
-        List<String> vigentes = new ArrayList<>();
-        vigentes.add(token);
-        if (cliente.vigentes() != null) cliente.vigentes().stream().filter(t -> t != null && t.length() <= 40).limit(40).forEach(vigentes::add);
+        List<String> vigentes = cliente.vigentesCon(token);
         if (token == null || token.isBlank() || token.length() > 40)
             throw new IllegalArgumentException("Marca de reserva inválida.");
         if (cantidad < 1 || cantidad > TOPE_UNIDADES)
             throw new IllegalArgumentException("La cantidad debe estar entre 1 y " + TOPE_UNIDADES + ".");
         adicionalDao.turno(TURNO_ADICIONALES);
         reservaDao.eliminarVencidas(limiteReserva(relojReserva()));
-        if (pagina != null && carga != null) {
+        if (cliente.conPagina()) {
             // Al recargar (F5), una renovación de la página anterior podía llegar después de
             // la liberación y volver a crear su reserva: quedaba huérfana reteniendo el código.
             if (reservaDao.existsByPaginaAndUsuarioAndCargaGreaterThan(pagina, usuario.getUsuario(), carga))
-                throw new ReservaObsoletaException();
+                throw new ClienteReserva.ReservaObsoletaException();
             reservaDao.eliminarDeCargasAnteriores(pagina, usuario.getUsuario(), vigentes, carga);
         }
         ReservaCodigoAdicional reserva = reservaDao.findById(token).orElse(null);
@@ -757,7 +738,7 @@ public class AdicionalService {
             reserva.setPrefijo(prefijo); reserva.setDesde(desde); reserva.setCantidad(cantidad);
             reserva.setUsuario(usuario.getUsuario()); reserva.setVence(ahora.plusMinutes(MINUTOS_RESERVA));
         }
-        if (pagina != null && carga != null) { reserva.setPagina(pagina); reserva.setCarga(carga); }
+        if (cliente.conPagina()) { reserva.setPagina(pagina); reserva.setCarga(carga); }
         reservaDao.save(reserva);
         int desdeActual = reserva.getDesde();
         List<ReservaCodigoAdicional> anteriores = reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, limiteReserva(ahora))

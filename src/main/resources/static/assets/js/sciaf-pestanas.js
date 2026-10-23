@@ -589,6 +589,8 @@
         function avisarCierre($dom, info) {
             if (!$dom || !$dom.length) return;
             $dom.filter('#modAdicional').add($dom.find('#modAdicional')).triggerHandler('sciaf:pestana-cerrada', [info || {}]);
+            // Las demás pantallas con reservas lo escuchan en el documento (ver SciafReservasPagina.alCerrarPestana).
+            $(document).triggerHandler('sciaf:pestana-cerrada', [Object.assign({ $dom: $dom }, info || {})]);
         }
 
         function cerrarOtras(i) {

@@ -631,7 +631,7 @@
 
 </div>
 
-<script src="/assets/js/sciaf-reservas-pagina.js?v=20261023b"></script>
+<script src="/assets/js/sciaf-reservas-pagina.js?v=20261023c"></script>
 <script th:inline="javascript">
 (function () {
     const URL = '/administracion/adicional';
@@ -1334,8 +1334,9 @@
         const ant = lineas($form.find('.js-antiguos').val()), ser = lineas($form.find('.js-series').val());
         const d = leer();
         let base = d.descripcion || (ant[0] ? 'BIEN ADICIONAL' : 'SIN DESCRIPCIÓN');
-        if (d.material) base += ' MATERIAL ' + d.material;
-        if (d.dimensiones) base += ' MEDIDAS ' + d.dimensiones;
+        // Igual que el servidor (AdicionalService.descripcionCon): «SILLA DE MADERA D:12*4*5M».
+        if (d.material) base += (/^DE /.test(d.material) ? ' ' : ' DE ') + d.material;
+        if (d.dimensiones) base += (/^D:/.test(d.dimensiones) ? ' ' : ' D:') + d.dimensiones;
         if (d.color) base += ' COLOR ' + d.color;
         const t = [];
         if (d.marca) t.push('M:' + d.marca);

@@ -1237,7 +1237,7 @@
 <!-- ================================================ -->
 <!-- JAVASCRIPT                                       -->
 <!-- ================================================ -->
-<script src="/assets/js/sciaf-reservas-pagina.js"></script>
+<script src="/assets/js/sciaf-reservas-pagina.js?v=20261023c"></script>
 <script>
 
     (function () {
@@ -3119,13 +3119,15 @@
             reservasPaginaAgregar.registrar(token);
             return $.ajax({ url: '/administracion/activo/reservar-correlativos-pendiente', type: 'POST',
                 contentType: 'application/json', data: JSON.stringify({ token,
-                    idAsigEnc: $('#agregarIdAsigEnc').val(), idGrupoContable: $('#agregarGrupo').val(), cantidad }) });
+                    idAsigEnc: $('#agregarIdAsigEnc').val(), idGrupoContable: $('#agregarGrupo').val(), cantidad,
+                    ...reservasPaginaAgregar.cliente([token]) }) });
         }
         function pedirReservaLibreAgregar(token, codigo) {
             reservasPaginaAgregar.registrar(token);
             return $.ajax({ url: '/administracion/activo/reservar-codigo-libre-pendiente', type: 'POST',
                 contentType: 'application/json', data: JSON.stringify({ token, codigo,
-                    idAsigEnc: $('#agregarIdAsigEnc').val(), idGrupoContable: $('#agregarGrupo').val() }) });
+                    idAsigEnc: $('#agregarIdAsigEnc').val(), idGrupoContable: $('#agregarGrupo').val(),
+                    ...reservasPaginaAgregar.cliente([token]) }) });
         }
 
         function initSelect2Agregar($el) {

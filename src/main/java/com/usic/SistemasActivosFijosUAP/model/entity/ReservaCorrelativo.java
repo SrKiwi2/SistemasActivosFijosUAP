@@ -36,4 +36,8 @@ public class ReservaCorrelativo {
     private String usuario;
     @Column(nullable = false)
     private LocalDateTime vence;
+    /** Pestaña del navegador y número de carga de la página (ver ClienteReserva). */
+    @Column(length = 40)
+    private String pagina;
+    private Integer carga;
 }

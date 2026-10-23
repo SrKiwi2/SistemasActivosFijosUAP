@@ -46,6 +46,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
 import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCorrelativo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.ClienteReserva;
 import com.usic.SistemasActivosFijosUAP.model.service.ReservaCorrelativoService;
 
 import lombok.RequiredArgsConstructor;
@@ -949,9 +950,14 @@ public class DonacionService {
     //  Vista previa de los códigos (sin turno: es solo orientativa)
     // ════════════════════════════════════════════════════════════════════════
 
-    @Transactional
     public List<ReservaCorrelativo> reservarCodigos(String token, Long idOficina,
             List<Map<String, Object>> bienes, Usuario usuario, Object opciones) {
+        return reservarCodigos(token, idOficina, bienes, usuario, opciones, ClienteReserva.INTERNO);
+    }
+
+    @Transactional
+    public List<ReservaCorrelativo> reservarCodigos(String token, Long idOficina,
+            List<Map<String, Object>> bienes, Usuario usuario, Object opciones, ClienteReserva cliente) {
         if (!puede(usuario, opciones)) throw new SecurityException("No tiene permiso para registrar donaciones.");
         Oficina oficina = idOficina == null ? null : oficinaService.findById(idOficina);
         Predio predio = oficina == null ? null : oficina.getPredio();
@@ -974,7 +980,7 @@ public class DonacionService {
             lotes.add(new ReservaCorrelativoService.Lote(predio.getMunicipio().getCodigo() + "-" + predio.getCodigo()
                     + "-" + String.format("%02d", grupo.getCodDbf()), cantidad));
         }
-        return reservaCorrelativoService.reservar(ReservaCorrelativoService.DONACION, token, lotes, usuario);
+        return reservaCorrelativoService.reservar(ReservaCorrelativoService.DONACION, token, lotes, usuario, cliente);
     }
 
     public void liberarCodigos(String token, Usuario usuario, Object opciones) {

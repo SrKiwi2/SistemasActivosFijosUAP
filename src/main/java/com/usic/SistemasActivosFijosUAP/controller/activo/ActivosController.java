@@ -93,6 +93,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
 import com.usic.SistemasActivosFijosUAP.model.service.ReservaCorrelativoService;
+import com.usic.SistemasActivosFijosUAP.model.service.ClienteReserva;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglasCustodia;
 import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
@@ -3785,11 +3786,13 @@ public class ActivosController {
                         toInteger(m.get("cantidad"), 1)));
             }
             List<ReservaCorrelativo> reservas = reservaCorrelativoService.reservar(ReservaCorrelativoService.REGISTRO,
-                    (String) cuerpo.get("token"), lotes, RolesSciaf.usuarioDe(request));
+                    (String) cuerpo.get("token"), lotes, RolesSciaf.usuarioDe(request), ClienteReserva.de(cuerpo));
             return ResponseEntity.ok(Map.of("ok", true, "lotes", reservas.stream().map(r -> Map.of(
                     "desde", r.getPrefijo() + "-" + String.format("%05d", r.getDesde()),
                     "hasta", r.getPrefijo() + "-" + String.format("%05d", r.getDesde() + r.getCantidad() - 1),
                     "cantidad", r.getCantidad())).toList()));
+        } catch (ClienteReserva.ReservaObsoletaException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("ok", false, "obsoleta", true, "msg", e.getMessage()));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
         } catch (SecurityException e) {
@@ -3805,10 +3808,12 @@ public class ActivosController {
             ReservaCorrelativoService.Lote lote = loteReservaAsignacion((String) cuerpo.get("idAsigEnc"),
                     toLong(cuerpo.get("idGrupoContable")), toInteger(cuerpo.get("cantidad"), 1));
             ReservaCorrelativo r = reservaCorrelativoService.reservar(ReservaCorrelativoService.REGISTRO,
-                    (String) cuerpo.get("token"), List.of(lote), RolesSciaf.usuarioDe(request)).get(0);
+                    (String) cuerpo.get("token"), List.of(lote), RolesSciaf.usuarioDe(request), ClienteReserva.de(cuerpo)).get(0);
             return ResponseEntity.ok(Map.of("ok", true,
                     "desde", r.getPrefijo() + "-" + String.format("%05d", r.getDesde()),
                     "hasta", r.getPrefijo() + "-" + String.format("%05d", r.getDesde() + r.getCantidad() - 1)));
+        } catch (ClienteReserva.ReservaObsoletaException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("ok", false, "obsoleta", true, "msg", e.getMessage()));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
         } catch (SecurityException e) {
@@ -3828,8 +3833,10 @@ public class ActivosController {
                 throw new IllegalArgumentException("El código libre no corresponde al predio y grupo de esta asignación.");
             int numero = Integer.parseInt(codigo.substring(codigo.lastIndexOf('-') + 1));
             ReservaCorrelativo r = reservaCorrelativoService.reservarCodigoLibre((String) cuerpo.get("token"),
-                    lote.prefijo(), numero, RolesSciaf.usuarioDe(request));
+                    lote.prefijo(), numero, RolesSciaf.usuarioDe(request), ClienteReserva.de(cuerpo));
             return ResponseEntity.ok(Map.of("ok", true, "codigo", r.getPrefijo() + "-" + String.format("%05d", r.getDesde())));
+        } catch (ClienteReserva.ReservaObsoletaException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("ok", false, "obsoleta", true, "msg", e.getMessage()));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
         } catch (SecurityException e) {

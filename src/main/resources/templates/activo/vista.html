@@ -130,17 +130,21 @@
                 // El detalle individual (series, marcas, modelos) no vive en campos sino en
                 // cada lote: sin esto se perdía al cerrar el navegador o vencer la sesión.
                 const detalles = window.ActivoForm?.exportarDetalles ? window.ActivoForm.exportarDetalles() : [];
-                return { abierto: abierto, filas: filas, detalles: detalles };
+                // La marca de la reserva: al volver se retoman los mismos códigos.
+                const token = abierto && window.ActivoForm?.tokenReserva ? window.ActivoForm.tokenReserva() : null;
+                return { abierto: abierto, filas: filas, detalles: detalles, token: token };
             },
             despues: async function (d) {
                 if (d && Array.isArray(d.detalles) && window.ActivoForm?.importarDetalles) {
                     window.ActivoForm.importarDetalles(d.detalles);
                 }
+                if (window.ActivoForm?.finReponer) window.ActivoForm.finReponer();
             },
             antes: async function (d) {
                 if (!d || !d.abierto) return;
                 if (!await esperarA('#btnRegistrar')) return;
                 $('#btnRegistrar').trigger('click');          // abre el formulario de alta
+                if (d.token && window.ActivoForm?.retomarReserva) window.ActivoForm.retomarReserva(d.token);
                 await pausa(350);
                 for (let i = 1; i < (d.filas || 1); i++) {    // vuelve a crear las filas del lote
                     $('#btnAddRow').trigger('click');
@@ -172,7 +176,8 @@
 
         if (window._activoFormXhr) { try { window._activoFormXhr.abort(); } catch (e) { /* ya terminó */ } }
         const n = window._activoFormCarga = (window._activoFormCarga || 0) + 1;
-        if (window.ActivoForm?.destroy) window.ActivoForm.destroy();
+        // Se conserva la reserva: si había un formulario abierto, el estado guardado la retoma.
+        if (window.ActivoForm?.destroy) window.ActivoForm.destroy(true);
 
         const carga = SciafPrecarga.montar($f, {
             compacta: true, texto: 'Preparando el formulario de registro…', alReintentar: cargarFormulario

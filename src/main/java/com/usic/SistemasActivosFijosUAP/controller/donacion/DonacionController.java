@@ -28,6 +28,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCorrelativo;
+import com.usic.SistemasActivosFijosUAP.model.service.ClienteReserva;
 import com.usic.SistemasActivosFijosUAP.model.service.donacion.DonacionService;
 import com.usic.SistemasActivosFijosUAP.model.service.donacion.WordActaDonacionService;
 import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
@@ -258,11 +259,13 @@ public class DonacionController {
             Object bienes = cuerpo.get("bienes");
             List<Map<String, Object>> lista = bienes instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
             List<ReservaCorrelativo> reservas = donacionService.reservarCodigos((String) cuerpo.get("token"), id, lista,
-                    RolesSciaf.usuarioDe(request), opciones(request));
+                    RolesSciaf.usuarioDe(request), opciones(request), ClienteReserva.de(cuerpo));
             return ResponseEntity.ok(Map.of("ok", true, "bienes", reservas.stream().map(r -> Map.of(
                     "ok", true, "desde", r.getPrefijo() + "-" + String.format("%05d", r.getDesde()) + "D",
                     "hasta", r.getPrefijo() + "-" + String.format("%05d", r.getDesde() + r.getCantidad() - 1) + "D",
                     "cantidad", r.getCantidad())).toList()));
+        } catch (ClienteReserva.ReservaObsoletaException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("ok", false, "obsoleta", true, "msg", e.getMessage()));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
         } catch (SecurityException e) { return sinPermiso(); }
