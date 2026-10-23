@@ -1190,19 +1190,58 @@
                 + (st.edicion ? ' <small class="text-muted">(se asigna al guardar)</small>' : ' <small class="text-muted">(reservado mientras trabaja; se libera al cancelar o salir del módulo)</small>')
                 + (!st.edicion && d.reservasPrevias > 0 ? ' <small class="text-muted">Hay ' + d.reservasPrevias
                     + (d.reservasPrevias === 1 ? ' código anterior reservado' : ' códigos anteriores reservados')
-                    + ' en otros formularios, aún sin registrar.</small>' : ''));
+                    + ' en otros formularios, aún sin registrar:</small>' + quienReserva(d.previas) : ''));
         } catch (e) { if (secuencia === vistaCodigoSecuencia) $c.text(e.message || 'No se pudo reservar el código.'); }
     }, 300);
+
+    function hace(segundos) {
+        const m = Math.floor((segundos || 0) / 60);
+        return m < 1 ? 'en uso ahora' : 'sin usar hace ' + m + ' min';
+    }
+    function quienReserva(previas) {
+        if (!Array.isArray(previas) || !previas.length) return '';
+        return '<ul class="mb-0 ps-3 small">' + previas.map(function (p) {
+            const rango = p.hasta && p.hasta !== p.desde ? codigoHtml(p.desde) + ' → ' + codigoHtml(p.hasta) : codigoHtml(p.desde);
+            const quien = p.propia ? '<b>usted mismo</b> en otra ventana, pestaña o lote'
+                : '<b>' + esc(p.nombre || p.usuario) + '</b> (usuario ' + esc(p.usuario) + ')';
+            return '<li>' + rango + ': ' + quien + ' · ' + hace(p.segundosSinRenovar) + '</li>';
+        }).join('') + '</ul>';
+    }
+
+    // Un formulario visible pero sin uso (pantalla olvidada en otra PC) no debe retener el
+    // correlativo para siempre: tras INACTIVIDAD_MS sin tocar nada deja de renovar y libera.
+    const INACTIVIDAD_MS = 10 * 60 * 1000;
+    let ultimaActividad = Date.now(), liberadaPorInactividad = false;
+    function inactivo() { return Date.now() - ultimaActividad > INACTIVIDAD_MS; }
+    $raiz.on('input change click keydown pointerdown', function () {
+        ultimaActividad = Date.now();
+        if (!liberadaPorInactividad) return;
+        liberadaPorInactividad = false;
+        if (st.pausada || !$panel.is(':visible')) return;
+        if ($predio.val() && $grupo.val()) actualizarCodigo();
+        renovarLotes();
+    });
+    function soltarPorInactividad() {
+        if (liberadaPorInactividad || st.enviando || !inactivo()) return;
+        liberadaPorInactividad = true;
+        ++vistaCodigoSecuencia;
+        st.codigoAntesPausa = new Map(st.reservas);
+        liberarTodasReservas();
+        $form.find('.js-codigo-previo').html('El correlativo se liberó por inactividad (10 min sin usar el formulario). '
+            + 'Toque cualquier campo para volver a reservarlo; puede recibir otro número.');
+    }
 
     // Solo se renuevan reservas de un formulario visible. Una pestaña interna apartada
     // libera sus códigos y conserva los datos para recuperarlos cuando el usuario vuelva.
     const refrescoCorrelativo = setInterval(function () {
         if (st.pausada || document.hidden || !document.contains($raiz[0])) return;
+        if (liberadaPorInactividad) return;
+        if (inactivo()) { soltarPorInactividad(); return; }
         if ($panel.is(':visible') && !st.enviando
                 && $predio.val() && $grupo.val()) actualizarCodigo();
     }, 5000);
     function renovarLotes() {
-        if (st.pausada || document.hidden || !document.contains($raiz[0]) || !$panel.is(':visible') || st.enviando || st.cambiandoLote) return;
+        if (st.pausada || liberadaPorInactividad || document.hidden || !document.contains($raiz[0]) || !$panel.is(':visible') || st.enviando || st.cambiandoLote) return;
         st.lotes.forEach(function (lote, indice) {
             if (indice === st.loteActual) return;
             const x = lote.datos, anterior = st.reservas.get(x.token) || st.codigoAntesPausa.get(x.token);
@@ -1225,6 +1264,7 @@
     const refrescoLotes = setInterval(renovarLotes, 60000);
     function alVolverVisible() {
         if (document.hidden || st.pausada || !document.contains($raiz[0]) || !$panel.is(':visible')) return;
+        ultimaActividad = Date.now(); liberadaPorInactividad = false;
         if ($predio.val() && $grupo.val()) actualizarCodigo();
         renovarLotes();
     }
@@ -1237,6 +1277,7 @@
     });
     $raiz.on('sciaf:pestana-activada', function () {
         st.pausada = false;
+        ultimaActividad = Date.now(); liberadaPorInactividad = false;
         if (!$panel.is(':visible')) return;
         if ($predio.val() && $grupo.val()) actualizarCodigo();
         renovarLotes();

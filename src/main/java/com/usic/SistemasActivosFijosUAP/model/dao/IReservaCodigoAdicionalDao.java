@@ -18,4 +18,8 @@ public interface IReservaCodigoAdicionalDao extends JpaRepository<ReservaCodigoA
     @Query("select coalesce(max(r.desde + r.cantidad - 1), 0) from ReservaCodigoAdicional r "
             + "where r.prefijo = :prefijo and r.vence > :ahora")
     int maxReservado(@Param("prefijo") String prefijo, @Param("ahora") LocalDateTime ahora);
+    List<ReservaCodigoAdicional> findBySesion(String sesion);
+    /** Hora de pared de la base en una zona fija: no depende de la zona de cada servidor. */
+    @Query(value = "select cast(now() at time zone 'America/La_Paz' as timestamp)", nativeQuery = true)
+    java.sql.Timestamp ahora();
 }

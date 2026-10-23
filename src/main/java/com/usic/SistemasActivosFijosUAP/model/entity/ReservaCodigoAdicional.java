@@ -36,4 +36,8 @@ public class ReservaCodigoAdicional {
 
     @Column(nullable = false)
     private LocalDateTime vence;
+
+    /** Sesión HTTP que la renovó por última vez; al cerrarse esa sesión se libera. */
+    @Column(length = 100)
+    private String sesion;
 }

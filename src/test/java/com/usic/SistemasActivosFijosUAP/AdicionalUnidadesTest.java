@@ -47,6 +47,7 @@ class AdicionalUnidadesTest {
     @Mock ArchivoStorageService archivos;
     @Mock WordEtiquetasQrService hojaEtiquetas;
     @Mock PlatformTransactionManager txManager;
+    @Mock IUsuarioDao usuarioDao;
     @InjectMocks AdicionalService servicio;
 
     @Test
@@ -85,6 +86,12 @@ class AdicionalUnidadesTest {
         assertEquals("04-15-02-00009A", segunda.get("desde"));
         assertEquals(0, primera.get("reservasPrevias"));
         assertEquals(1, segunda.get("reservasPrevias"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> previas = (List<Map<String, Object>>) segunda.get("previas");
+        assertEquals(1, previas.size());
+        assertEquals("04-15-02-00008A", previas.get(0).get("desde"));
+        assertEquals("ana", previas.get(0).get("usuario"));
+        assertEquals(false, previas.get(0).get("propia"));
         Map<String, Object> ampliada = servicio.reservarCodigo("luis-token", 7L, 2L, 2, luis, Set.of(AdicionalService.PERMISO));
         assertEquals("04-15-02-00009A", ampliada.get("desde"));
         assertEquals("04-15-02-00010A", ampliada.get("hasta"));
@@ -315,5 +322,16 @@ class AdicionalUnidadesTest {
         Rol rol = new Rol(); rol.setNombre("ADMINISTRADOR");
         Usuario usuario = new Usuario(); usuario.setEstado("ACTIVO"); usuario.setRol(rol);
         return usuario;
+    }
+
+    @Test
+    void cerrarSesionLiberaSusReservas() {
+        ReservaCodigoAdicional r = new ReservaCodigoAdicional();
+        r.setToken("t-sesion"); r.setPrefijo("04-15-02"); r.setDesde(8); r.setCantidad(1);
+        r.setUsuario("saul"); r.setSesion("S1"); r.setVence(LocalDateTime.now().plusMinutes(30));
+        when(reservaDao.findBySesion("S1")).thenReturn(List.of(r));
+        assertEquals(1, servicio.liberarCodigosDeSesion("S1"));
+        verify(reservaDao).deleteAll(List.of(r));
+        assertEquals(0, servicio.liberarCodigosDeSesion("otra"));
     }
 }

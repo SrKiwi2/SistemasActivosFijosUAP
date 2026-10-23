@@ -35,6 +35,7 @@ import com.usic.SistemasActivosFijosUAP.model.dao.IActivoFotoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IAuxiliarAdicionalDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IHistorialActivoDao;
 import com.usic.SistemasActivosFijosUAP.model.dao.IReservaCodigoAdicionalDao;
+import com.usic.SistemasActivosFijosUAP.model.dao.IUsuarioDao;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalRequest;
 import com.usic.SistemasActivosFijosUAP.model.dto.adicional.AdicionalLotesRequest;
 import com.usic.SistemasActivosFijosUAP.model.entity.Activo;
@@ -111,6 +112,7 @@ public class AdicionalService {
     private final ArchivoStorageService archivos;
     private final WordEtiquetasQrService hojaEtiquetas;
     private final PlatformTransactionManager txManager;
+    private final IUsuarioDao usuarioDao;
 
     /** ¿Puede usar el módulo? ADMINISTRADOR / SUPER USUARIO o la opción de menú. */
     public static boolean puede(Usuario usuario, Object opcionesSesion) {
@@ -412,7 +414,7 @@ public class AdicionalService {
         if (token != null && token.length() > 40) throw new IllegalArgumentException("Marca de registro inválida.");
         Datos d = validar(req, null);
         adicionalDao.turno(TURNO_ADICIONALES);
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = relojReserva();
         reservaDao.eliminarVencidas(limiteReserva(ahora));
         if (d.prefijo() != null) compactarReservas(d.prefijo(), ahora);
         return registrarValidado(d, token, usuario, new HashMap<>(), req.isCodigoReservado(), req.getCodigoPrevisto());
@@ -440,7 +442,7 @@ public class AdicionalService {
             }
         }
         adicionalDao.turno(TURNO_ADICIONALES);
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = relojReserva();
         reservaDao.eliminarVencidas(limiteReserva(ahora));
         lotes.stream().map(Datos::prefijo).filter(java.util.Objects::nonNull).distinct()
                 .forEach(prefijo -> compactarReservas(prefijo, ahora));
@@ -472,7 +474,7 @@ public class AdicionalService {
         ReservaCodigoAdicional reserva = token == null ? null : reservaDao.findById(token).orElse(null);
         if (reserva != null && !reserva.getUsuario().equals(usuario.getUsuario()))
             throw new SecurityException("La reserva de código pertenece a otro usuario.");
-        boolean reservaValida = reserva != null && reserva.getVence().isAfter(limiteReserva(LocalDateTime.now()))
+        boolean reservaValida = reserva != null && reserva.getVence().isAfter(limiteReserva(relojReserva()))
                 && java.util.Objects.equals(reserva.getPrefijo(), prefijo) && reserva.getCantidad() == d.cantidad;
         if (reservaObligatoria && prefijo != null && !reservaValida)
             throw new IllegalStateException("La reserva de código venció o cambió. Revise el código mostrado y vuelva a guardar.");
@@ -615,13 +617,21 @@ public class AdicionalService {
 
     private static boolean mismoId(Long a, Long b) { return java.util.Objects.equals(a, b); }
 
+    /** Hora de la base, igual para todas las instancias que comparten la tabla de reservas.
+     * Con la hora de cada JVM, un servidor en otra zona horaria veía las reservas ajenas
+     * vencidas (y las borraba) o 4 h en el futuro («en uso ahora» sin nadie usándolas). */
+    private LocalDateTime relojReserva() {
+        java.sql.Timestamp ahora = reservaDao.ahora();
+        return ahora != null ? ahora.toLocalDateTime() : LocalDateTime.now();
+    }
+
     private static LocalDateTime limiteReserva(LocalDateTime ahora) {
         return ahora.plusMinutes(MINUTOS_RESERVA - MINUTOS_INACTIVIDAD);
     }
 
     private int siguienteDisponible(String prefijo) {
         return Math.max(adicionalDao.maxCorrelativoAdicional(prefijo),
-                reservaDao.maxReservado(prefijo, limiteReserva(LocalDateTime.now()))) + 1;
+                reservaDao.maxReservado(prefijo, limiteReserva(relojReserva()))) + 1;
     }
 
     /** Desplaza las reservas aún vigentes en el orden en que recibieron sus rangos.
@@ -660,7 +670,7 @@ public class AdicionalService {
     /** Reutiliza un rango liberado sin tocar códigos ya registrados ni reservas ajenas. */
     private int siguienteReserva(String prefijo, int cantidad, String token) {
         int desde = adicionalDao.maxCorrelativoAdicional(prefijo) + 1;
-        for (ReservaCodigoAdicional ocupada : reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, limiteReserva(LocalDateTime.now()))) {
+        for (ReservaCodigoAdicional ocupada : reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, limiteReserva(relojReserva()))) {
             if (ocupada.getToken().equals(token)) continue;
             if (desde + cantidad - 1 < ocupada.getDesde()) break;
             desde = Math.max(desde, ocupada.getDesde() + ocupada.getCantidad());
@@ -672,13 +682,20 @@ public class AdicionalService {
     @Transactional
     public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
                                                Usuario usuario, Object opciones) {
+        return reservarCodigo(token, idPredio, idGrupo, cantidad, usuario, opciones, null);
+    }
+
+    /** @param sesion la sesión HTTP que renueva la reserva: al cerrarse esa sesión se libera. */
+    @Transactional
+    public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
+                                               Usuario usuario, Object opciones, String sesion) {
         exigirPermiso(usuario, opciones);
         if (token == null || token.isBlank() || token.length() > 40)
             throw new IllegalArgumentException("Marca de reserva inválida.");
         if (cantidad < 1 || cantidad > TOPE_UNIDADES)
             throw new IllegalArgumentException("La cantidad debe estar entre 1 y " + TOPE_UNIDADES + ".");
         adicionalDao.turno(TURNO_ADICIONALES);
-        reservaDao.eliminarVencidas(limiteReserva(LocalDateTime.now()));
+        reservaDao.eliminarVencidas(limiteReserva(relojReserva()));
         ReservaCodigoAdicional reserva = reservaDao.findById(token).orElse(null);
         if (reserva != null && !reserva.getUsuario().equals(usuario.getUsuario()))
             throw new SecurityException("La reserva pertenece a otro usuario.");
@@ -691,7 +708,7 @@ public class AdicionalService {
             if (reserva != null) reservaDao.delete(reserva);
             return Map.of("ok", true, "conCodigo", false);
         }
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = relojReserva();
         compactarReservas(prefijo, ahora);
         if (reserva != null && reserva.getVence().isAfter(limiteReserva(ahora)) && reserva.getPrefijo().equals(prefijo)
                 && reserva.getCantidad() == cantidad) {
@@ -706,16 +723,42 @@ public class AdicionalService {
             reserva.setPrefijo(prefijo); reserva.setDesde(desde); reserva.setCantidad(cantidad);
             reserva.setUsuario(usuario.getUsuario()); reserva.setVence(ahora.plusMinutes(MINUTOS_RESERVA));
         }
+        if (sesion != null) reserva.setSesion(sesion);
         reservaDao.save(reserva);
         int desdeActual = reserva.getDesde();
-        int unidadesReservadasAntes = reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, limiteReserva(ahora))
-                .stream().filter(r -> !r.getToken().equals(token) && r.getDesde() < desdeActual)
-                .mapToInt(ReservaCodigoAdicional::getCantidad).sum();
+        List<ReservaCodigoAdicional> anteriores = reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, limiteReserva(ahora))
+                .stream().filter(r -> !r.getToken().equals(token) && r.getDesde() < desdeActual).toList();
+        int unidadesReservadasAntes = anteriores.stream().mapToInt(ReservaCodigoAdicional::getCantidad).sum();
+        // Quién retiene los códigos anteriores, para que se pueda coordinar con esa persona.
+        Map<String, String> nombres = new HashMap<>();
+        List<Map<String, Object>> previas = new ArrayList<>();
+        for (ReservaCodigoAdicional r : anteriores) {
+            String nombre = nombres.computeIfAbsent(r.getUsuario(), this::nombreUsuario);
+            Map<String, Object> p = new LinkedHashMap<>();
+            p.put("desde", prefijo + "-" + String.format("%05d", r.getDesde()) + "A");
+            p.put("hasta", prefijo + "-" + String.format("%05d", r.getDesde() + r.getCantidad() - 1) + "A");
+            p.put("usuario", r.getUsuario());
+            p.put("nombre", nombre);
+            p.put("propia", r.getUsuario().equals(usuario.getUsuario()));
+            // Cada renovación deja el vencimiento a +30 min: de ahí sale la última actividad del formulario.
+            p.put("segundosSinRenovar", Math.max(0, java.time.Duration.between(
+                    r.getVence().minusMinutes(MINUTOS_RESERVA), ahora).toSeconds()));
+            previas.add(p);
+        }
         return Map.of("ok", true, "conCodigo", true,
                 "desde", prefijo + "-" + String.format("%05d", reserva.getDesde()) + "A",
                 "hasta", prefijo + "-" + String.format("%05d", reserva.getDesde() + cantidad - 1) + "A",
                 "reservasPrevias", unidadesReservadasAntes,
+                "previas", previas,
                 "vence", reserva.getVence().toString());
+    }
+
+    private String nombreUsuario(String login) {
+        if (usuarioDao == null) return login;
+        return usuarioDao.findByUsuarioWithPersonaAndRol(login)
+                .map(u -> u.getPersona() == null ? null : u.getPersona().getNombreCompleto())
+                .filter(n -> n != null && !n.isBlank())
+                .orElse(login);
     }
 
     @Transactional
@@ -728,8 +771,26 @@ public class AdicionalService {
             String prefijo = r.getPrefijo();
             reservaDao.delete(r);
             reservaDao.flush();
-            compactarReservas(prefijo, LocalDateTime.now());
+            compactarReservas(prefijo, relojReserva());
         });
+    }
+
+    /** Cerrar sesión (o su vencimiento) libera lo que esa sesión tenía reservado; antes
+     * quedaba retenido hasta vencer porque la pestaña ya no podía liberarlo sin sesión. */
+    @Transactional
+    public int liberarCodigosDeSesion(String sesion) {
+        if (sesion == null || sesion.isBlank()) return 0;
+        List<ReservaCodigoAdicional> deSesion = reservaDao.findBySesion(sesion);
+        if (deSesion.isEmpty()) return 0;
+        adicionalDao.turno(TURNO_ADICIONALES);
+        Set<String> prefijos = new HashSet<>();
+        deSesion.forEach(r -> prefijos.add(r.getPrefijo()));
+        reservaDao.deleteAll(deSesion);
+        reservaDao.flush();
+        LocalDateTime ahora = relojReserva();
+        prefijos.forEach(prefijo -> compactarReservas(prefijo, ahora));
+        log.info("[ADICIONAL] Sesión cerrada: se liberaron {} reserva(s) de correlativo.", deSesion.size());
+        return deSesion.size();
     }
 
     // ════════════════════════════════════════════════════════════════════════
