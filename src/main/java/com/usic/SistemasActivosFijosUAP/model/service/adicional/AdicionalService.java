@@ -642,6 +642,10 @@ public class AdicionalService {
         LocalDateTime ahora = LocalDateTime.now();
         if (reserva != null && reserva.getVence().isAfter(ahora) && reserva.getPrefijo().equals(prefijo)
                 && reserva.getCantidad() == cantidad) {
+            // Cuando se cancela una reserva anterior, la renovación periódica acerca este
+            // rango al primer hueco libre. Se conserva el orden salvo códigos ya confirmados.
+            int primeroLibre = siguienteReserva(prefijo, cantidad, token);
+            if (primeroLibre < reserva.getDesde()) reserva.setDesde(primeroLibre);
             reserva.setVence(ahora.plusMinutes(MINUTOS_RESERVA));
         } else {
             int desde = siguienteReserva(prefijo, cantidad, token);

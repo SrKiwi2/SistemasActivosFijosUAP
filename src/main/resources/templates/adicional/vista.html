@@ -1133,11 +1133,17 @@
     let vistaCodigoSecuencia = 0;
     const reservasPagina = SciafReservasPagina.abrir('adicional', URL + '/api/liberar-codigo');
     let colaReserva = reservasPagina.inicio;
+    reservasPagina.inicio.then(function (resultados) {
+        if (resultados.some(function (r) { return r.status === 'fulfilled' && r.value === false; }))
+            aviso('No se liberaron algunas reservas de esta pestaña. Revise el correlativo antes de guardar.', 'error');
+    });
     function liberarToken(token) {
         if (!token) return;
         st.reservas.delete(token);
         colaReserva = colaReserva.catch(function () {}).then(function () {
-            return reservasPagina.liberar(token);
+            return reservasPagina.liberar(token).then(function (liberada) {
+                if (!liberada) aviso('No se pudo liberar el correlativo. La reserva se reintentará al recargar o vencerá automáticamente.', 'error');
+            });
         }).catch(function () {});
     }
     function liberarTodasReservas() {
@@ -1168,10 +1174,14 @@
             colaReserva = pendiente.catch(function () {});
             const d = await pendiente;
             if (!d.ok) throw new Error(d.msg || 'No se pudo reservar el código.');
+            const anterior = st.reservas.get(token);
             if (!st.edicion && d.conCodigo) st.reservas.set(token, { predioId, grupoId, cantidad: cant, desde: d.desde, hasta: d.hasta });
             if (secuencia !== vistaCodigoSecuencia || String($predio.val() || '') !== predioId
                     || String($grupo.val() || '') !== grupoId || st.token !== token) return;
             if (!d.conCodigo) { st.reservas.delete(token); reservasPagina.consumir(token); $c.html('El predio no tiene configurado su código: <b>no recibe código nuevo</b> (Ámbito geográfico → Predio).'); return; }
+            if (anterior && anterior.predioId === predioId && anterior.grupoId === grupoId && anterior.desde !== d.desde) aviso(d.desde > anterior.desde
+                ? 'El rango anterior ya no alcanza: hay códigos intermedios registrados o reservados. Se asignó el siguiente libre.'
+                : 'Se liberaron códigos anteriores y su reserva pasó al primer rango disponible.', 'info');
             $c.html((st.edicion && st.edicion.codigo ? 'Cambia a código nuevo: ' : 'Recibirá ') + codigoHtml(d.desde)
                 + (cant > 1 ? ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(d.hasta) : '')
                 + (st.edicion ? ' <small class="text-muted">(se asigna al guardar)</small>' : ' <small class="text-muted">(reservado mientras trabaja; se libera al cancelar)</small>'));
@@ -1180,12 +1190,12 @@
 
     // Renovar la reserva activa; la reserva vence si el formulario queda abandonado.
     const refrescoCorrelativo = setInterval(function () {
-        if (!document.contains($raiz[0])) { clearInterval(refrescoCorrelativo); return; }
+        if (!document.contains($raiz[0])) return; // una pestaña interna puede estar desprendida
         if ($panel.is(':visible') && !st.enviando
                 && $predio.val() && $grupo.val()) actualizarCodigo();
     }, 5000);
     const refrescoLotes = setInterval(function () {
-        if (!document.contains($raiz[0])) { clearInterval(refrescoLotes); return; }
+        if (!document.contains($raiz[0])) return;
         if (!$panel.is(':visible') || st.enviando || st.cambiandoLote) return;
         st.lotes.forEach(function (lote, indice) {
             if (indice === st.loteActual) return;
@@ -1203,6 +1213,11 @@
             }).catch(function () {});
         });
     }, 60000);
+    $raiz.on('sciaf:pestana-cerrada', function () {
+        clearInterval(refrescoCorrelativo);
+        clearInterval(refrescoLotes);
+        liberarTodasReservas();
+    });
 
     function refrescar() {
         const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);

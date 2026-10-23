@@ -13,14 +13,17 @@ window.SciafReservasPagina = window.SciafReservasPagina || {
             } catch (e) { /* almacenamiento deshabilitado */ }
         }
         async function liberar(token) {
-            if (!token || !activos.has(token)) return;
+            if (!token || !activos.has(token)) return true;
             try {
                 const respuesta = await fetch(url, { method: 'POST', credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
-                if (!respuesta.ok || !(await respuesta.json()).ok) return;
-                activos.delete(token);
-                guardar();
+                if (respuesta.ok && (await respuesta.json()).ok) {
+                    activos.delete(token);
+                    guardar();
+                    return true;
+                }
             } catch (e) { /* se reintentará en la próxima carga o al vencer la reserva */ }
+            return false;
         }
         const inicio = Promise.allSettled([...activos].map(liberar));
         window.addEventListener('pagehide', function () {

@@ -417,6 +417,10 @@
                 return;
             }
 
+            if (forzarRecarga) {
+                const $anterior = p.$dom && p.$dom.length ? p.$dom : $contenido.children();
+                $anterior.filter('#modAdicional').add($anterior.find('#modAdicional')).triggerHandler('sciaf:pestana-cerrada');
+            }
             soltarPrecarga(true);
             $contenido.empty();
             p.$dom = null;
@@ -561,6 +565,8 @@
         function cerrar(i, silencioso) {
             const p = pestanas[i];
             if (!p || p.url === INICIO) return;
+            const $cerrada = p.$dom && p.$dom.length ? p.$dom : (activa === i ? $contenido.children() : $());
+            $cerrada.filter('#modAdicional').add($cerrada.find('#modAdicional')).triggerHandler('sciaf:pestana-cerrada');
             Espacio.limpiar(claveTab(p.url));      // se cerró a propósito: no hay nada que reponer
             pestanas.splice(i, 1);
             if (activa === i) {

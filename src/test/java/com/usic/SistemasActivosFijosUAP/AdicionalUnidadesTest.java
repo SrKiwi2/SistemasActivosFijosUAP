@@ -50,7 +50,7 @@ class AdicionalUnidadesTest {
     @InjectMocks AdicionalService servicio;
 
     @Test
-    void dosUsuariosReservanCodigosDistintosYElCanceladoSeLibera() {
+    void ampliarYCancelarReubicaReservasSinPisarOtrosRangos() {
         Municipio municipio = new Municipio(); municipio.setCodigo("04");
         Predio predio = new Predio(); predio.setCodigo("15"); predio.setMunicipio(municipio);
         GrupoContable grupo = new GrupoContable(); grupo.setCodDbf(2);
@@ -73,10 +73,22 @@ class AdicionalUnidadesTest {
         Map<String, Object> segunda = servicio.reservarCodigo("luis-token", 7L, 2L, 1, luis, Set.of(AdicionalService.PERMISO));
         assertEquals("04-15-02-00008A", primera.get("desde"));
         assertEquals("04-15-02-00009A", segunda.get("desde"));
+        Map<String, Object> ampliada = servicio.reservarCodigo("luis-token", 7L, 2L, 2, luis, Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00009A", ampliada.get("desde"));
+        assertEquals("04-15-02-00010A", ampliada.get("hasta"));
+        servicio.reservarCodigo("luis-token", 7L, 2L, 1, luis, Set.of(AdicionalService.PERMISO));
+        Map<String, Object> terceraReserva = servicio.reservarCodigo("ana-tercera", 7L, 2L, 1, ana, Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00010A", terceraReserva.get("desde"));
+        Map<String, Object> desplazada = servicio.reservarCodigo("luis-token", 7L, 2L, 2, luis, Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00011A", desplazada.get("desde"));
+        assertEquals("04-15-02-00012A", desplazada.get("hasta"));
         servicio.liberarCodigo("ana-token", ana, Set.of(AdicionalService.PERMISO));
+        Map<String, Object> compactada = servicio.reservarCodigo("luis-token", 7L, 2L, 2, luis, Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00008A", compactada.get("desde"));
+        assertEquals("04-15-02-00009A", compactada.get("hasta"));
         Map<String, Object> tercera = servicio.reservarCodigo("ana-otro", 7L, 2L, 1, ana, Set.of(AdicionalService.PERMISO));
-        assertEquals("04-15-02-00008A", tercera.get("desde"));
-        verify(adicionalDao, times(4)).turno(anyLong());
+        assertEquals("04-15-02-00011A", tercera.get("desde"));
+        verify(adicionalDao, times(9)).turno(anyLong());
     }
 
     @Test
