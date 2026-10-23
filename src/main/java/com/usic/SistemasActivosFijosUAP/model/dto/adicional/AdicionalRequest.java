@@ -16,6 +16,8 @@ public class AdicionalRequest {
     private String token;
     /** La interfaz confirmó una reserva; si vence, no reasignar el código sin avisar. */
     private boolean codigoReservado;
+    /** Inicio que vio el operador; evita guardar un rango movido durante la confirmación. */
+    private String codigoPrevisto;
 
     // ── Identificación ──
     private String descripcion;

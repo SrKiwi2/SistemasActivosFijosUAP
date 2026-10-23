@@ -58,6 +58,16 @@ class AdicionalUnidadesTest {
         when(grupoService.findById(2L)).thenReturn(grupo);
         when(adicionalDao.maxCorrelativoAdicional("04-15-02")).thenReturn(7);
         Map<String, ReservaCodigoAdicional> reservas = new HashMap<>();
+        ReservaCodigoAdicional abandonada = new ReservaCodigoAdicional();
+        abandonada.setToken("saul-anterior"); abandonada.setPrefijo("04-15-02");
+        abandonada.setDesde(8); abandonada.setCantidad(1); abandonada.setUsuario("saul");
+        abandonada.setVence(LocalDateTime.now().plusMinutes(15));
+        reservas.put(abandonada.getToken(), abandonada);
+        when(reservaDao.eliminarVencidas(any(LocalDateTime.class))).thenAnswer(i -> {
+            int antes = reservas.size();
+            reservas.values().removeIf(r -> !r.getVence().isAfter(i.getArgument(0)));
+            return antes - reservas.size();
+        });
         when(reservaDao.findById(anyString())).thenAnswer(i -> Optional.ofNullable(reservas.get(i.getArgument(0))));
         when(reservaDao.save(any())).thenAnswer(i -> {
             ReservaCodigoAdicional r = i.getArgument(0); reservas.put(r.getToken(), r); return r;
@@ -92,6 +102,45 @@ class AdicionalUnidadesTest {
     }
 
     @Test
+    void reservaOchoAbandonadaDejaPasarLaNueveAlPrimerCodigoLibre() {
+        Municipio municipio = new Municipio(); municipio.setCodigo("04");
+        Predio predio = new Predio(); predio.setCodigo("15"); predio.setMunicipio(municipio);
+        GrupoContable grupo = new GrupoContable(); grupo.setCodDbf(2);
+        when(predioService.findById(7L)).thenReturn(predio);
+        when(grupoService.findById(2L)).thenReturn(grupo);
+        when(adicionalDao.maxCorrelativoAdicional("04-15-02")).thenReturn(7);
+        Map<String, ReservaCodigoAdicional> reservas = new HashMap<>();
+        ReservaCodigoAdicional vieja = new ReservaCodigoAdicional();
+        vieja.setToken("saul-vieja"); vieja.setPrefijo("04-15-02"); vieja.setDesde(8);
+        vieja.setCantidad(1); vieja.setUsuario("saul"); vieja.setVence(LocalDateTime.now().plusMinutes(5));
+        reservas.put(vieja.getToken(), vieja);
+        ReservaCodigoAdicional siguiente = new ReservaCodigoAdicional();
+        siguiente.setToken("admin2-token"); siguiente.setPrefijo("04-15-02"); siguiente.setDesde(9);
+        siguiente.setCantidad(1); siguiente.setUsuario("admin2"); siguiente.setVence(LocalDateTime.now().plusMinutes(30));
+        reservas.put(siguiente.getToken(), siguiente);
+        when(reservaDao.eliminarVencidas(any(LocalDateTime.class))).thenAnswer(i -> {
+            int antes = reservas.size();
+            reservas.values().removeIf(r -> !r.getVence().isAfter(i.getArgument(0)));
+            return antes - reservas.size();
+        });
+        when(reservaDao.findById(anyString())).thenAnswer(i -> Optional.ofNullable(reservas.get(i.getArgument(0))));
+        when(reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(eq("04-15-02"), any(LocalDateTime.class)))
+                .thenAnswer(i -> reservas.values().stream().filter(r -> r.getVence().isAfter(i.getArgument(1)))
+                        .sorted(java.util.Comparator.comparingInt(ReservaCodigoAdicional::getDesde)).toList());
+        when(reservaDao.save(any())).thenAnswer(i -> {
+            ReservaCodigoAdicional r = i.getArgument(0); reservas.put(r.getToken(), r); return r;
+        });
+        Usuario admin2 = new Usuario(); admin2.setEstado("ACTIVO"); admin2.setUsuario("admin2");
+        Map<String, Object> renovada = servicio.reservarCodigo("admin2-token", 7L, 2L, 1, admin2,
+                Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00008A", renovada.get("desde"));
+        assertEquals(false, reservas.containsKey("saul-vieja"));
+        Map<String, Object> nueva = servicio.reservarCodigo("admin2-nueva", 7L, 2L, 1, admin2,
+                Set.of(AdicionalService.PERMISO));
+        assertEquals("04-15-02-00009A", nueva.get("desde"));
+    }
+
+    @Test
     void guardaElCodigoReservadoSinRecalcularElMaximo() {
         Municipio municipio = new Municipio(); municipio.setCodigo("04");
         Predio predio = new Predio(); predio.setIdPredio(7L); predio.setCodigo("15"); predio.setMunicipio(municipio);
@@ -102,12 +151,15 @@ class AdicionalUnidadesTest {
         when(estadoActivoService.findById(1L)).thenReturn(bueno);
         ReservaCodigoAdicional reserva = new ReservaCodigoAdicional();
         reserva.setToken("primero"); reserva.setPrefijo("04-15-02"); reserva.setDesde(8);
-        reserva.setCantidad(1); reserva.setUsuario("ana"); reserva.setVence(LocalDateTime.now().plusMinutes(20));
+        reserva.setCantidad(1); reserva.setUsuario("ana"); reserva.setVence(LocalDateTime.now().plusMinutes(25));
         when(reservaDao.findById("primero")).thenReturn(Optional.of(reserva));
         AdicionalRequest r = new AdicionalRequest();
         r.setToken("primero"); r.setCodigoReservado(true); r.setDescripcion("Silla"); r.setCantidad(1);
         r.setIdPredio(7L); r.setIdGrupoContable(2L); r.setIdEstadoActivo(1L);
         Usuario ana = new Usuario(); ana.setEstado("ACTIVO"); ana.setUsuario("ana");
+        r.setCodigoPrevisto("04-15-02-00009A");
+        assertThrows(IllegalStateException.class, () -> servicio.registrar(r, ana, Set.of(AdicionalService.PERMISO)));
+        r.setCodigoPrevisto("04-15-02-00008A");
         TransactionSynchronizationManager.initSynchronization();
         try { servicio.registrar(r, ana, Set.of(AdicionalService.PERMISO)); }
         finally { TransactionSynchronizationManager.clearSynchronization(); }

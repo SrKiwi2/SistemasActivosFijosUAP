@@ -1195,8 +1195,9 @@
                 && $predio.val() && $grupo.val()) actualizarCodigo();
     }, 5000);
     const refrescoLotes = setInterval(function () {
-        if (!document.contains($raiz[0])) return;
-        if (!$panel.is(':visible') || st.enviando || st.cambiandoLote) return;
+        const desprendida = !document.contains($raiz[0]);
+        if ((!desprendida && !$panel.is(':visible')) || st.enviando || st.cambiandoLote) return;
+        if (desprendida && st.reservas.has(st.token)) actualizarCodigo();
         st.lotes.forEach(function (lote, indice) {
             if (indice === st.loteActual) return;
             const x = lote.datos, anterior = st.reservas.get(x.token);
@@ -1338,12 +1339,15 @@
     function leer() {
         const n = function ($s) { const v = $s.val(); return v === '' || v == null ? null : Number(v); };
         const cantidad = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
+        const reservaActual = st.reservas.get(st.token);
+        const codigoReservado = !st.edicion && !!(reservaActual
+            && reservaActual.predioId === String($predio.val() || '')
+            && reservaActual.grupoId === String($grupo.val() || '')
+            && reservaActual.cantidad === cantidad);
         return {
             token: st.token,
-            codigoReservado: !st.edicion && !!(st.reservas.get(st.token)
-                && st.reservas.get(st.token).predioId === String($predio.val() || '')
-                && st.reservas.get(st.token).grupoId === String($grupo.val() || '')
-                && st.reservas.get(st.token).cantidad === cantidad),
+            codigoReservado: codigoReservado,
+            codigoPrevisto: codigoReservado ? reservaActual.desde : null,
             descripcion: mayus($form.find('.js-desc').val()) || null,
             codigosAntiguos: lineas($form.find('.js-antiguos').val()).slice(0, cantidad),
             cantidad: cantidad,
@@ -1562,12 +1566,13 @@
                         json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad }
                     });
                     if (!reserva.ok) throw new Error(reserva.msg || 'No se pudo reservar el código.');
-                    if (!reserva.conCodigo) { x.codigoReservado = false; st.reservas.delete(x.token); reservasPagina.consumir(x.token); continue; }
+                    if (!reserva.conCodigo) { x.codigoReservado = false; x.codigoPrevisto = null; st.reservas.delete(x.token); reservasPagina.consumir(x.token); continue; }
                     reservasPagina.registrar(x.token);
                     const anterior = st.reservas.get(x.token);
                     st.reservas.set(x.token, { predioId: String(x.idPredio), grupoId: String(x.idGrupoContable),
                         cantidad: x.cantidad, desde: reserva.desde, hasta: reserva.hasta });
                     x.codigoReservado = true;
+                    x.codigoPrevisto = reserva.desde;
                     if (anterior && anterior.desde !== reserva.desde) {
                         if (x.token === st.token) actualizarCodigo();
                         aviso('El código del lote cambió de ' + anterior.desde + ' a ' + reserva.desde + '. Revíselo antes de guardar.');

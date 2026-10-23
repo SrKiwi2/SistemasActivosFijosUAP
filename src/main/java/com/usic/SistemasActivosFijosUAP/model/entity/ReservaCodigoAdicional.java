@@ -31,6 +31,9 @@ public class ReservaCodigoAdicional {
     @Column(nullable = false, length = 100)
     private String usuario;
 
+    /** Orden de llegada para conservar prioridad al aumentar la cantidad de unidades. */
+    private LocalDateTime creada;
+
     @Column(nullable = false)
     private LocalDateTime vence;
 }
