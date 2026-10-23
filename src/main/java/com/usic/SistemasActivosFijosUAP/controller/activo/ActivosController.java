@@ -86,11 +86,13 @@ import com.usic.SistemasActivosFijosUAP.model.entity.Oficina;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCorrelativo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Transferencia;
 import com.usic.SistemasActivosFijosUAP.model.entity.TransferenciaDetalle;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
 import com.usic.SistemasActivosFijosUAP.model.repository.FuncionesActivoRepo;
 import com.usic.SistemasActivosFijosUAP.model.service.ActivoSyncService;
+import com.usic.SistemasActivosFijosUAP.model.service.ReservaCorrelativoService;
 import com.usic.SistemasActivosFijosUAP.model.service.control.ReglasCustodia;
 import com.usic.SistemasActivosFijosUAP.model.service.TransferenciaService;
 import com.usic.SistemasActivosFijosUAP.model.service.seguridad.PermisosDatosActivos;
@@ -109,6 +111,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ActivosController {
     private final IActivoService activoService;
     private final FuncionesActivoRepo funciones;
+    private final ReservaCorrelativoService reservaCorrelativoService;
     private final IMunicipioService municipioService;
     private final IPredioServicio predioServicio;
     private final IGrupoContableService grupoContableService;
@@ -340,6 +343,14 @@ public class ActivosController {
                     oficinaActivo, grupoActivo);
 
             funciones.tomarTurnoRegistro();
+            if (codigoActualStr == null || !codigoActualStr.matches("[^-]+-[^-]+-[0-9]{2,3}-[0-9]{5}"))
+                throw new IllegalArgumentException("Código inicial inválido para el registro.");
+            String prefijoLegacy = codigoActualStr.substring(0, codigoActualStr.lastIndexOf('-'));
+            int desdeLegacy = Integer.parseInt(codigoActualStr.substring(codigoActualStr.lastIndexOf('-') + 1));
+            for (int i = 0; i < cantidad; i++) {
+                if (reservaCorrelativoService.estaReservado(ReservaCorrelativoService.REGISTRO, prefijoLegacy, desdeLegacy + i))
+                    throw new IllegalStateException("Un correlativo solicitado está reservado por otro registro. Actualice el formulario.");
+            }
             for (int i = 0; i < cantidad; i++) {
 
                 Activo nuevoActivo = new Activo();
@@ -407,7 +418,7 @@ public class ActivosController {
             ok.put("idsParaReporte", idsReporte);
 
             return ResponseEntity.ok(ok);
-        } catch (IllegalArgumentException datoInvalido) {
+        } catch (IllegalArgumentException | IllegalStateException datoInvalido) {
             org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
@@ -466,6 +477,17 @@ public class ActivosController {
             // Reservar el turno antes de leer el primer correlativo; se libera al confirmar.
             funciones.tomarTurnoRegistro();
             Map<String, Long> correlativosActuales = new HashMap<>();
+            List<ReservaCorrelativoService.Lote> lotesReserva = new ArrayList<>();
+            for (DetalleRegistroItem item : request.getItems()) {
+                if (item == null || item.getCantidad() == null || item.getCantidad() < 1
+                        || item.getDetalles() == null || item.getDetalles().size() != item.getCantidad())
+                    throw new IllegalArgumentException("La cantidad y los detalles de cada lote deben coincidir.");
+                lotesReserva.add(loteReservaNormal(item.getIdPredio(), item.getIdGrupoContable(), item.getCantidad()));
+            }
+            List<ReservaCorrelativo> reservadas = request.getTokenReserva() == null ? List.of()
+                    : reservaCorrelativoService.validarParaGuardar(ReservaCorrelativoService.REGISTRO,
+                            request.getTokenReserva(), lotesReserva, usuario);
+            int indiceItem = 0;
 
             for (DetalleRegistroItem item : request.getItems()) {
 
@@ -486,13 +508,15 @@ public class ActivosController {
                 String codGrup = String.format("%02d", grupo.getCodDbf()); 
                 String keyMap = codMun + "-" + codPred + "-" + codGrup;
 
-                if (!correlativosActuales.containsKey(keyMap)) {
-                    String codigoBaseBd = funciones.previewCodigoPorCodes(codMun, codPred, codGrup);
-                    long baseInicial = extraerNumeroCorrelativo(codigoBaseBd);
-                    correlativosActuales.put(keyMap, baseInicial);
+                if (!keyMap.equals(lotesReserva.get(indiceItem).prefijo()))
+                    throw new IllegalArgumentException("El predio de la oficina no coincide con la reserva del lote.");
+                long correlativoActual;
+                if (!reservadas.isEmpty()) correlativoActual = reservadas.get(indiceItem).getDesde();
+                else {
+                    if (!correlativosActuales.containsKey(keyMap))
+                        correlativosActuales.put(keyMap, (long) reservaCorrelativoService.siguienteSinReserva(ReservaCorrelativoService.REGISTRO, keyMap));
+                    correlativoActual = correlativosActuales.get(keyMap);
                 }
-                
-                long correlativoActual = correlativosActuales.get(keyMap); 
 
                 for (DetalleActivoDTO detalle : item.getDetalles()) {
                     Activo a = new Activo();
@@ -537,8 +561,10 @@ public class ActivosController {
                 }
 
                 correlativosActuales.put(keyMap, correlativoActual);
+                indiceItem++;
             }
 
+            reservaCorrelativoService.consumir(reservadas);
             notificarCambioPendientes("registro");
             return ResponseEntity.ok(Map.of(
                 "ok", true,
@@ -547,7 +573,7 @@ public class ActivosController {
                 "idsParaReporte", idsReporte
             ));
 
-        } catch (IllegalArgumentException datoInvalido) {
+        } catch (IllegalArgumentException | IllegalStateException datoInvalido) {
             org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
@@ -2446,6 +2472,8 @@ public class ActivosController {
         // huecos puntuales desde este modal).
         String codigoManual = (codigoLibreRaw != null && !codigoLibreRaw.isBlank())
                 ? codigoLibreRaw.trim().toUpperCase() : null;
+        String tokenReserva = (String) body.get("tokenReserva");
+        String prefijoReserva = codMun + "-" + codPred + "-" + codGrp;
         funciones.tomarTurnoRegistro();
         if (codigoManual != null) {
             if (cantidad != 1) {
@@ -2465,6 +2493,24 @@ public class ActivosController {
                 return ResponseEntity.badRequest().body(Map.of("ok", false,
                         "msg", "El código " + codigoManual + " ya fue tomado. Elige otro."));
             }
+        }
+        List<ReservaCorrelativo> reservaPendiente;
+        try {
+            reservaPendiente = tokenReserva != null
+                    ? reservaCorrelativoService.validarParaGuardar(ReservaCorrelativoService.REGISTRO, tokenReserva,
+                            List.of(new ReservaCorrelativoService.Lote(prefijoReserva, cantidad)),
+                            RolesSciaf.usuarioDe(request)) : List.of();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+        if (codigoManual != null) {
+            int numeroManual = Integer.parseInt(codigoManual.substring(codigoManual.lastIndexOf('-') + 1));
+            if (!reservaPendiente.isEmpty() && reservaPendiente.get(0).getDesde() != numeroManual)
+                return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", "La reserva del código libre cambió. Revise la selección."));
+            if (reservaPendiente.isEmpty() && reservaCorrelativoService.estaReservado(
+                    ReservaCorrelativoService.REGISTRO, prefijoReserva, numeroManual))
+                return ResponseEntity.badRequest().body(Map.of("ok", false,
+                        "msg", "El código " + codigoManual + " está reservado por otro registro. Elija otro."));
         }
 
         OrganismoFinanciero orgFin = idOrgFin != null ? organismoFinancieroService.findById(idOrgFin) : null;
@@ -2491,12 +2537,16 @@ public class ActivosController {
 
         List<String> codesCreados = new ArrayList<>();
         int total = Math.min(cantidad, detalles.size());
+        long siguienteAutomatico = codigoManual == null
+                ? reservaPendiente.isEmpty()
+                    ? reservaCorrelativoService.siguienteSinReserva(ReservaCorrelativoService.REGISTRO, prefijoReserva)
+                    : reservaPendiente.get(0).getDesde() : 0;
 
         for (int i = 0; i < total; i++) {
             DetalleActivoDTO det = detalles.get(i);
             String nuevoCodigo = (codigoManual != null)
                     ? codigoManual
-                    : funciones.generarCodigoPorCodes(codMun, codPred, codGrp);
+                    : construirCodigo(codMun, codPred, codGrp, siguienteAutomatico++);
 
             Activo a = new Activo();
             a.setCodigo(nuevoCodigo);
@@ -2540,6 +2590,7 @@ public class ActivosController {
 
             codesCreados.add(nuevoCodigo);
         }
+        reservaCorrelativoService.consumir(reservaPendiente);
 
         notificarCambioPendientes("registro");
         return ResponseEntity.ok(Map.of(
@@ -3690,6 +3741,115 @@ public class ActivosController {
             @RequestParam String grp) {
         String codigo = funciones.previewCodigoPorCodes(mun, pred, grp);
         return Map.of("codigo", codigo);
+    }
+
+    private ReservaCorrelativoService.Lote loteReservaNormal(Long idPredio, Long idGrupo, int cantidad) {
+        Predio predio = idPredio == null ? null : predioServicio.findById(idPredio);
+        GrupoContable grupo = idGrupo == null ? null : grupoContableService.findById(idGrupo);
+        if (predio == null || predio.getMunicipio() == null || predio.getMunicipio().getCodigo() == null
+                || predio.getCodigo() == null || grupo == null || grupo.getCodDbf() == null)
+            throw new IllegalArgumentException("Seleccione predio y grupo contable válidos en cada lote.");
+        return new ReservaCorrelativoService.Lote(predio.getMunicipio().getCodigo() + "-" + predio.getCodigo()
+                + "-" + String.format("%02d", grupo.getCodDbf()), cantidad);
+    }
+
+    private ReservaCorrelativoService.Lote loteReservaAsignacion(String idAsigEnc, Long idGrupo, int cantidad) {
+        if (idAsigEnc == null) throw new IllegalArgumentException("Falta la asignación.");
+        Long idAsig;
+        try { idAsig = Long.parseLong(Encriptar.decrypt(idAsigEnc)); }
+        catch (Exception e) { throw new IllegalArgumentException("La asignación indicada no es válida.", e); }
+        AsignacionActivo asig = asignacionActivoService.findById(idAsig);
+        GrupoContable grupo = idGrupo == null ? null : grupoContableService.findById(idGrupo);
+        if (asig == null || asig.getDetalles() == null || grupo == null || grupo.getCodDbf() == null)
+            throw new IllegalArgumentException("Asignación o grupo contable inválido.");
+        String codigo = asig.getDetalles().stream().map(d -> d.getActivo() == null ? null : d.getActivo().getCodigo())
+                .filter(java.util.Objects::nonNull).findFirst().orElse(null);
+        if (codigo == null || codigo.split("-").length < 4)
+            throw new IllegalArgumentException("La asignación no tiene un activo con código de referencia.");
+        String[] partes = codigo.split("-");
+        return new ReservaCorrelativoService.Lote(partes[0] + "-" + partes[1]
+                + "-" + String.format("%02d", grupo.getCodDbf()), cantidad);
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/reservar-correlativos")
+    @ResponseBody
+    public ResponseEntity<?> reservarCorrelativos(@RequestBody Map<String, Object> cuerpo, HttpServletRequest request) {
+        try {
+            Object bruto = cuerpo.get("lotes");
+            if (!(bruto instanceof List<?> lista)) throw new IllegalArgumentException("Faltan lotes.");
+            List<ReservaCorrelativoService.Lote> lotes = new ArrayList<>();
+            for (Object item : lista) {
+                if (!(item instanceof Map<?, ?> m)) throw new IllegalArgumentException("Lote inválido.");
+                lotes.add(loteReservaNormal(toLong(m.get("idPredio")), toLong(m.get("idGrupoContable")),
+                        toInteger(m.get("cantidad"), 1)));
+            }
+            List<ReservaCorrelativo> reservas = reservaCorrelativoService.reservar(ReservaCorrelativoService.REGISTRO,
+                    (String) cuerpo.get("token"), lotes, RolesSciaf.usuarioDe(request));
+            return ResponseEntity.ok(Map.of("ok", true, "lotes", reservas.stream().map(r -> Map.of(
+                    "desde", r.getPrefijo() + "-" + String.format("%05d", r.getDesde()),
+                    "hasta", r.getPrefijo() + "-" + String.format("%05d", r.getDesde() + r.getCantidad() - 1),
+                    "cantidad", r.getCantidad())).toList()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/reservar-correlativos-pendiente")
+    @ResponseBody
+    public ResponseEntity<?> reservarCorrelativosPendiente(@RequestBody Map<String, Object> cuerpo, HttpServletRequest request) {
+        try {
+            ReservaCorrelativoService.Lote lote = loteReservaAsignacion((String) cuerpo.get("idAsigEnc"),
+                    toLong(cuerpo.get("idGrupoContable")), toInteger(cuerpo.get("cantidad"), 1));
+            ReservaCorrelativo r = reservaCorrelativoService.reservar(ReservaCorrelativoService.REGISTRO,
+                    (String) cuerpo.get("token"), List.of(lote), RolesSciaf.usuarioDe(request)).get(0);
+            return ResponseEntity.ok(Map.of("ok", true,
+                    "desde", r.getPrefijo() + "-" + String.format("%05d", r.getDesde()),
+                    "hasta", r.getPrefijo() + "-" + String.format("%05d", r.getDesde() + r.getCantidad() - 1)));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/reservar-codigo-libre-pendiente")
+    @ResponseBody
+    public ResponseEntity<?> reservarCodigoLibrePendiente(@RequestBody Map<String, Object> cuerpo, HttpServletRequest request) {
+        try {
+            ReservaCorrelativoService.Lote lote = loteReservaAsignacion((String) cuerpo.get("idAsigEnc"),
+                    toLong(cuerpo.get("idGrupoContable")), 1);
+            String codigo = (String) cuerpo.get("codigo");
+            if (codigo == null || !codigo.matches(java.util.regex.Pattern.quote(lote.prefijo()) + "-[0-9]{5}"))
+                throw new IllegalArgumentException("El código libre no corresponde al predio y grupo de esta asignación.");
+            int numero = Integer.parseInt(codigo.substring(codigo.lastIndexOf('-') + 1));
+            ReservaCorrelativo r = reservaCorrelativoService.reservarCodigoLibre((String) cuerpo.get("token"),
+                    lote.prefijo(), numero, RolesSciaf.usuarioDe(request));
+            return ResponseEntity.ok(Map.of("ok", true, "codigo", r.getPrefijo() + "-" + String.format("%05d", r.getDesde())));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/liberar-correlativos")
+    @ResponseBody
+    public ResponseEntity<?> liberarCorrelativos(@RequestBody Map<String, String> cuerpo, HttpServletRequest request) {
+        try {
+            reservaCorrelativoService.liberar(ReservaCorrelativoService.REGISTRO,
+                    cuerpo.get("token"), RolesSciaf.usuarioDe(request));
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("ok", false, "msg", e.getMessage()));
+        }
     }
 
     @ValidarUsuarioAutenticado

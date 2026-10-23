@@ -631,6 +631,7 @@
 
 </div>
 
+<script src="/assets/js/sciaf-reservas-pagina.js"></script>
 <script th:inline="javascript">
 (function () {
     const URL = '/administracion/adicional';
@@ -1130,16 +1131,17 @@
     // Las peticiones se serializan para que cambios rápidos de predio, grupo o cantidad
     // no dejen una respuesta antigua como última reserva del formulario.
     let vistaCodigoSecuencia = 0;
-    let colaReserva = Promise.resolve();
+    const reservasPagina = SciafReservasPagina.abrir('adicional', URL + '/api/liberar-codigo');
+    let colaReserva = reservasPagina.inicio;
     function liberarToken(token) {
         if (!token) return;
         st.reservas.delete(token);
         colaReserva = colaReserva.catch(function () {}).then(function () {
-            return SciafModulo.pedirJson(URL + '/api/liberar-codigo', { json: { token: token } });
+            return reservasPagina.liberar(token);
         }).catch(function () {});
     }
     function liberarTodasReservas() {
-        const tokens = new Set([st.token, ...st.lotes.map(l => l.datos.token)]);
+        const tokens = new Set([st.token, ...st.lotes.map(l => l.datos.token), ...st.reservas.keys()]);
         tokens.forEach(liberarToken);
     }
     const actualizarCodigo = debounce(async function () {
@@ -1152,7 +1154,7 @@
             $c.html('Conserva su código ' + codigoHtml(st.edicion.codigo) + '.'); return;
         }
         if (!$predio.val() || !$grupo.val()) {
-            if (!st.edicion && st.reservas.has(st.token)) liberarToken(st.token);
+            if (!st.edicion) liberarToken(st.token);
             $c.html('Sin predio y grupo contable <b>no recibe código nuevo</b>: queda con su código antiguo y se le asigna cuando se complete.');
             return;
         }
@@ -1161,6 +1163,7 @@
             const tarea = function () { return st.edicion
                 ? SciafModulo.pedir(URL + '/api/previsualizar?idPredio=' + predioId + '&idGrupo=' + grupoId + '&cantidad=' + cant, { metodo: 'GET' }).then(r => r.json())
                 : SciafModulo.pedirJson(URL + '/api/reservar-codigo', { json: { token: token, idPredio: Number(predioId), idGrupo: Number(grupoId), cantidad: cant } }); };
+            if (!st.edicion) reservasPagina.registrar(token);
             const pendiente = colaReserva.catch(function () {}).then(tarea);
             colaReserva = pendiente.catch(function () {});
             const d = await pendiente;
@@ -1168,7 +1171,7 @@
             if (!st.edicion && d.conCodigo) st.reservas.set(token, { predioId, grupoId, cantidad: cant, desde: d.desde, hasta: d.hasta });
             if (secuencia !== vistaCodigoSecuencia || String($predio.val() || '') !== predioId
                     || String($grupo.val() || '') !== grupoId || st.token !== token) return;
-            if (!d.conCodigo) { st.reservas.delete(token); $c.html('El predio no tiene configurado su código: <b>no recibe código nuevo</b> (Ámbito geográfico → Predio).'); return; }
+            if (!d.conCodigo) { st.reservas.delete(token); reservasPagina.consumir(token); $c.html('El predio no tiene configurado su código: <b>no recibe código nuevo</b> (Ámbito geográfico → Predio).'); return; }
             $c.html((st.edicion && st.edicion.codigo ? 'Cambia a código nuevo: ' : 'Recibirá ') + codigoHtml(d.desde)
                 + (cant > 1 ? ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(d.hasta) : '')
                 + (st.edicion ? ' <small class="text-muted">(se asigna al guardar)</small>' : ' <small class="text-muted">(reservado mientras trabaja; se libera al cancelar)</small>'));
@@ -1539,11 +1542,13 @@
                 for (const lote of lotes) {
                     const x = lote.datos;
                     if (!x.idPredio || !x.idGrupoContable) continue;
+                    reservasPagina.registrar(x.token);
                     const reserva = await SciafModulo.pedirJson(URL + '/api/reservar-codigo', {
                         json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad }
                     });
                     if (!reserva.ok) throw new Error(reserva.msg || 'No se pudo reservar el código.');
-                    if (!reserva.conCodigo) { x.codigoReservado = false; st.reservas.delete(x.token); continue; }
+                    if (!reserva.conCodigo) { x.codigoReservado = false; st.reservas.delete(x.token); reservasPagina.consumir(x.token); continue; }
+                    reservasPagina.registrar(x.token);
                     const anterior = st.reservas.get(x.token);
                     st.reservas.set(x.token, { predioId: String(x.idPredio), grupoId: String(x.idGrupoContable),
                         cantidad: x.cantidad, desde: reserva.desde, hasta: reserva.hasta });
@@ -1608,6 +1613,7 @@
             const codigos = (r.activos || []).map(function (a) { return a.codigo || (a.codigoAntiguo ? 'ant. ' + a.codigoAntiguo : 'sin código'); });
             Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: esc(msg),
                 text: codigos.length ? codigos.slice(0, 6).join(' · ') + (codigos.length > 6 ? ' …' : '') : '', showConfirmButton: false, timer: 5000 });
+            st.reservas.forEach(function (_, token) { reservasPagina.consumir(token); });
             st.reservas.clear();
             if (ed) { soltarLotes(); reiniciar(false); mostrar('listado'); abrirDetalle(ed.id); }
             else if (otro) { soltarLotes(); reiniciar(true); setTimeout(function () { $form.find('.js-desc').trigger('focus'); }, 80); }

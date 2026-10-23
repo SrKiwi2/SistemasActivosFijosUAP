@@ -1118,7 +1118,7 @@
                     <label class="small fw-bold text-muted">Código(s) que se asignará(n)</label>
                     <div class="d-flex gap-2 align-items-start">
                         <textarea class="form-control txt-codigo-preview font-monospace flex-grow-1"
-                                  readonly rows="2" placeholder="Seleccione Grupo..."></textarea>
+                                  readonly data-sciaf-no-guardar rows="2" placeholder="Seleccione Grupo..."></textarea>
                         <button type="button" class="btn btn-sm btn-outline-secondary preview-toggle-btn"
                                 onclick="window.toggleCodigoPreview(this)" title="Expandir / colapsar">
                             <i class="fa-solid fa-chevron-down"></i>
@@ -1237,6 +1237,7 @@
 <!-- ================================================ -->
 <!-- JAVASCRIPT                                       -->
 <!-- ================================================ -->
+<script src="/assets/js/sciaf-reservas-pagina.js"></script>
 <script>
 
     (function () {
@@ -3100,6 +3101,32 @@
         // ── AGREGAR ACTIVO(S) A ASIGNACIÓN ──────────────────────────────
         let _agregarDetalleData = [];
         let _agregarPredioId = null;
+        let _agregarToken = null;
+        let _agregarReservado = false;
+        const reservasPaginaAgregar = SciafReservasPagina.abrir('agregar-pendiente', '/administracion/activo/liberar-correlativos');
+        let _colaAgregar = reservasPaginaAgregar.inicio;
+        function nuevoTokenAgregar() {
+            try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+            return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2, 8);
+        }
+        function liberarReservaAgregar() {
+            if (!_agregarToken) return;
+            const token = _agregarToken;
+            _agregarReservado = false;
+            _colaAgregar = _colaAgregar.catch(() => {}).then(() => reservasPaginaAgregar.liberar(token)).catch(() => {});
+        }
+        function pedirReservaAgregar(token, cantidad) {
+            reservasPaginaAgregar.registrar(token);
+            return $.ajax({ url: '/administracion/activo/reservar-correlativos-pendiente', type: 'POST',
+                contentType: 'application/json', data: JSON.stringify({ token,
+                    idAsigEnc: $('#agregarIdAsigEnc').val(), idGrupoContable: $('#agregarGrupo').val(), cantidad }) });
+        }
+        function pedirReservaLibreAgregar(token, codigo) {
+            reservasPaginaAgregar.registrar(token);
+            return $.ajax({ url: '/administracion/activo/reservar-codigo-libre-pendiente', type: 'POST',
+                contentType: 'application/json', data: JSON.stringify({ token, codigo,
+                    idAsigEnc: $('#agregarIdAsigEnc').val(), idGrupoContable: $('#agregarGrupo').val() }) });
+        }
 
         function initSelect2Agregar($el) {
             if ($el.data('select2')) $el.select2('destroy');
@@ -3120,6 +3147,8 @@
 
         window.abrirModalAgregarActivo = function (idAsigEnc) {
             try {
+            liberarReservaAgregar();
+            _agregarToken = nuevoTokenAgregar();
             _agregarDetalleData = [];
             _agregarPredioId = null;
             $('#detBadgeAgregar').text('0');
@@ -3271,20 +3300,30 @@
 
         // ── Code preview ──
         async function recalcularCodigosAgregar() {
+            if ($('#agregarUsarCodigoLibre').is(':checked')) return;
             const cant = parseInt($('#agregarCantidad').val()) || 1;
             const codMun = $('#agregarCodMun').val();
             const codPred = $('#agregarCodPred').val();
             const codGrp = $('#agregarCodGrp').val();
             const $preview = $('#modalAgregarActivo .txt-codigo-preview');
             if (!codMun || !codPred || !codGrp) {
+                liberarReservaAgregar();
                 $preview.val('').attr('placeholder', 'Faltan datos de código');
                 return;
             }
             $preview.attr('placeholder', 'Calculando...');
             try {
-                const r = await $.post('/administracion/activo/generar-correlativo',
-                    { mun: codMun, pred: codPred, grp: codGrp });
-                const parts = (r.codigo || '').split('-');
+                const token = _agregarToken;
+                const grupoActual = $('#agregarGrupo').val();
+                const pendiente = _colaAgregar.catch(() => {}).then(() => pedirReservaAgregar(token, cant));
+                _colaAgregar = pendiente.catch(() => {});
+                const r = await pendiente;
+                if (token !== _agregarToken || $('#agregarUsarCodigoLibre').is(':checked')
+                        || grupoActual !== $('#agregarGrupo').val()
+                        || cant !== (parseInt($('#agregarCantidad').val()) || 1)) return;
+                if (!r.ok) throw new Error(r.msg || 'No se pudo reservar el código.');
+                _agregarReservado = true;
+                const parts = r.desde.split('-');
                 const baseNum = parseInt(parts[parts.length - 1]) || 1;
                 const codes = [];
                 for (let i = 0; i < cant; i++) {
@@ -3292,13 +3331,25 @@
                 }
                 $preview.val(codes.join(', '));
             } catch (e) {
-                $preview.val('').attr('placeholder', 'Error al generar');
+                $preview.val('').attr('placeholder', e.responseJSON?.msg || 'Error al reservar');
             }
         }
 
         $('#agregarCantidad').on('input change', function () {
             recalcularCodigosAgregar();
         });
+        const renovarReservaAgregar = setInterval(function () {
+            if (!document.getElementById('modalAgregarActivo')) { clearInterval(renovarReservaAgregar); return; }
+            if (!$('#modalAgregarActivo').hasClass('show') || !_agregarToken || !$('#agregarGrupo').val()) return;
+            if ($('#agregarUsarCodigoLibre').is(':checked')) {
+                const codigo = $('#agregarCodigoLibre').val();
+                if (!codigo) return;
+                const token = _agregarToken;
+                _colaAgregar = _colaAgregar.catch(() => {}).then(() => pedirReservaLibreAgregar(token, codigo))
+                    .then(r => { if (r.ok && token === _agregarToken) _agregarReservado = true; })
+                    .catch(() => {});
+            } else recalcularCodigosAgregar();
+        }, 20000);
 
         // ── Código libre: elegir un hueco puntual en vez del correlativo automático ──
         function actualizarPreviewCodigoAgregar() {
@@ -3310,6 +3361,7 @@
         }
 
         async function cargarCodigosLibresAgregar() {
+            liberarReservaAgregar();
             const codMun = $('#agregarCodMun').val();
             const codPred = $('#agregarCodPred').val();
             const codGrp = $('#agregarCodGrp').val();
@@ -3359,7 +3411,21 @@
         }
 
         $('#modalAgregarActivo').on('change', '#agregarCodigoLibre', function () {
-            $('#modalAgregarActivo .txt-codigo-preview').val($(this).val() || '');
+            const codigo = $(this).val() || '';
+            const $preview = $('#modalAgregarActivo .txt-codigo-preview');
+            if (!codigo) { liberarReservaAgregar(); $preview.val(''); return; }
+            const token = _agregarToken;
+            $preview.val('').attr('placeholder', 'Reservando código libre...');
+            const pendiente = _colaAgregar.catch(() => {}).then(() => pedirReservaLibreAgregar(token, codigo));
+            _colaAgregar = pendiente.catch(() => {});
+            pendiente.then(function (r) {
+                if (token !== _agregarToken || codigo !== ($('#agregarCodigoLibre').val() || '')) return;
+                if (!r.ok) throw new Error(r.msg || 'No se pudo reservar el código libre.');
+                _agregarReservado = true;
+                $preview.val(r.codigo).attr('placeholder', '').attr('title', 'Código reservado');
+            }).catch(function (e) {
+                if (token === _agregarToken) $preview.val('').attr('placeholder', e.responseJSON?.msg || e.message || 'Código no disponible');
+            });
         });
 
         $('#modalAgregarActivo').on('change', '#agregarUsarCodigoLibre', function () {
@@ -3367,6 +3433,7 @@
             $('#wrapAgregarCodigoLibre').toggleClass('d-none', !activo);
             $('#agregarCantidad').prop('disabled', activo);
             if (activo) {
+                liberarReservaAgregar();
                 $('#agregarCantidad').val(1);
                 cargarCodigosLibresAgregar();
             } else {
@@ -3434,7 +3501,7 @@
         });
 
         // ── Submit ──
-        $('#btnGuardarAgregarActivo').on('click', function () {
+        $('#btnGuardarAgregarActivo').on('click', async function () {
             const btn = this;
             const desc = $('#agregarDesc').val().trim();
             if (!desc) { Swal.fire('Validación', 'La descripción es obligatoria.', 'warning'); return; }
@@ -3461,6 +3528,33 @@
             }
 
             const cant = parseInt($('#agregarCantidad').val()) || 1;
+            if (usaCodigoLibre) {
+                try {
+                    await _colaAgregar;
+                    const r = await pedirReservaLibreAgregar(_agregarToken, codigoLibre);
+                    if (!r.ok) throw new Error(r.msg || 'No se pudo reservar el código libre.');
+                    _agregarReservado = true;
+                    if ($('#modalAgregarActivo .txt-codigo-preview').val() !== r.codigo) {
+                        $('#modalAgregarActivo .txt-codigo-preview').val(r.codigo);
+                        Swal.fire('Código actualizado', 'Revise el código libre reservado antes de guardar.', 'warning');
+                        return;
+                    }
+                } catch (e) { Swal.fire('Código no disponible', e.responseJSON?.msg || e.message, 'error'); return; }
+            }
+            if (!usaCodigoLibre) {
+                try {
+                    await _colaAgregar;
+                    const r = await pedirReservaAgregar(_agregarToken, cant);
+                    if (!r.ok) throw new Error(r.msg || 'No se pudo reservar el código.');
+                    _agregarReservado = true;
+                    const visto = $('#modalAgregarActivo .txt-codigo-preview').val() || '';
+                    if (!visto.startsWith(r.desde)) {
+                        await recalcularCodigosAgregar();
+                        Swal.fire('Código actualizado', 'Revise el correlativo reservado antes de guardar.', 'warning');
+                        return;
+                    }
+                } catch (e) { Swal.fire('No se reservó el código', e.responseJSON?.msg || e.message, 'error'); return; }
+            }
             let detalles = [];
             if (_agregarDetalleData.length > 0) {
                 detalles = _agregarDetalleData;
@@ -3482,6 +3576,7 @@
                 cantidad: cant,
                 incluyeAccesorio: $('#agregarAccesorio').is(':checked'),
                 codigo: usaCodigoLibre ? codigoLibre : null,
+                tokenReserva: _agregarToken,
                 detalles: detalles
             };
 
@@ -3495,6 +3590,7 @@
                 data: JSON.stringify(payload),
                 success: function (res) {
                     if (res.ok) {
+                        reservasPaginaAgregar.consumir(_agregarToken);
                         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAgregarActivo')).hide();
                         Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: res.msg, showConfirmButton: false, timer: 3000 });
                         cargarTabla();
@@ -3515,6 +3611,8 @@
 
         // ── Hidden modal cleanup ──
         $('#modalAgregarActivo').on('hidden.bs.modal', function () {
+            liberarReservaAgregar();
+            _agregarToken = null;
             if ($('#agregarGrupo').data('select2')) $('#agregarGrupo').select2('destroy');
             if ($('#agregarAuxiliar').data('select2')) $('#agregarAuxiliar').select2('destroy');
             if ($('#agregarCodigoLibre').data('select2')) $('#agregarCodigoLibre').select2('destroy');

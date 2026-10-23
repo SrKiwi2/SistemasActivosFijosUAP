@@ -44,7 +44,9 @@ import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Persona;
 import com.usic.SistemasActivosFijosUAP.model.entity.Predio;
 import com.usic.SistemasActivosFijosUAP.model.entity.Responsable;
+import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCorrelativo;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.service.ReservaCorrelativoService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -83,6 +85,7 @@ public class DonacionService {
     private static final String ELIMINADO = "ELIMINADO";
 
     private final IDonacionActaDao actaDao;
+    private final ReservaCorrelativoService reservaCorrelativoService;
     private final IDonacionBienDao bienDao;
     private final IActivoDao activoDao;
     private final IHistorialActivoDao historialDao;
@@ -166,6 +169,12 @@ public class DonacionService {
             }
         }
 
+        List<ReservaCorrelativoService.Lote> lotesReserva = validados.stream()
+                .map(b -> new ReservaCorrelativoService.Lote(prefijoDe(c, b), b.cantidad)).toList();
+        List<ReservaCorrelativo> reservas = req.isCodigoReservado()
+                ? reservaCorrelativoService.validarParaGuardar(ReservaCorrelativoService.DONACION, token, lotesReserva, usuario)
+                : List.of();
+
         int gestion = c.fecha().getYear();
         int correlativoActa = actaDao.maxCorrelativo(gestion) + 1;
         DonacionActa acta = new DonacionActa();
@@ -190,7 +199,9 @@ public class DonacionService {
             item++;
             List<String> codigos = new ArrayList<>();
             for (int u = 0; u < b.cantidad; u++) {
-                String codigo = siguienteCodigo(siguientePorPrefijo, prefijoDe(c, b));
+                String prefijo = prefijoDe(c, b);
+                String codigo = reservas.isEmpty() ? siguienteCodigo(siguientePorPrefijo, prefijo)
+                        : prefijo + "-" + String.format("%05d", reservas.get(item - 1).getDesde() + u) + "D";
                 Activo a = crearUnidad(acta, c, b, codigo, b.serie(u), item, usuarioNombre, hoy);
                 historiales.add(historialAlta(a, acta, c.oficina(), c.responsable(), nombreDe(c.responsable()), usuarioNombre, idUsuario));
                 codigos.add(codigo);
@@ -206,6 +217,7 @@ public class DonacionService {
         log.info("[DONACION] {} registrada por {}: {} bien(es), {} unidad(es), Bs {}",
                 acta.getNumero(), usuarioNombre, validados.size(), totalUnidades, acta.getValorTotal());
         guardarHistorialAlConfirmar(historiales);
+        reservaCorrelativoService.consumir(reservas);
         return new Resultado(acta.getIdDonacion(), acta.getNumero(), totalUnidades, resumen, false);
     }
 
@@ -306,7 +318,8 @@ public class DonacionService {
 
     /** Siguiente código D libre del prefijo (lo lee de la base la primera vez y sigue en memoria). */
     private String siguienteCodigo(Map<String, Integer> siguientePorPrefijo, String prefijo) {
-        int siguiente = siguientePorPrefijo.computeIfAbsent(prefijo, p -> actaDao.maxCorrelativoDonacion(p) + 1);
+        int siguiente = siguientePorPrefijo.computeIfAbsent(prefijo,
+                p -> reservaCorrelativoService.siguienteSinReserva(ReservaCorrelativoService.DONACION, p));
         if (siguiente > MAX_CORRELATIVO) {
             throw new IllegalStateException("La serie de donaciones del prefijo " + prefijo + " llegó a 99999D.");
         }
@@ -935,6 +948,39 @@ public class DonacionService {
     // ════════════════════════════════════════════════════════════════════════
     //  Vista previa de los códigos (sin turno: es solo orientativa)
     // ════════════════════════════════════════════════════════════════════════
+
+    @Transactional
+    public List<ReservaCorrelativo> reservarCodigos(String token, Long idOficina,
+            List<Map<String, Object>> bienes, Usuario usuario, Object opciones) {
+        if (!puede(usuario, opciones)) throw new SecurityException("No tiene permiso para registrar donaciones.");
+        Oficina oficina = idOficina == null ? null : oficinaService.findById(idOficina);
+        Predio predio = oficina == null ? null : oficina.getPredio();
+        if (predio == null || predio.getMunicipio() == null || predio.getMunicipio().getCodigo() == null
+                || predio.getCodigo() == null) throw new IllegalArgumentException("Seleccione una oficina con predio configurado.");
+        if (bienes == null || bienes.isEmpty()) throw new IllegalArgumentException("Agregue al menos un bien.");
+        List<ReservaCorrelativoService.Lote> lotes = new ArrayList<>();
+        int total = 0;
+        for (Map<String, Object> bien : bienes) {
+            Long idGrupo = aLong(bien.get("idGrupoContable"));
+            GrupoContable grupo = idGrupo == null ? null : grupoService.findById(idGrupo);
+            Long cantidadRaw = aLong(bien.get("cantidad"));
+            if (cantidadRaw != null && (cantidadRaw < 1 || cantidadRaw > TOPE_UNIDADES_BIEN))
+                throw new IllegalArgumentException("Revise la cantidad de cada bien.");
+            int cantidad = cantidadRaw == null ? 1 : cantidadRaw.intValue();
+            if (grupo == null || grupo.getCodDbf() == null || cantidad < 1 || cantidad > TOPE_UNIDADES_BIEN)
+                throw new IllegalArgumentException("Revise grupo y cantidad de cada bien.");
+            total += cantidad;
+            if (total > TOPE_UNIDADES_ACTA) throw new IllegalArgumentException("El acta supera 500 unidades.");
+            lotes.add(new ReservaCorrelativoService.Lote(predio.getMunicipio().getCodigo() + "-" + predio.getCodigo()
+                    + "-" + String.format("%02d", grupo.getCodDbf()), cantidad));
+        }
+        return reservaCorrelativoService.reservar(ReservaCorrelativoService.DONACION, token, lotes, usuario);
+    }
+
+    public void liberarCodigos(String token, Usuario usuario, Object opciones) {
+        if (!puede(usuario, opciones)) throw new SecurityException("No tiene permiso para registrar donaciones.");
+        reservaCorrelativoService.liberar(ReservaCorrelativoService.DONACION, token, usuario);
+    }
 
     /**
      * Qué códigos tomaría cada bien si se registrara ahora. No reserva nada: si otro

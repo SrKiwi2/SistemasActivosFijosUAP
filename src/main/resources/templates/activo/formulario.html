@@ -1440,7 +1440,7 @@
                     </label>
                     <div class="d-flex gap-2 align-items-start">
                         <textarea class="form-control txt-codigo-preview font-monospace flex-grow-1"
-                                  readonly
+                                  readonly data-sciaf-no-guardar
                                   rows="2"
                                   placeholder="Selecciona Municipio, Predio y Grupo..."></textarea>
                         <button type="button" class="btn btn-sm btn-outline-secondary preview-toggle-btn"
@@ -1614,6 +1614,7 @@
     </div>
 </div>
 
+<script src="/assets/js/sciaf-reservas-pagina.js"></script>
 <script>
     window.ActivoForm = (function () {
         let uiState = { modo: 'LOCK' };
@@ -1621,6 +1622,10 @@
         let _recalcTimer = null;
         let _refrescoCorrelativos = null;
         let _revisionCorrelativos = 0;
+        let _tokenReserva = null;
+        let _tieneReservaBatch = false;
+        const reservasPagina = SciafReservasPagina.abrir('registro-activos', '/administracion/activo/liberar-correlativos');
+        let _colaReserva = reservasPagina.inicio;
         let _currentSlide = 0;
         let _$currentDetalleSlide = null;
         let _modalDetalleBS = null;
@@ -1642,9 +1647,9 @@
             switchView('LOCK');
             clearInterval(_refrescoCorrelativos);
             _refrescoCorrelativos = setInterval(() => {
-                if ($root && uiState.modo === 'NEW_BATCH' && document.visibilityState === 'visible')
+                if ($root && uiState.modo === 'NEW_BATCH')
                     recalcularCodigosBatch();
-            }, 5000);
+            }, 20000);
         }
 
         function matchCustom(params, data) {
@@ -2567,25 +2572,28 @@
             });
         }
 
-        async function fetchCorrelativoBase(munCode, predCode, grpFmt) {
-            try {
-                const fd = new URLSearchParams({ mun: munCode, pred: predCode, grp: grpFmt });
-                const r = await fetch('/administracion/activo/generar-correlativo', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: fd.toString()
-                });
+        function nuevoTokenReserva() {
+            try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+            return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2, 8);
+        }
 
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                const data = await r.json();
+        function liberarReservaBatch() {
+            const token = _tokenReserva;
+            _tokenReserva = null;
+            _tieneReservaBatch = false;
+            if (!token) return;
+            _colaReserva = _colaReserva.catch(() => {}).then(() => reservasPagina.liberar(token)).catch(() => {});
+        }
 
-                const parts = (data.codigo || '').split('-');
-                const num = parseInt(parts[parts.length - 1]) || 1;
-                return num;
-            } catch (e) {
-                console.error('fetchCorrelativoBase error:', e);
-                return null;
-            }
+        function pedirReservaBatch(token, lotes) {
+            reservasPagina.registrar(token);
+            return fetch('/administracion/activo/reservar-correlativos', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, lotes })
+            }).then(r => r.json()).then(d => {
+                if (!d.ok) throw new Error(d.msg || 'No se pudo reservar el correlativo.');
+                if (token === _tokenReserva) _tieneReservaBatch = true;
+                return d.lotes;
+            });
         }
 
         async function recalcularCodigosBatch() {
@@ -2608,57 +2616,35 @@
 
                 const grpFmt = String(parseInt(grpRaw)).padStart(2, '0');
 
-                filas.push({ $slide, munCode, predCode, grpFmt, $preview, cantidad });
+                filas.push({ $slide, munCode, predCode, grpFmt, $preview, cantidad,
+                    idPredio: $slide.find('.sel-pred').val(), idGrupoContable: $slide.find('.sel-grp').val() });
             });
 
-            if (filas.length === 0) return;
-
-            const grupos = {}; 
-            filas.forEach(fila => {
-                const key = `${fila.munCode}||${fila.predCode}||${fila.grpFmt}`;
-                if (!grupos[key]) {
-                    grupos[key] = {
-                        munCode: fila.munCode,
-                        predCode: fila.predCode,
-                        grpFmt: fila.grpFmt,
-                        filas: []
-                    };
-                }
-                grupos[key].filas.push(fila);
-            });
-
-            const promesas = Object.entries(grupos).map(async ([key, grupo]) => {
-                const base = await fetchCorrelativoBase(grupo.munCode, grupo.predCode, grupo.grpFmt);
-                if (revision !== _revisionCorrelativos || !$root) return;
-
-                let currentNum = base;
-
-                grupo.filas.forEach((fila) => {
-                    if (base === null) {
-                        fila.$preview.val('Error al consultar').removeClass('text-primary').addClass('text-danger');
-                        return;
-                    }
-
-                    let codigosGenerados = [];
-                    for (let i = 0; i < fila.cantidad; i++) {
-                        const codigo = `${fila.munCode}-${fila.predCode}-${fila.grpFmt}-${String(currentNum + i).padStart(5, '0')}`;
-                        codigosGenerados.push(codigo);
-                    }
-
-                    currentNum += fila.cantidad;
-
-                    const txt = codigosGenerados.join(', ');
-                    fila.$preview
-                        .val(txt)
-                        .attr('placeholder', '')
-                        .removeClass('text-muted text-danger')
-                        .addClass('text-primary')
-                        .attr('title', txt);
+            if (filas.length === 0) {
+                liberarReservaBatch();
+                _tokenReserva = nuevoTokenReserva();
+                return;
+            }
+            const token = _tokenReserva;
+            if (!token) return;
+            const pendiente = _colaReserva.catch(() => {}).then(() => pedirReservaBatch(token,
+                filas.map(f => ({ idPredio: f.idPredio, idGrupoContable: f.idGrupoContable, cantidad: f.cantidad }))));
+            _colaReserva = pendiente.catch(() => {});
+            try {
+                const rangos = await pendiente;
+                if (revision !== _revisionCorrelativos || !$root || token !== _tokenReserva) return;
+                filas.forEach((fila, i) => {
+                    const r = rangos[i], inicio = Number(r.desde.slice(-5));
+                    const prefijo = r.desde.slice(0, -5);
+                    const txt = Array.from({ length: fila.cantidad }, (_, j) => prefijo + String(inicio + j).padStart(5, '0')).join(', ');
+                    fila.$preview.val(txt).attr('placeholder', '').removeClass('text-muted text-danger')
+                        .addClass('text-primary').attr('title', 'Código reservado: ' + txt);
                     autoResizePreview(fila.$preview);
                 });
-            });
-
-            await Promise.all(promesas);
+            } catch (e) {
+                if (revision === _revisionCorrelativos) filas.forEach(f => f.$preview.val('Error al reservar').attr('title', e.message)
+                    .removeClass('text-primary').addClass('text-danger'));
+            }
         }
 
         window.toggleCodigoPreview = function (btn) {
@@ -2780,7 +2766,7 @@
             setupCascadaBatch();
 
             $root.on('click', '#btnRegistrar', () => { limpiarBatch(); switchView('NEW_BATCH'); });
-            $root.on('click', '#btnCancelar', () => { switchView('LOCK'); });
+            $root.on('click', '#btnCancelar', () => { liberarReservaBatch(); switchView('LOCK'); });
             $root.on('click', '#btnModificar', () => { if ($root.find('#idActivo').val()) switchView('EDIT_SINGLE'); });
             $root.on('click', '#btnAddRow', addBatchRow);
             $root.on('click', '#btnPrevSlide', () => goToSlide(_currentSlide - 1));
@@ -2907,6 +2893,8 @@
         }
 
         function limpiarBatch() {
+            liberarReservaBatch();
+            _tokenReserva = nuevoTokenReserva();
             _revisionCorrelativos++;
             _currentSlide = 0;
             clearTimeout(_recalcTimer);
@@ -3006,6 +2994,22 @@
                 return;
             }
 
+            try {
+                await _colaReserva;
+                const rangos = await pedirReservaBatch(_tokenReserva, items.map(i => ({
+                    idPredio: i.idPredio, idGrupoContable: i.idGrupoContable, cantidad: i.cantidad
+                })));
+                const cambió = rangos.some((r, i) => {
+                    const previo = $root.find('#batchTrack .batch-slide').eq(i).find('.txt-codigo-preview').val() || '';
+                    return !previo || !previo.startsWith(r.desde);
+                });
+                if (cambió) {
+                    await recalcularCodigosBatch();
+                    Swal.fire('Códigos actualizados', 'Cambió un correlativo reservado. Revise los códigos antes de guardar.', 'warning');
+                    return;
+                }
+            } catch (e) { Swal.fire('No se reservaron los códigos', e.message, 'error'); return; }
+
             // Se bajó la cantidad de un lote que ya tenía detalles cargados: se avisa qué se
             // deja afuera en vez de descartarlo en silencio.
             if (recortes.length) {
@@ -3034,6 +3038,7 @@
             if (!isConfirmed) return;
 
             const payload = {
+                tokenReserva: _tokenReserva,
                 idOrganismoFinanciero: batchFinanciador || null,
                 fechaAdquisicion: batchFecha || null,
                 items: items
@@ -3054,6 +3059,7 @@
                 const res = await r.json();
                 hideGlobalLoader();
                 if (res.ok) {
+                    reservasPagina.consumir(_tokenReserva);
                     const confirmados = Array.isArray(res.codigos) ? res.codigos : [];
                     const muestra = confirmados.slice(0, 5).join(' · ')
                         + (confirmados.length > 5 ? ` · … (${confirmados.length} en total)` : '');
@@ -3550,6 +3556,7 @@
 
         function destroy() {
             if (!$root) return;
+            liberarReservaBatch();
             clearInterval(_refrescoCorrelativos);
             clearTimeout(_recalcTimer);
             _revisionCorrelativos++;

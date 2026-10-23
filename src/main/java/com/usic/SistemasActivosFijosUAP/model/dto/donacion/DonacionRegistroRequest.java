@@ -11,6 +11,7 @@ public class DonacionRegistroRequest {
 
     /** Marca del intento de registro (ver DonacionActa.tokenRegistro). */
     private String token;
+    private boolean codigoReservado;
 
     /** Al editar: la revisión del acta que se abrió (ver DonacionActa.revision). */
     private Integer revision;

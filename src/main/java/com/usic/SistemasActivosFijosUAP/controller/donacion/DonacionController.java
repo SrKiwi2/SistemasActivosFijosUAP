@@ -27,6 +27,7 @@ import com.usic.SistemasActivosFijosUAP.model.entity.EstadoActivo;
 import com.usic.SistemasActivosFijosUAP.model.entity.GrupoContable;
 import com.usic.SistemasActivosFijosUAP.model.entity.OrganismoFinanciero;
 import com.usic.SistemasActivosFijosUAP.model.entity.Usuario;
+import com.usic.SistemasActivosFijosUAP.model.entity.ReservaCorrelativo;
 import com.usic.SistemasActivosFijosUAP.model.service.donacion.DonacionService;
 import com.usic.SistemasActivosFijosUAP.model.service.donacion.WordActaDonacionService;
 import com.usic.SistemasActivosFijosUAP.model.service.documento.WordDocumentos;
@@ -243,6 +244,41 @@ public class DonacionController {
         Object bienes = cuerpo.get("bienes");
         List<Map<String, Object>> lista = bienes instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
         return ResponseEntity.ok(Map.of("ok", true, "bienes", donacionService.previsualizar(id, lista)));
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/reservar-codigos")
+    @ResponseBody
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<?> reservarCodigos(@RequestBody Map<String, Object> cuerpo, HttpServletRequest request) {
+        if (!puede(request)) return sinPermiso();
+        try {
+            Object idOficina = cuerpo.get("idOficina");
+            Long id = idOficina instanceof Number n ? n.longValue() : Long.valueOf(String.valueOf(idOficina));
+            Object bienes = cuerpo.get("bienes");
+            List<Map<String, Object>> lista = bienes instanceof List<?> l ? (List<Map<String, Object>>) l : List.of();
+            List<ReservaCorrelativo> reservas = donacionService.reservarCodigos((String) cuerpo.get("token"), id, lista,
+                    RolesSciaf.usuarioDe(request), opciones(request));
+            return ResponseEntity.ok(Map.of("ok", true, "bienes", reservas.stream().map(r -> Map.of(
+                    "ok", true, "desde", r.getPrefijo() + "-" + String.format("%05d", r.getDesde()) + "D",
+                    "hasta", r.getPrefijo() + "-" + String.format("%05d", r.getDesde() + r.getCantidad() - 1) + "D",
+                    "cantidad", r.getCantidad())).toList()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        } catch (SecurityException e) { return sinPermiso(); }
+    }
+
+    @ValidarUsuarioAutenticado
+    @PostMapping("/api/liberar-codigos")
+    @ResponseBody
+    public ResponseEntity<?> liberarCodigos(@RequestBody Map<String, String> cuerpo, HttpServletRequest request) {
+        if (!puede(request)) return sinPermiso();
+        try {
+            donacionService.liberarCodigos(cuerpo.get("token"), RolesSciaf.usuarioDe(request), opciones(request));
+            return ResponseEntity.ok(Map.of("ok", true));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", e.getMessage()));
+        } catch (SecurityException e) { return sinPermiso(); }
     }
 
     @ValidarUsuarioAutenticado
