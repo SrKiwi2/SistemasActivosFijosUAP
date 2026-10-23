@@ -682,14 +682,22 @@ public class AdicionalService {
     @Transactional
     public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
                                                Usuario usuario, Object opciones) {
-        return reservarCodigo(token, idPredio, idGrupo, cantidad, usuario, opciones, null);
+        return reservarCodigo(token, idPredio, idGrupo, cantidad, usuario, opciones, null, 0);
     }
 
-    /** @param sesion la sesión HTTP que renueva la reserva: al cerrarse esa sesión se libera. */
+    /**
+     * @param sesion      la sesión HTTP que renueva la reserva: al cerrarse esa sesión se libera.
+     * @param inactivoSeg segundos sin uso del formulario. Las pantallas de versiones anteriores
+     *                    no lo envían y renovaban sin fin: se les pide recargar y su reserva vence.
+     */
     @Transactional
     public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
-                                               Usuario usuario, Object opciones, String sesion) {
+                                               Usuario usuario, Object opciones, String sesion, Integer inactivoSeg) {
         exigirPermiso(usuario, opciones);
+        if (inactivoSeg == null)
+            throw new IllegalStateException("Esta pantalla es de una versión anterior del sistema. Recárguela (F5) para seguir registrando.");
+        if (inactivoSeg > MINUTOS_INACTIVIDAD * 60)
+            throw new IllegalStateException("El formulario estuvo sin uso más de " + MINUTOS_INACTIVIDAD + " min: su correlativo se liberó.");
         if (token == null || token.isBlank() || token.length() > 40)
             throw new IllegalArgumentException("Marca de reserva inválida.");
         if (cantidad < 1 || cantidad > TOPE_UNIDADES)

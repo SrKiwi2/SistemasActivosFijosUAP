@@ -1169,7 +1169,7 @@
             const token = st.token;
             const tarea = function () { return st.edicion
                 ? SciafModulo.pedir(URL + '/api/previsualizar?idPredio=' + predioId + '&idGrupo=' + grupoId + '&cantidad=' + cant, { metodo: 'GET' }).then(r => r.json())
-                : SciafModulo.pedirJson(URL + '/api/reservar-codigo', { json: { token: token, idPredio: Number(predioId), idGrupo: Number(grupoId), cantidad: cant } }); };
+                : SciafModulo.pedirJson(URL + '/api/reservar-codigo', { json: { token: token, idPredio: Number(predioId), idGrupo: Number(grupoId), cantidad: cant, inactivoSeg: segundosInactivo() } }); };
             if (!st.edicion) reservasPagina.registrar(token);
             const pendiente = colaReserva.catch(function () {}).then(tarea);
             colaReserva = pendiente.catch(function () {});
@@ -1213,6 +1213,9 @@
     const INACTIVIDAD_MS = 10 * 60 * 1000;
     let ultimaActividad = Date.now(), liberadaPorInactividad = false;
     function inactivo() { return Date.now() - ultimaActividad > INACTIVIDAD_MS; }
+    // El servidor rechaza renovaciones sin este dato: así una pantalla de una versión vieja,
+    // abierta días sin recargar, no retiene un correlativo para siempre.
+    function segundosInactivo() { return Math.round((Date.now() - ultimaActividad) / 1000); }
     $raiz.on('input change click keydown pointerdown', function () {
         ultimaActividad = Date.now();
         if (!liberadaPorInactividad) return;
@@ -1249,7 +1252,7 @@
             reservasPagina.registrar(x.token);
             colaReserva = colaReserva.catch(function () {}).then(function () {
                 return SciafModulo.pedirJson(URL + '/api/reservar-codigo', {
-                    json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad }
+                    json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad, inactivoSeg: segundosInactivo() }
                 }).then(function (r) {
                     if (!r.ok || st.pausada) return;
                     if (!r.conCodigo) { reservasPagina.consumir(x.token); st.reservas.delete(x.token); return; }
@@ -1633,7 +1636,7 @@
                     if (!x.idPredio || !x.idGrupoContable) continue;
                     reservasPagina.registrar(x.token);
                     const reserva = await SciafModulo.pedirJson(URL + '/api/reservar-codigo', {
-                        json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad }
+                        json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad, inactivoSeg: segundosInactivo() }
                     });
                     if (!reserva.ok) throw new Error(reserva.msg || 'No se pudo reservar el código.');
                     if (!reserva.conCodigo) { x.codigoReservado = false; x.codigoPrevisto = null; st.reservas.delete(x.token); reservasPagina.consumir(x.token); continue; }

@@ -202,7 +202,8 @@ public class AdicionalController {
                     Long.valueOf(String.valueOf(datos.get("idGrupo"))),
                     Integer.parseInt(String.valueOf(datos.get("cantidad"))),
                     RolesSciaf.usuarioDe(request), opciones(request),
-                    request.getSession(false) == null ? null : request.getSession(false).getId()));
+                    request.getSession(false) == null ? null : request.getSession(false).getId(),
+                    datos.get("inactivoSeg") == null ? null : Integer.valueOf(String.valueOf(datos.get("inactivoSeg")))));
         } catch (Exception e) { return error(e, "la reserva de código"); }
     }
 
