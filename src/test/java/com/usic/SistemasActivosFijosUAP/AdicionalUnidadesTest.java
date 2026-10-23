@@ -13,6 +13,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.InOrder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -101,7 +103,7 @@ class AdicionalUnidadesTest {
     }
 
     @Test
-    void correlativoAvanzaEntreLotesDelMismoPredioYGrupo() {
+    void correlativoAvanzaEntreLotesDelMismoPredioYGrupo() throws NoSuchMethodException {
         Municipio municipio = new Municipio(); municipio.setCodigo("01");
         Predio predio = new Predio(); predio.setIdPredio(7L); predio.setCodigo("04"); predio.setMunicipio(municipio);
         GrupoContable grupo = new GrupoContable(); grupo.setIdGrupoContable(2L); grupo.setCodDbf(2);
@@ -129,6 +131,11 @@ class AdicionalUnidadesTest {
         assertEquals(List.of("01-04-02-00001A", "01-04-02-00002A", "01-04-02-00003A"),
                 activos.getAllValues().stream().map(Activo::getCodigo).toList());
         verify(adicionalDao, times(1)).maxCorrelativoAdicional("01-04-02");
+        InOrder orden = inOrder(adicionalDao);
+        orden.verify(adicionalDao).turno(anyLong());
+        orden.verify(adicionalDao).maxCorrelativoAdicional("01-04-02");
+        assertNotNull(AdicionalService.class.getMethod("registrarLotes", AdicionalLotesRequest.class,
+                Usuario.class, Object.class).getAnnotation(Transactional.class));
     }
 
     @Test

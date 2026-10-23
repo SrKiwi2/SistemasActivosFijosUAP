@@ -292,6 +292,7 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @PostMapping(value = "/registrar-activo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Transactional
     public ResponseEntity<?> registrar_activo(
             HttpServletRequest request,
             @Validated @ModelAttribute Activo activo,
@@ -338,6 +339,7 @@ public class ActivosController {
                     activo.getAuxiliar() != null ? activo.getAuxiliar().getIdAuxiliar() : null,
                     oficinaActivo, grupoActivo);
 
+            funciones.tomarTurnoRegistro();
             for (int i = 0; i < cantidad; i++) {
 
                 Activo nuevoActivo = new Activo();
@@ -406,8 +408,10 @@ public class ActivosController {
 
             return ResponseEntity.ok(ok);
         } catch (IllegalArgumentException datoInvalido) {
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             log.error("Error en registro masivo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error interno: " + e.getMessage()));
         }
@@ -444,6 +448,7 @@ public class ActivosController {
 
     @ValidarUsuarioAutenticado
     @PostMapping("/registrar-masivo")
+    @Transactional
     public ResponseEntity<?> registrarMasivo(@RequestBody RegistroMasivoRequest request, HttpServletRequest httpReq) {
         Usuario usuario = (Usuario) httpReq.getSession().getAttribute("usuario");
         String usuarioNombre = (usuario != null) ? usuario.getUsuario() : "SISTEMA";
@@ -457,6 +462,8 @@ public class ActivosController {
             List<String> idsReporte = new ArrayList<>();
             int totalCreados = 0;
 
+            // Reservar el turno antes de leer el primer correlativo; se libera al confirmar.
+            funciones.tomarTurnoRegistro();
             Map<String, Long> correlativosActuales = new HashMap<>();
 
             for (DetalleRegistroItem item : request.getItems()) {
@@ -537,8 +544,10 @@ public class ActivosController {
             ));
 
         } catch (IllegalArgumentException datoInvalido) {
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseEntity.badRequest().body(Map.of("ok", false, "msg", datoInvalido.getMessage()));
         } catch (Exception e) {
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             log.error("Error masivo", e);
             return ResponseEntity.status(500).body(Map.of("ok", false, "msg", "Error: " + e.getMessage()));
         }
@@ -2359,6 +2368,7 @@ public class ActivosController {
     @SuppressWarnings("unchecked")
     @PostMapping("/api/agregar-activo-pendiente")
     @ResponseBody
+    @Transactional
     public ResponseEntity<?> agregarActivoPendiente(
             @RequestBody Map<String, Object> body,
             HttpServletRequest request) throws Exception {
@@ -2432,6 +2442,7 @@ public class ActivosController {
         // huecos puntuales desde este modal).
         String codigoManual = (codigoLibreRaw != null && !codigoLibreRaw.isBlank())
                 ? codigoLibreRaw.trim().toUpperCase() : null;
+        funciones.tomarTurnoRegistro();
         if (codigoManual != null) {
             if (cantidad != 1) {
                 return ResponseEntity.badRequest().body(Map.of("ok", false,
@@ -2508,6 +2519,7 @@ public class ActivosController {
             try {
                 activoService.save(a);
             } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+                org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                 return ResponseEntity.badRequest().body(Map.of("ok", false,
                         "msg", "El código " + nuevoCodigo + " acaba de ser tomado por otro registro. Intenta de nuevo."));
             }
@@ -3419,7 +3431,7 @@ public class ActivosController {
         result.put("codigosLiberados", codigosLiberados);
         result.put("detalles", detallesError);
         result.put("msg", "Se cancelaron " + cancelados + " activo(s)."
-            + (cancelados > 0 ? " Sus códigos quedaron disponibles para nuevos registros." : "")
+            + (cancelados > 0 ? " Sus códigos quedaron libres; los huecos intermedios se asignan desde la revisión de correlativos." : "")
             + (errores > 0 ? " (" + errores + " no se pudieron cancelar)" : ""));
         if (cancelados > 0) notificarCambioPendientes("cancelacion");
         return ResponseEntity.ok(result);

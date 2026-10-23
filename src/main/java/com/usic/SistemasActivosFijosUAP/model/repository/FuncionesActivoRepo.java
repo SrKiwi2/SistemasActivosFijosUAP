@@ -9,8 +9,16 @@ import lombok.RequiredArgsConstructor;
 @Repository
 @RequiredArgsConstructor
 public class FuncionesActivoRepo {
+
+    // Compartido por todas las altas de la serie normal. El turno vive hasta COMMIT/ROLLBACK.
+    private static final long TURNO_REGISTRO_ACTIVOS = 0x5C1AFAC71L;
    
     private final @Qualifier("pgJdbcTemplate") JdbcTemplate jdbc;
+
+    public void tomarTurnoRegistro() {
+        jdbc.queryForObject("select count(*) from (select pg_advisory_xact_lock(?)) t",
+                Long.class, TURNO_REGISTRO_ACTIVOS);
+    }
 
     public String generarCodigoPorCodes(String mun, String pred, String grp) {
         // SELECT simple a la función
