@@ -37,7 +37,10 @@ public class ReservaCodigoAdicional {
     @Column(nullable = false)
     private LocalDateTime vence;
 
-    /** Sesión HTTP que la renovó por última vez; al cerrarse esa sesión se libera. */
-    @Column(length = 100)
-    private String sesion;
+    /** Pestaña del navegador (sobrevive a F5) y número de carga de la página dentro de ella:
+     * una carga nueva descarta lo que reservaron las anteriores. */
+    @Column(length = 40)
+    private String pagina;
+
+    private Integer carga;
 }

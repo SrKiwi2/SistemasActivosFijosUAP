@@ -62,7 +62,7 @@ class AdicionalUnidadesTest {
         ReservaCodigoAdicional abandonada = new ReservaCodigoAdicional();
         abandonada.setToken("saul-anterior"); abandonada.setPrefijo("04-15-02");
         abandonada.setDesde(8); abandonada.setCantidad(1); abandonada.setUsuario("saul");
-        abandonada.setVence(LocalDateTime.now().plusMinutes(15));
+        abandonada.setVence(LocalDateTime.now().minusMinutes(1));
         reservas.put(abandonada.getToken(), abandonada);
         when(reservaDao.eliminarVencidas(any(LocalDateTime.class))).thenAnswer(i -> {
             int antes = reservas.size();
@@ -121,7 +121,7 @@ class AdicionalUnidadesTest {
         Map<String, ReservaCodigoAdicional> reservas = new HashMap<>();
         ReservaCodigoAdicional vieja = new ReservaCodigoAdicional();
         vieja.setToken("saul-vieja"); vieja.setPrefijo("04-15-02"); vieja.setDesde(8);
-        vieja.setCantidad(1); vieja.setUsuario("saul"); vieja.setVence(LocalDateTime.now().plusMinutes(5));
+        vieja.setCantidad(1); vieja.setUsuario("saul"); vieja.setVence(LocalDateTime.now().minusMinutes(1));
         reservas.put(vieja.getToken(), vieja);
         ReservaCodigoAdicional siguiente = new ReservaCodigoAdicional();
         siguiente.setToken("admin2-token"); siguiente.setPrefijo("04-15-02"); siguiente.setDesde(9);
@@ -325,13 +325,29 @@ class AdicionalUnidadesTest {
     }
 
     @Test
-    void cerrarSesionLiberaSusReservas() {
-        ReservaCodigoAdicional r = new ReservaCodigoAdicional();
-        r.setToken("t-sesion"); r.setPrefijo("04-15-02"); r.setDesde(8); r.setCantidad(1);
-        r.setUsuario("saul"); r.setSesion("S1"); r.setVence(LocalDateTime.now().plusMinutes(30));
-        when(reservaDao.findBySesion("S1")).thenReturn(List.of(r));
-        assertEquals(1, servicio.liberarCodigosDeSesion("S1"));
-        verify(reservaDao).deleteAll(List.of(r));
-        assertEquals(0, servicio.liberarCodigosDeSesion("otra"));
+    void trasRecargarLaPaginaAnteriorNoReservaYSeDescartaLoSuyo() {
+        Municipio municipio = new Municipio(); municipio.setCodigo("04");
+        Predio predio = new Predio(); predio.setCodigo("15"); predio.setMunicipio(municipio);
+        GrupoContable grupo = new GrupoContable(); grupo.setCodDbf(2);
+        when(predioService.findById(7L)).thenReturn(predio);
+        when(grupoService.findById(2L)).thenReturn(grupo);
+        Usuario saul = new Usuario(); saul.setEstado("ACTIVO"); saul.setUsuario("saul");
+        Set<String> permiso = Set.of(AdicionalService.PERMISO);
+
+        // La renovación tardía de la carga 1 llega cuando la carga 2 ya reservó.
+        when(reservaDao.existsByPaginaAndUsuarioAndCargaGreaterThan("P", "saul", 1)).thenReturn(true);
+        assertThrows(AdicionalService.ReservaObsoletaException.class, () -> servicio.reservarCodigo("viejo", 7L, 2L, 1, saul,
+                permiso, new AdicionalService.ClienteReserva(2, "P", 1, List.of())));
+        verify(reservaDao, never()).save(any());
+
+        // La carga 2 descarta lo que haya dejado la carga 1 de la misma pestaña.
+        when(reservaDao.findById(anyString())).thenReturn(Optional.empty());
+        when(reservaDao.save(any())).thenAnswer(i -> i.getArgument(0));
+        servicio.reservarCodigo("nuevo", 7L, 2L, 1, saul, permiso, new AdicionalService.ClienteReserva(2, "P", 2, List.of("lote-2")));
+        verify(reservaDao).eliminarDeCargasAnteriores("P", "saul", List.of("nuevo", "lote-2"), 2);
+
+        // Sin versión (pantalla de una versión anterior) no se renueva.
+        assertThrows(IllegalStateException.class, () -> servicio.reservarCodigo("nuevo", 7L, 2L, 1, saul,
+                permiso, new AdicionalService.ClienteReserva(null, "P", 2, List.of())));
     }
 }

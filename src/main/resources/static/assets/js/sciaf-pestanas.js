@@ -423,8 +423,8 @@
             }
 
             if (forzarRecarga) {
-                const $anterior = p.$dom && p.$dom.length ? p.$dom : $contenido.children();
-                $anterior.filter('#modAdicional').add($anterior.find('#modAdicional')).triggerHandler('sciaf:pestana-cerrada');
+                // Se vuelve a cargar, no se cierra: la pantalla nueva repone su estado (y sus reservas).
+                avisarCierre(p.$dom && p.$dom.length ? p.$dom : $contenido.children(), { recarga: true });
             }
             soltarPrecarga(true);
             $contenido.empty();
@@ -570,8 +570,7 @@
         function cerrar(i, silencioso) {
             const p = pestanas[i];
             if (!p || p.url === INICIO) return;
-            const $cerrada = p.$dom && p.$dom.length ? p.$dom : (activa === i ? $contenido.children() : $());
-            $cerrada.filter('#modAdicional').add($cerrada.find('#modAdicional')).triggerHandler('sciaf:pestana-cerrada');
+            avisarCierre(p.$dom && p.$dom.length ? p.$dom : (activa === i ? $contenido.children() : $()));
             Espacio.limpiar(claveTab(p.url));      // se cerró a propósito: no hay nada que reponer
             pestanas.splice(i, 1);
             if (activa === i) {
@@ -586,9 +585,19 @@
             if (!silencioso) guardarPestanas();
         }
 
+        /** Avisa a la pantalla que su pestaña se cerró (Adicionales libera sus correlativos). */
+        function avisarCierre($dom, info) {
+            if (!$dom || !$dom.length) return;
+            $dom.filter('#modAdicional').add($dom.find('#modAdicional')).triggerHandler('sciaf:pestana-cerrada', [info || {}]);
+        }
+
         function cerrarOtras(i) {
             const conservar = pestanas[i];
             const inicio = pestanas.find(p => p.url === INICIO);
+            pestanas.forEach((p, idx) => {
+                if (p === conservar || p === inicio) return;
+                avisarCierre(p.$dom && p.$dom.length ? p.$dom : (idx === activa ? $contenido.children() : $()));
+            });
             pestanas.filter(p => p !== conservar && p !== inicio).forEach(p => Espacio.limpiar(claveTab(p.url)));
             pestanas.length = 0;
             if (inicio && inicio !== conservar) pestanas.push(inicio);
@@ -604,6 +613,9 @@
          * había dibujado (las tarjetas animadas quedan invisibles).
          */
         function cerrarTodas() {
+            pestanas.forEach((p, idx) => {
+                if (p.url !== INICIO) avisarCierre(p.$dom && p.$dom.length ? p.$dom : (idx === activa ? $contenido.children() : $()));
+            });
             pestanas.filter(p => p.url !== INICIO).forEach(p => Espacio.limpiar(claveTab(p.url)));
             const inicio = pestanas.find(p => p.url === INICIO);
             const estabaEnInicio = activa >= 0 && pestanas[activa] && pestanas[activa].url === INICIO;

@@ -631,7 +631,7 @@
 
 </div>
 
-<script src="/assets/js/sciaf-reservas-pagina.js"></script>
+<script src="/assets/js/sciaf-reservas-pagina.js?v=20261023b"></script>
 <script th:inline="javascript">
 (function () {
     const URL = '/administracion/adicional';
@@ -1131,12 +1131,18 @@
     // Las peticiones se serializan para que cambios rápidos de predio, grupo o cantidad
     // no dejen una respuesta antigua como última reserva del formulario.
     let vistaCodigoSecuencia = 0;
-    const reservasPagina = SciafReservasPagina.abrir('adicional', URL + '/api/liberar-codigo');
+    // Las reservas se conservan al recargar (F5), al cambiar de pestaña y al volver a ingresar:
+    // el formulario se repone con su estado guardado y retoma los mismos códigos. Se liberan
+    // al guardar, cancelar, quitar un lote o cerrar la pestaña del módulo.
+    const reservasPagina = SciafReservasPagina.abrir('adicional', URL + '/api/liberar-codigo', { conservar: true });
     let colaReserva = reservasPagina.inicio;
-    reservasPagina.inicio.then(function (resultados) {
-        if (resultados.some(function (r) { return r.status === 'fulfilled' && r.value === false; }))
-            aviso('No se liberaron algunas reservas de esta pestaña. Revise el correlativo antes de guardar.', 'error');
-    });
+    function tokensVigentes() {
+        return [st.token, ...st.lotes.map(function (l) { return l.datos.token; })].filter(Boolean);
+    }
+    /** Lo que el servidor necesita para distinguir esta carga de la página de las anteriores. */
+    function cliente() {
+        return { version: 2, pagina: reservasPagina.pagina, carga: reservasPagina.carga, vigentes: tokensVigentes() };
+    }
     function liberarToken(token) {
         if (!token) return;
         st.reservas.delete(token);
@@ -1151,7 +1157,9 @@
         tokens.forEach(liberarToken);
     }
     const actualizarCodigo = debounce(async function () {
-        if (st.pausada) return;
+        // Mientras se repone el formulario los campos llegan de a poco: con el predio aún
+        // vacío se liberaría el código que se está por retomar.
+        if (st.pausada || reponiendo) return;
         const secuencia = ++vistaCodigoSecuencia;
         const $c = $form.find('.js-codigo-previo');
         const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
@@ -1169,11 +1177,12 @@
             const token = st.token;
             const tarea = function () { return st.edicion
                 ? SciafModulo.pedir(URL + '/api/previsualizar?idPredio=' + predioId + '&idGrupo=' + grupoId + '&cantidad=' + cant, { metodo: 'GET' }).then(r => r.json())
-                : SciafModulo.pedirJson(URL + '/api/reservar-codigo', { json: { token: token, idPredio: Number(predioId), idGrupo: Number(grupoId), cantidad: cant, inactivoSeg: segundosInactivo() } }); };
+                : SciafModulo.pedirJson(URL + '/api/reservar-codigo', { json: { token: token, idPredio: Number(predioId), idGrupo: Number(grupoId), cantidad: cant, ...cliente() } }); };
             if (!st.edicion) reservasPagina.registrar(token);
             const pendiente = colaReserva.catch(function () {}).then(tarea);
             colaReserva = pendiente.catch(function () {});
             const d = await pendiente;
+            if (d.obsoleta) { detenerPorObsoleta(d.msg); return; }
             if (!d.ok) throw new Error(d.msg || 'No se pudo reservar el código.');
             const anterior = st.reservas.get(token) || st.codigoAntesPausa.get(token);
             if (!st.edicion && d.conCodigo && !st.pausada) st.reservas.set(token, { predioId, grupoId, cantidad: cant, desde: d.desde, hasta: d.hasta });
@@ -1187,7 +1196,7 @@
                 : 'Se liberaron códigos anteriores y su reserva pasó al primer rango disponible.', 'info');
             $c.html((st.edicion && st.edicion.codigo ? 'Cambia a código nuevo: ' : 'Recibirá ') + codigoHtml(d.desde)
                 + (cant > 1 ? ' <i class="ti ti-arrow-right"></i> ' + codigoHtml(d.hasta) : '')
-                + (st.edicion ? ' <small class="text-muted">(se asigna al guardar)</small>' : ' <small class="text-muted">(reservado mientras trabaja; se libera al cancelar o salir del módulo)</small>')
+                + (st.edicion ? ' <small class="text-muted">(se asigna al guardar)</small>' : ' <small class="text-muted">(reservado hasta que guarde, cancele o cierre esta pestaña)</small>')
                 + (!st.edicion && d.reservasPrevias > 0 ? ' <small class="text-muted">Hay ' + d.reservasPrevias
                     + (d.reservasPrevias === 1 ? ' código anterior reservado' : ' códigos anteriores reservados')
                     + ' en otros formularios, aún sin registrar:</small>' + quienReserva(d.previas) : ''));
@@ -1208,43 +1217,40 @@
         }).join('') + '</ul>';
     }
 
-    // Un formulario visible pero sin uso (pantalla olvidada en otra PC) no debe retener el
-    // correlativo para siempre: tras INACTIVIDAD_MS sin tocar nada deja de renovar y libera.
-    const INACTIVIDAD_MS = 10 * 60 * 1000;
-    let ultimaActividad = Date.now(), liberadaPorInactividad = false;
-    function inactivo() { return Date.now() - ultimaActividad > INACTIVIDAD_MS; }
-    // El servidor rechaza renovaciones sin este dato: así una pantalla de una versión vieja,
-    // abierta días sin recargar, no retiene un correlativo para siempre.
-    function segundosInactivo() { return Math.round((Date.now() - ultimaActividad) / 1000); }
-    $raiz.on('input change click keydown pointerdown', function () {
-        ultimaActividad = Date.now();
-        if (!liberadaPorInactividad) return;
-        liberadaPorInactividad = false;
-        if (st.pausada || !$panel.is(':visible')) return;
-        if ($predio.val() && $grupo.val()) actualizarCodigo();
-        renovarLotes();
-    });
-    function soltarPorInactividad() {
-        if (liberadaPorInactividad || st.enviando || !inactivo()) return;
-        liberadaPorInactividad = true;
-        ++vistaCodigoSecuencia;
-        st.codigoAntesPausa = new Map(st.reservas);
-        liberarTodasReservas();
-        $form.find('.js-codigo-previo').html('El correlativo se liberó por inactividad (10 min sin usar el formulario). '
-            + 'Toque cualquier campo para volver a reservarlo; puede recibir otro número.');
+    // Solo una instancia del módulo renueva: si la pantalla se vuelve a cargar dentro del
+    // sistema, la anterior deja de hacerlo (su estado ya lo repone la nueva).
+    const instancia = {};
+    window.__sciafAdicional = instancia;
+    function vigente() {
+        if (st.pausada) return false;
+        if (window.__sciafAdicional === instancia) return true;
+        detener();
+        return false;
     }
+    function detener() {
+        st.pausada = true;
+        clearInterval(refrescoCorrelativo);
+        clearInterval(refrescoLotes);
+        document.removeEventListener('visibilitychange', alVolverVisible);
+    }
+    // Esta página ya fue reemplazada por otra carga en la misma pestaña: deja de reservar
+    // sin liberar nada (sus reservas ya las tomó la carga nueva).
+    function detenerPorObsoleta(msg) {
+        if (st.obsoleta) return;
+        st.obsoleta = true;
+        detener();
+        if (document.contains($raiz[0])) $form.find('.js-codigo-previo').text((msg || '') + ' Recargue (F5) para seguir.');
+    }
+    const formularioAbierto = function () { return !$panel.hasClass('d-none') && !st.edicion; };
 
-    // Solo se renuevan reservas de un formulario visible. Una pestaña interna apartada
-    // libera sus códigos y conserva los datos para recuperarlos cuando el usuario vuelva.
+    // Se renueva mientras el formulario esté abierto, aunque la pestaña del módulo o la del
+    // navegador estén en segundo plano: el código queda reservado hasta cerrarla.
     const refrescoCorrelativo = setInterval(function () {
-        if (st.pausada || document.hidden || !document.contains($raiz[0])) return;
-        if (liberadaPorInactividad) return;
-        if (inactivo()) { soltarPorInactividad(); return; }
-        if ($panel.is(':visible') && !st.enviando
-                && $predio.val() && $grupo.val()) actualizarCodigo();
+        if (!vigente() || st.enviando || !formularioAbierto()) return;
+        if ($predio.val() && $grupo.val()) actualizarCodigo();
     }, 5000);
     function renovarLotes() {
-        if (st.pausada || liberadaPorInactividad || document.hidden || !document.contains($raiz[0]) || !$panel.is(':visible') || st.enviando || st.cambiandoLote) return;
+        if (!vigente() || !formularioAbierto() || st.enviando || st.cambiandoLote) return;
         st.lotes.forEach(function (lote, indice) {
             if (indice === st.loteActual) return;
             const x = lote.datos, anterior = st.reservas.get(x.token) || st.codigoAntesPausa.get(x.token);
@@ -1252,8 +1258,9 @@
             reservasPagina.registrar(x.token);
             colaReserva = colaReserva.catch(function () {}).then(function () {
                 return SciafModulo.pedirJson(URL + '/api/reservar-codigo', {
-                    json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad, inactivoSeg: segundosInactivo() }
+                    json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad, ...cliente() }
                 }).then(function (r) {
+                    if (r.obsoleta) { detenerPorObsoleta(r.msg); return; }
                     if (!r.ok || st.pausada) return;
                     if (!r.conCodigo) { reservasPagina.consumir(x.token); st.reservas.delete(x.token); return; }
                     st.reservas.set(x.token, { predioId: String(x.idPredio), grupoId: String(x.idGrupoContable),
@@ -1266,32 +1273,60 @@
     }
     const refrescoLotes = setInterval(renovarLotes, 60000);
     function alVolverVisible() {
-        if (document.hidden || st.pausada || !document.contains($raiz[0]) || !$panel.is(':visible')) return;
-        ultimaActividad = Date.now(); liberadaPorInactividad = false;
+        if (document.hidden || !vigente() || !formularioAbierto()) return;
         if ($predio.val() && $grupo.val()) actualizarCodigo();
         renovarLotes();
     }
     document.addEventListener('visibilitychange', alVolverVisible);
-    $raiz.on('sciaf:pestana-desactivada', function () {
-        st.pausada = true;
-        ++vistaCodigoSecuencia;
-        st.codigoAntesPausa = new Map(st.reservas);
-        if (!st.enviando) liberarTodasReservas();
+    $raiz.on('sciaf:pestana-activada', alVolverVisible);
+    $raiz.on('sciaf:pestana-cerrada', function (e, info) {
+        detener();
+        // Al recargar la pestaña, la pantalla nueva retoma estas reservas con el estado guardado.
+        if (!(info && info.recarga)) liberarTodasReservas();
     });
-    $raiz.on('sciaf:pestana-activada', function () {
-        st.pausada = false;
-        ultimaActividad = Date.now(); liberadaPorInactividad = false;
-        if (!$panel.is(':visible')) return;
-        if ($predio.val() && $grupo.val()) actualizarCodigo();
-        renovarLotes();
-    });
-    $raiz.on('sciaf:pestana-cerrada', function () {
-        clearInterval(refrescoCorrelativo);
-        clearInterval(refrescoLotes);
-        document.removeEventListener('visibilitychange', alVolverVisible);
-        st.pausada = true;
-        liberarTodasReservas();
-    });
+
+    // El gestor de pestañas guarda y repone los campos; esto agrega lo que no vive en ellos:
+    // que el formulario estaba abierto, en qué paso, los lotes y la marca de cada reserva,
+    // para que al volver (F5, otro ingreso, otro día) se retomen los mismos códigos.
+    let reponiendo = false;
+    if (window.sciafPestanas && window.sciafModulo) {
+        window.sciafPestanas.moduloActivo('adicional');
+        window.sciafModulo.registrar('adicional', {
+            guardar: function () {
+                if (window.__sciafAdicional !== instancia || !formularioAbierto()) return { abierto: false };
+                const lotes = st.lotes.map(function (l, i) {
+                    const x = i === st.loteActual ? tomarLote() : l;
+                    return { datos: x.datos, oficinaTexto: x.oficinaTexto, responsable: x.responsable };
+                });
+                return { abierto: true, token: st.token, paso: st.paso, lotes: lotes, loteActual: st.loteActual, tokenLotes: st.tokenLotes };
+            },
+            antes: async function (d) {
+                if (!d || !d.abierto || !d.token) return;
+                reponiendo = true;
+                soltarLotes(); reiniciar(false);
+                st.token = d.token;
+                if (Array.isArray(d.lotes) && d.lotes.length > 1) {
+                    st.lotes = d.lotes.map(function (l) { return { datos: l.datos, fotos: [], oficinaTexto: l.oficinaTexto, responsable: l.responsable }; });
+                    st.loteActual = Math.min(Math.max(0, d.loteActual || 0), st.lotes.length - 1);
+                    st.tokenLotes = d.tokenLotes || nuevoToken().replace(/-/g, '').slice(0, 32);
+                    st.token = st.lotes[st.loteActual].datos.token || d.token;
+                }
+                mostrar('form');
+            },
+            despues: async function (d) {
+                if (!d || !d.abierto) return;
+                reponiendo = false;
+                pintarLotes();
+                irAPaso(Math.min(Math.max(1, d.paso || 1), 4));
+                refrescar();
+                actualizarCodigo();
+                renovarLotes();
+                reservasPagina.liberarSobrantes(tokensVigentes());
+            }
+        });
+    }
+    // Si no hubo nada que reponer, lo que reservaron cargas anteriores de esta pestaña sobra.
+    setTimeout(function () { if (!reponiendo && vigente()) reservasPagina.liberarSobrantes(tokensVigentes()); }, 15000);
 
     function refrescar() {
         const cant = st.edicion ? 1 : Math.max(1, Number($form.find('.js-cantidad').val()) || 1);
@@ -1636,8 +1671,9 @@
                     if (!x.idPredio || !x.idGrupoContable) continue;
                     reservasPagina.registrar(x.token);
                     const reserva = await SciafModulo.pedirJson(URL + '/api/reservar-codigo', {
-                        json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad, inactivoSeg: segundosInactivo() }
+                        json: { token: x.token, idPredio: x.idPredio, idGrupo: x.idGrupoContable, cantidad: x.cantidad, ...cliente() }
                     });
+                    if (reserva.obsoleta) detenerPorObsoleta(reserva.msg);
                     if (!reserva.ok) throw new Error(reserva.msg || 'No se pudo reservar el código.');
                     if (!reserva.conCodigo) { x.codigoReservado = false; x.codigoPrevisto = null; st.reservas.delete(x.token); reservasPagina.consumir(x.token); continue; }
                     reservasPagina.registrar(x.token);
@@ -1717,7 +1753,8 @@
                 + (ed ? '' : '<br><small>Puede volver a pulsar «Guardar»: si ya se había guardado, no se duplica.</small>'), 'error');
         } finally {
             st.enviando = false;
-            if (st.pausada) liberarTodasReservas();
+            // La pestaña se cerró mientras se guardaba (no si solo la reemplazó otra carga).
+            if (st.pausada && !st.obsoleta && window.__sciafAdicional === instancia) liberarTodasReservas();
             $form.find('.js-guardar, .js-guardar-otro').prop('disabled', false);
         }
     }

@@ -89,10 +89,12 @@ public class AdicionalService {
     private static final int MAX_DESCRIPCION = 1024;
     private static final int MAX_CORRELATIVO = 99_999;
     private static final int MINUTOS_RESERVA = 30;
-    // El formulario visible renueva el lote actual cada 5 s y los otros lotes cada 60 s.
-    // Una reserva sin renovación durante 10 min se considera abandonada. Se conserva el
-    // vencimiento almacenado a +30 min para reconocer también las reservas antiguas.
-    private static final int MINUTOS_INACTIVIDAD = 10;
+    // Mientras la pestaña del módulo siga abierta (aunque esté en segundo plano o sin uso) el
+    // formulario renueva sus reservas, y se conservan hasta cerrarla, cancelar o guardar.
+    // Solo una reserva que nadie renueva en 30 min (navegador cerrado, sesión cerrada y no
+    // se volvió) se considera abandonada; al reponer el formulario dentro de ese plazo
+    // recupera el mismo código.
+    private static final int MINUTOS_INACTIVIDAD = 30;
     private static final long MAX_BYTES_FOTO = 6L * 1024 * 1024;
     private static final String ELIMINADO = "ELIMINADO";
     private static final String SIN_DESCRIPCION = "SIN DESCRIPCIÓN";
@@ -682,28 +684,52 @@ public class AdicionalService {
     @Transactional
     public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
                                                Usuario usuario, Object opciones) {
-        return reservarCodigo(token, idPredio, idGrupo, cantidad, usuario, opciones, null, 0);
+        return reservarCodigo(token, idPredio, idGrupo, cantidad, usuario, opciones, new ClienteReserva(2, null, null, List.of()));
     }
 
     /**
-     * @param sesion      la sesión HTTP que renueva la reserva: al cerrarse esa sesión se libera.
-     * @param inactivoSeg segundos sin uso del formulario. Las pantallas de versiones anteriores
-     *                    no lo envían y renovaban sin fin: se les pide recargar y su reserva vence.
+     * Quién pide la reserva.
+     * @param version  versión del formulario. Las pantallas anteriores no la envían y renovaban
+     *                 sin fin: se les pide recargar y su reserva vence.
+     * @param pagina   la pestaña del navegador (se conserva al recargar con F5).
+     * @param carga    el número de carga de la página dentro de esa pestaña.
+     * @param vigentes las reservas que el formulario sigue usando (la actual y la de cada lote):
+     *                 las demás de cargas anteriores de esta pestaña quedaron huérfanas.
      */
+    public record ClienteReserva(Integer version, String pagina, Integer carga, List<String> vigentes) {}
+
+    /** La página que pidió la reserva ya fue reemplazada (F5) en la misma pestaña. */
+    public static class ReservaObsoletaException extends IllegalStateException {
+        public ReservaObsoletaException() {
+            super("Esta pantalla se volvió a cargar en esta misma pestaña: este formulario ya no reserva códigos.");
+        }
+    }
+
     @Transactional
     public Map<String, Object> reservarCodigo(String token, Long idPredio, Long idGrupo, int cantidad,
-                                               Usuario usuario, Object opciones, String sesion, Integer inactivoSeg) {
+                                               Usuario usuario, Object opciones, ClienteReserva cliente) {
         exigirPermiso(usuario, opciones);
-        if (inactivoSeg == null)
+        String pagina = limpiar(cliente.pagina());
+        Integer carga = cliente.carga();
+        if (pagina != null && pagina.length() > 40) throw new IllegalArgumentException("Marca de pestaña inválida.");
+        if (cliente.version() == null)
             throw new IllegalStateException("Esta pantalla es de una versión anterior del sistema. Recárguela (F5) para seguir registrando.");
-        if (inactivoSeg > MINUTOS_INACTIVIDAD * 60)
-            throw new IllegalStateException("El formulario estuvo sin uso más de " + MINUTOS_INACTIVIDAD + " min: su correlativo se liberó.");
+        List<String> vigentes = new ArrayList<>();
+        vigentes.add(token);
+        if (cliente.vigentes() != null) cliente.vigentes().stream().filter(t -> t != null && t.length() <= 40).limit(40).forEach(vigentes::add);
         if (token == null || token.isBlank() || token.length() > 40)
             throw new IllegalArgumentException("Marca de reserva inválida.");
         if (cantidad < 1 || cantidad > TOPE_UNIDADES)
             throw new IllegalArgumentException("La cantidad debe estar entre 1 y " + TOPE_UNIDADES + ".");
         adicionalDao.turno(TURNO_ADICIONALES);
         reservaDao.eliminarVencidas(limiteReserva(relojReserva()));
+        if (pagina != null && carga != null) {
+            // Al recargar (F5), una renovación de la página anterior podía llegar después de
+            // la liberación y volver a crear su reserva: quedaba huérfana reteniendo el código.
+            if (reservaDao.existsByPaginaAndUsuarioAndCargaGreaterThan(pagina, usuario.getUsuario(), carga))
+                throw new ReservaObsoletaException();
+            reservaDao.eliminarDeCargasAnteriores(pagina, usuario.getUsuario(), vigentes, carga);
+        }
         ReservaCodigoAdicional reserva = reservaDao.findById(token).orElse(null);
         if (reserva != null && !reserva.getUsuario().equals(usuario.getUsuario()))
             throw new SecurityException("La reserva pertenece a otro usuario.");
@@ -731,7 +757,7 @@ public class AdicionalService {
             reserva.setPrefijo(prefijo); reserva.setDesde(desde); reserva.setCantidad(cantidad);
             reserva.setUsuario(usuario.getUsuario()); reserva.setVence(ahora.plusMinutes(MINUTOS_RESERVA));
         }
-        if (sesion != null) reserva.setSesion(sesion);
+        if (pagina != null && carga != null) { reserva.setPagina(pagina); reserva.setCarga(carga); }
         reservaDao.save(reserva);
         int desdeActual = reserva.getDesde();
         List<ReservaCodigoAdicional> anteriores = reservaDao.findByPrefijoAndVenceAfterOrderByDesdeAsc(prefijo, limiteReserva(ahora))
@@ -781,24 +807,6 @@ public class AdicionalService {
             reservaDao.flush();
             compactarReservas(prefijo, relojReserva());
         });
-    }
-
-    /** Cerrar sesión (o su vencimiento) libera lo que esa sesión tenía reservado; antes
-     * quedaba retenido hasta vencer porque la pestaña ya no podía liberarlo sin sesión. */
-    @Transactional
-    public int liberarCodigosDeSesion(String sesion) {
-        if (sesion == null || sesion.isBlank()) return 0;
-        List<ReservaCodigoAdicional> deSesion = reservaDao.findBySesion(sesion);
-        if (deSesion.isEmpty()) return 0;
-        adicionalDao.turno(TURNO_ADICIONALES);
-        Set<String> prefijos = new HashSet<>();
-        deSesion.forEach(r -> prefijos.add(r.getPrefijo()));
-        reservaDao.deleteAll(deSesion);
-        reservaDao.flush();
-        LocalDateTime ahora = relojReserva();
-        prefijos.forEach(prefijo -> compactarReservas(prefijo, ahora));
-        log.info("[ADICIONAL] Sesión cerrada: se liberaron {} reserva(s) de correlativo.", deSesion.size());
-        return deSesion.size();
     }
 
     // ════════════════════════════════════════════════════════════════════════

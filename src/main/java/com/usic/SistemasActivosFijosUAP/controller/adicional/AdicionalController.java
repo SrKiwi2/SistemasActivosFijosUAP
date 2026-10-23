@@ -201,10 +201,18 @@ public class AdicionalController {
                     (String) datos.get("token"), Long.valueOf(String.valueOf(datos.get("idPredio"))),
                     Long.valueOf(String.valueOf(datos.get("idGrupo"))),
                     Integer.parseInt(String.valueOf(datos.get("cantidad"))),
-                    RolesSciaf.usuarioDe(request), opciones(request),
-                    request.getSession(false) == null ? null : request.getSession(false).getId(),
-                    datos.get("inactivoSeg") == null ? null : Integer.valueOf(String.valueOf(datos.get("inactivoSeg")))));
+                    RolesSciaf.usuarioDe(request), opciones(request), new AdicionalService.ClienteReserva(
+                            entero(datos.get("version")),
+                            datos.get("pagina") == null ? null : String.valueOf(datos.get("pagina")),
+                            entero(datos.get("carga")),
+                            datos.get("vigentes") instanceof List<?> l ? l.stream().map(String::valueOf).toList() : List.of())));
+        } catch (AdicionalService.ReservaObsoletaException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("ok", false, "obsoleta", true, "msg", e.getMessage()));
         } catch (Exception e) { return error(e, "la reserva de código"); }
+    }
+
+    private static Integer entero(Object valor) {
+        return valor == null ? null : Integer.valueOf(String.valueOf(valor));
     }
 
     @ValidarUsuarioAutenticado
